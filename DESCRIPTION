@@ -1,0 +1,14 @@
+Package: vegrowth
+Type: Package
+Title: Estimands for estimating the impact of vaccines on growth following infection
+Version: 0.0.1
+Author: Allison Codi
+Maintainer: Allison Codi <allison.codi@emory.edu>
+Description: This package implements estimands for estimating the impact of vaccines on growth following an infection
+License: MIT + file LICENSE
+Depends: R (>= 3.0.0)
+Imports: 
+  stats
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
