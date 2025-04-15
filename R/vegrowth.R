@@ -13,6 +13,8 @@
 #' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
 #' @param null_hypothesis_value null value for hypothesis test effect for VE and population estimand g-comp, default 0
 #' @param alpha_level alpha level for hypothesis testing, default 0.025
+#' @param return_models boolean return models, default TRUE
+#' @param family family for outcome variable 'G', defaults to gaussian for growth
 #'
 #' @export
 #' 
@@ -30,7 +32,9 @@ vegrowth <- function(data,
                      G_X_model = NULL,
                      Y_X_model = NULL, 
                      null_hypothesis_value = 0,
-                     alpha_level = 0.025){
+                     alpha_level = 0.025,
+                     return_models = TRUE,
+                     family = "gaussian"){
   
   set.seed(seed)
   
@@ -43,7 +47,8 @@ vegrowth <- function(data,
                                    Y_name = Y_name,
                                    X_name = X_name,
                                    G_X_model = G_X_model,
-                                   Y_X_model = Y_X_model)
+                                   Y_X_model = Y_X_model,
+                                   family = family)
     
     # If using return_se is true, do not use bootstrap se for AIPW and TMLE (remove from est for boot)
     if(return_se == TRUE){
@@ -53,6 +58,7 @@ vegrowth <- function(data,
                                                Y_name = Y_name,
                                                X_name = X_name,
                                                n_boot = n_boot, 
+                                               family = family,
                                                est = setdiff(est, c("efficient_aipw", "efficient_tmle")))
     } else{
       bootstrap_results <- bootstrap_estimates(data = data, 
@@ -61,12 +67,18 @@ vegrowth <- function(data,
                                                Y_name = Y_name,
                                                X_name = X_name,
                                                n_boot = n_boot, 
+                                               family = family,
                                                est = est)
     }
   }
   
   # Point estimates for effects of interest & format results
   out <- list()
+  
+  if(return_models){
+    out$models <- models
+  }
+  
   if("gcomp" %in% est){
     
     gcomp_res <- list()
@@ -161,7 +173,7 @@ vegrowth <- function(data,
   }
   if("hudgens_upper" %in% est){
     hudgens_rslt_upper <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
-    hudgens_rslt_lower$reject <- hudgens_rslt_upper$pval < 0.05
+    hudgens_rslt_upper$reject <- hudgens_rslt_upper$pval < 0.05
     
     class(hudgens_rslt_upper) <- "hudgens_upper_res"
     out$hudgens_rslt_upper <- hudgens_rslt_upper

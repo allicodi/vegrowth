@@ -51,13 +51,15 @@ do_gcomp_pop_estimand <- function(data,
                                   X_name = c("X")){
   # E[G(1) - G(0)] = E[G(1)] - E[G(0)] = E[E[G | V = 1, X = x]] - E[E[G | V = 0, X = x]]
   
-  df_V1 <- data.frame(V = 1, X = data[[X_name]])
+  #df_V1 <- data.frame(V = 1, X = data[[X_name]])
+  df_V1 <- data.frame(V = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_V1) <- c(V_name, X_name)
   Qbar_V1 <- predict(models$fit_G_V_X, newdata = df_V1, type = "response")
   psi_1 <- mean(Qbar_V1)
   
-  df_V0 <- data.frame(V = 0, X = data[[X_name]])
-  names(df_V1) <- c(V_name, X_name)
+  #df_V0 <- data.frame(V = 0, X = data[[X_name]])
+  df_V0 <- data.frame(V = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
+  names(df_V0) <- c(V_name, X_name)
   Qbar_V0 <- predict(models$fit_G_V_X, newdata = df_V0, type = "response") 
   psi_0 <- mean(Qbar_V0)
   
@@ -409,6 +411,7 @@ do_efficient_tmle <- function(
 #' @param est character vector of names of estimators to use for growth effect
 #' @param G_X_model optional specify model to be used for fitting growth on covariates, otherwise growth on all covariates
 #' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
+#' @param family family for outcome model, defaults to gaussian for growth
 #' 
 #' @export
 #' 
@@ -423,7 +426,8 @@ fit_models <- function(data,
                                "efficient_aipw", 
                                "efficient_tmle"),
                        G_X_model = NULL,
-                       Y_X_model = NULL){
+                       Y_X_model = NULL,
+                       family = "gaussian"){
   
   # Prep model formulas if not pre-specified
   if(is.null(G_X_model)){
@@ -441,7 +445,7 @@ fit_models <- function(data,
   
   # only needed for population estimator
   if("gcomp_pop_estimand" %in% est){
-    out$fit_G_V_X <- glm(G_X_model, data = data, family = "gaussian")
+    out$fit_G_V_X <- glm(G_X_model, data = data, family = family)
   } 
   
   # needed for any weight-based estimator
@@ -453,13 +457,13 @@ fit_models <- function(data,
     out$fit_Y_V1_X <- glm(Y_X_model, sub_V1, family = "binomial")
     
     sub_V1_Y1 <- data[data[[V_name]] == 1 & data[[Y_name]] == 1,]
-    out$fit_G_V1_Y1_X <- glm(G_X_model, data = sub_V1_Y1, family = "gaussian")
+    out$fit_G_V1_Y1_X <- glm(G_X_model, data = sub_V1_Y1, family = family)
     
     sub_V1_Y0 <- data[data[[V_name]] == 1 & data[[Y_name]] == 0,]
-    out$fit_G_V1_Y0_X <- glm(G_X_model, data = sub_V1_Y0, family = "gaussian")
+    out$fit_G_V1_Y0_X <- glm(G_X_model, data = sub_V1_Y0, family = family)
     
     sub_V0_Y1 <- data[data[[V_name]] == 0 & data[[Y_name]] == 1,]
-    out$fit_G_V0_Y1_X <- glm(G_X_model, data = sub_V0_Y1, family = "gaussian")
+    out$fit_G_V0_Y1_X <- glm(G_X_model, data = sub_V0_Y1, family = family)
     
   }
   

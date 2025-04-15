@@ -220,7 +220,7 @@ hudgens_test <- function(
   
   if(n_diff > 0){
     obs_diff <- get_hudgens_stat(
-      data = data, lower_bound = lower_bound
+      data = data, lower_bound = lower_bound, Y_name = Y_name, G_name = G_name, V_name = V_name
     )
     boot_diff <- rep(NA, n_boot)
     success_ct <- 0
@@ -239,7 +239,7 @@ hudgens_test <- function(
       
       if(n_inf_plc_boot > n_inf_vax_boot){
         success_ct <- success_ct + 1
-        boot_diff[success_ct] <- get_hudgens_stat(boot_data, lower_bound = lower_bound)
+        boot_diff[success_ct] <- get_hudgens_stat(boot_data, lower_bound = lower_bound, Y_name = Y_name, G_name = G_name, V_name = V_name)
       }
     }
     if(sum(!is.na(boot_diff)) != n_boot){
