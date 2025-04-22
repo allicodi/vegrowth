@@ -358,13 +358,6 @@ get_adjusted_hudgens_stat <- function(
   P_Y1_V0 <- mean(P_Y1_V0_X)
   
   VE_X <- 1 - ( P_Y1_V1_X / P_Y1_V0_X )
-  if(any(VE_X < 0)){
-    warning("Some condtional VE estimates < 0 -- truncating these estimates at 0.")
-  }
-  VE_X[VE_X < 0] <- 0
-  VE_is_zero <- (VE_X == 0)
-  VE_is_nonzero <- (VE_X > 0)
-
   q_X_low <- 1 - P_Y0_V0_X / P_Y0_V1_X
   q_X_high <- 1 - q_X_low
   
@@ -372,33 +365,39 @@ get_adjusted_hudgens_stat <- function(
     sd_G <- (mean(models$fit_G_V1_Y0_X$residuals^2))^(1/2)
   }
 
-  E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X
-
-  if(lower_bound){
+  if(all(VE_X > 0)){
     
-    if(family == "gaussian"){
-      # calculate mean of Normal given less than q_X_low
-      beta_X <- (q_X_low - E_G_V1_Y0_X) / sd_G
-      E_G_V1_Y0_truncG_X[VE_is_nonzero] <- E_G_V1_Y0_X[VE_is_nonzero] - sd_G * dnorm(beta_X[VE_is_nonzero]) / pnorm(beta_X[VE_is_nonzero])
+    if(lower_bound){
+      
+      if(family == "gaussian"){
+        # calculate mean of Normal given less than q_X_low
+        beta_X <- (q_X_low - E_G_V1_Y0_X) / sd_G
+        E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X - sd_G * dnorm(beta_X) / pnorm(beta_X)
+      }else{
+        E_G_V1_Y0_truncG_X <- as.numeric(E_G_V1_Y0_X > q_X_low)
+      }
     }else{
-      E_G_V1_Y0_truncG_X[VE_is_nonzero] <- as.numeric(E_G_V1_Y0_X[VE_is_nonzero] > q_X_low)
+      
+      if(family == "gaussian"){
+        # calculate mean of Normal given greater than q_X_high
+        alpha_X <- (q_X_high - E_G_V1_Y0_X) / sd_G
+        E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X + sd_G * dnorm(alpha_X) / pnorm(alpha_X, lower.tail = FALSE)
+      }else{
+        E_G_V1_Y0_truncG_X <- as.numeric(E_G_V1_Y0_X > q_X_high)
+      }
     }
+    
+    E_G_V1_Y0_X_bound <- E_G_V1_Y1_X * (1 - VE_X) + E_G_V1_Y0_truncG_X * VE_X
+
+    effect <- mean(
+      P_Y1_V0_X / P_Y1_V0 * (E_G_V1_Y0_X_bound - E_G_V0_Y1_X)
+    )
+    
   }else{
     
-    if(family == "gaussian"){
-      # calculate mean of Normal given greater than q_X_high
-      alpha_X <- (q_X_high - E_G_V1_Y0_X) / sd_G
-      E_G_V1_Y0_truncG_X[VE_is_nonzero] <- E_G_V1_Y0_X[VE_is_nonzero] + sd_G * dnorm(alpha_X[VE_is_nonzero]) / pnorm(alpha_X[VE_is_nonzero], lower.tail = FALSE)
-    }else{
-      E_G_V1_Y0_truncG_X[VE_is_nonzero] <- as.numeric(E_G_V1_Y0_X[VE_is_nonzero] > q_X_high)
-    }
+    stop("Method not applicable unless evidence of vaccine protection for all X.")
+    
   }
-  
-  E_G_V1_Y0_X_bound <- E_G_V1_Y1_X * (1 - VE_X) + E_G_V1_Y0_truncG_X * VE_X
-
-  effect <- mean(
-    P_Y1_V0_X / P_Y1_V0 * (E_G_V1_Y0_X_bound - E_G_V0_Y1_X)
-  )
   
   return(effect)
   
