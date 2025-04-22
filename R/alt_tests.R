@@ -284,12 +284,12 @@ hudgens_test <- function(
 #' @param data dataframe containing dataset to use for analysis
 #' @param models list of pre-fit models needed for estimation
 #' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
-#'    to the infected vaccinees thereby yielding a lower
+#'    to the infected vaccines thereby yielding a lower
 #'    bound on the effect of interest. If FALSE, then adds the largest
 #'    growth measures to the infected vacccinees thereby yielding an upper
 #'    bound on the effect of interest.
 #' 
-#' @example
+#' @examples
 #' 
 #' n <- 1e4
 #' X <- sample(seq(-1,1), n, replace = TRUE)

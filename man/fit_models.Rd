@@ -12,7 +12,8 @@ fit_models(
   Y_name = "Y",
   est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle"),
   G_X_model = NULL,
-  Y_X_model = NULL
+  Y_X_model = NULL,
+  family = "gaussian"
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ fit_models(
 \item{G_X_model}{optional specify model to be used for fitting growth on covariates, otherwise growth on all covariates}
 
 \item{Y_X_model}{optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates}
+
+\item{family}{family for outcome model, defaults to gaussian for growth}
 }
 \value{
 list with models needed for specified estimators

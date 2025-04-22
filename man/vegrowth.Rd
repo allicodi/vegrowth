@@ -18,7 +18,9 @@ vegrowth(
   G_X_model = NULL,
   Y_X_model = NULL,
   null_hypothesis_value = 0,
-  alpha_level = 0.025
+  alpha_level = 0.025,
+  return_models = TRUE,
+  family = "gaussian"
 )
 }
 \arguments{
@@ -47,6 +49,10 @@ vegrowth(
 \item{null_hypothesis_value}{null value for hypothesis test effect for VE and population estimand g-comp, default 0}
 
 \item{alpha_level}{alpha level for hypothesis testing, default 0.025}
+
+\item{return_models}{boolean return models, default TRUE}
+
+\item{family}{family for outcome variable 'G', defaults to gaussian for growth}
 }
 \value{
 List of class \code{vegrowth}
