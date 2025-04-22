@@ -270,3 +270,134 @@ hudgens_test <- function(
     stop("Method not applicable unless evidence of vaccine protection.")
   }
 }
+
+
+# -----------------------------------------------------------------------------
+
+# Covariate-adjusted Hudgens Method -------------------------------------------
+
+#' Function for Hudgens-style bounds on effect that incorporate covariates
+#' 
+#' Currently assumes that the conditional mean of G follows a linear model
+#' with Normal errors.
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param models list of pre-fit models needed for estimation
+#' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
+#'    to the infected vaccinees thereby yielding a lower
+#'    bound on the effect of interest. If FALSE, then adds the largest
+#'    growth measures to the infected vacccinees thereby yielding an upper
+#'    bound on the effect of interest.
+#' 
+#' @example
+#' 
+#' n <- 1e4
+#' X <- sample(seq(-1,1), n, replace = TRUE)
+#' p_immune <- 0.5 + 0.25 * X
+#' p_doomed <- 0.1 + 0.05 * X
+#' p_helped <- 1 - (p_immune + p_doomed)
+#' ps <- mapply(
+#'   p_i = p_immune, p_d = p_doomed, p_h = p_helped, 
+#'   FUN = function(p_i, p_d, p_h){
+#'     sample(
+#'       c("immune", "doomed", "helped"), 
+#'       size = 1, prob = c(p_i, p_d, p_h)
+#'     )
+#'   }
+#' )
+#' 
+#' V <- rbinom(n, 1, 0.5)
+#' Y0 <- ifelse(ps == "immune", 0, 1)
+#' Y1 <- ifelse(ps == "doomed", 1, 0)
+#' Y <- ifelse(V == 1, Y1, Y0)
+#' G1 <- 1*X - 0.5 * Y1 + rnorm(n, 0, 0.5)
+#' G0 <- 1*X - 0.5 * Y0 + rnorm(n, 0, 0.5)
+#' G <- ifelse(V == 1, G1, G0)
+#' 
+#' marginal_effect <- mean(G1 - G0)
+#' ps_effect <- mean(G1[Y0 == 1] - G0[Y0 == 1])
+#' 
+#' data <- data.frame(X, V, Y, G)
+#' models <- fit_models(data)
+#' 
+#' get_adjusted_hudgens_stat(data, models, lower_bound = TRUE)
+#' # compare to unadjusted
+#' get_hudgens_stat(data, lower_bound = TRUE)
+#' 
+#' get_adjusted_hudgens_stat(data, models, lower_bound = FALSE)
+#' # compare to unadjusted
+#' get_hudgens_stat(data, lower_bound = FALSE)
+#' 
+#' # binary outcome
+#' G_binary <- as.numeric(G > 1)
+#' data <- data.frame(X, V, Y, G = G_binary)
+#' models <- fit_models(data, family = binomial())
+#' get_adjusted_hudgens_stat(data, models, binary_G = TRUE, lower_bound = TRUE)
+#' get_adjusted_hudgens_stat(data, models, binary_G = TRUE, lower_bound = FALSE)
+#' 
+#' 
+#' @returns Hudgens-style estimate of bound on effect in naturally infected
+get_adjusted_hudgens_stat <- function(
+    data, 
+    models,
+    binary_G = FALSE,
+    lower_bound = TRUE
+){
+  
+  E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+
+  E_G_V1_Y1_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
+  E_G_V1_Y0_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
+
+  P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+  P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+  P_Y0_V1_X <- 1 - P_Y1_V1_X
+  P_Y0_V0_X <- 1 - P_Y1_V0_X
+
+  P_Y1_V0 <- mean(P_Y1_V0_X)
+  
+  VE_X <- 1 - ( P_Y1_V1_X / P_Y1_V0_X )
+  q_X_low <- 1 - P_Y0_V0_X / P_Y0_V1_X
+  q_X_high <- 1 - q_X_low
+  
+  if(!binary_G){
+    sd_G <- (mean(models$fit_G_V1_Y0_X$residuals^2))^(1/2)
+  }
+
+  if(all(VE_X > 0)){
+    
+    if(lower_bound){
+      
+      if(!binary_G){
+        # calculate mean of Normal given less than q_X_low
+        beta_X <- (q_X_low - E_G_V1_Y0_X) / sd_G
+        E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X - sd_G * dnorm(beta_X) / pnorm(beta_X)
+      }else{
+        E_G_V1_Y0_truncG_X <- as.numeric(E_G_V1_Y0_X > q_X_low)
+      }
+    }else{
+      
+      if(!binary_G){
+        # calculate mean of Normal given greater than q_X_high
+        alpha_X <- (q_X_high - E_G_V1_Y0_X) / sd_G
+        E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X + sd_G * dnorm(alpha_X) / pnorm(alpha_X, lower.tail = FALSE)
+      }else{
+        E_G_V1_Y0_truncG_X <- as.numeric(E_G_V1_Y0_X > q_X_high)
+      }
+    }
+    
+    E_G_V1_Y0_X_bound <- E_G_V1_Y1_X * (1 - VE_X) + E_G_V1_Y0_truncG_X * VE_X
+
+    effect <- mean(
+      P_Y1_V0_X / P_Y1_V0 * (E_G_V1_Y0_X_bound - E_G_V0_Y1_X)
+    )
+    
+  }else{
+    
+    stop("Method not applicable unless evidence of vaccine protection for all X.")
+    
+  }
+  
+  return(effect)
+  
+}
