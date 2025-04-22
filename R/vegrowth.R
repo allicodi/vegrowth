@@ -59,6 +59,8 @@ vegrowth <- function(data,
                                                X_name = X_name,
                                                n_boot = n_boot, 
                                                family = family,
+                                               G_X_model = G_X_model,
+                                               Y_X_model = Y_X_model,
                                                est = setdiff(est, c("efficient_aipw", "efficient_tmle")))
     } else{
       bootstrap_results <- bootstrap_estimates(data = data, 
@@ -68,6 +70,8 @@ vegrowth <- function(data,
                                                X_name = X_name,
                                                n_boot = n_boot, 
                                                family = family,
+                                               G_X_model = G_X_model,
+                                               Y_X_model = Y_X_model,
                                                est = est)
     }
   }
@@ -195,7 +199,7 @@ vegrowth <- function(data,
     
     hudgens_adj_rslt_upper <- list()
     
-    hudgens_adj_rslt_upper$pt_est <- get_adjusted_hudgens_stat(data, models, family, lower_bound = TRUE)
+    hudgens_adj_rslt_upper$pt_est <- get_adjusted_hudgens_stat(data, models, family, lower_bound = FALSE)
     hudgens_adj_rslt_upper$se <- bootstrap_results$se_hudgens_adj_upper
     hudgens_adj_rslt_upper$lower_ci <- bootstrap_results$lower_ci_hudgens_adj_upper
     hudgens_adj_rslt_upper$upper_ci <- bootstrap_results$upper_ci_hudgens_adj_upper

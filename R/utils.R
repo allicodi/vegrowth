@@ -7,17 +7,17 @@
 #' @export
 print.vegrowth <- function(x, ...) {
   
-  cat("                              Growth Effect Estimation Results\n")
-  cat(paste(rep("-", 100), collapse = ""), "\n")
+  cat("                                        Growth Effect Estimation Results\n")
+  cat(paste(rep("-", 120), collapse = ""), "\n")
   
   # Check if any methods with confidence intervals are used
   if (any(sapply(x, function(item) inherits(item, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))))) {
     col_names <- c("Method", "Point Est.", "SE", "95% CI: Lower", "95% CI: Upper", "Reject")
     
     # Print header with dashed line
-    cat(sprintf("%-30s%-15s%-15s%-15s%-15s%-10s\n",
+    cat(sprintf("%-50s%-15s%-15s%-15s%-15s%-10s\n",
                 col_names[1], col_names[2], col_names[3], col_names[4], col_names[5], col_names[6]))
-    cat(paste(rep("-", 100), collapse = ""), "\n")
+    cat(paste(rep("-", 120), collapse = ""), "\n")
     
     # Iterate through objects and print their results
     lapply(x, function(i) {
@@ -32,7 +32,7 @@ print.vegrowth <- function(x, ...) {
                               "hudgens_adj_upper_res" = "Covariate-adjusted Hudgens: Upper Bound")
         
         # Print the results
-        cat(sprintf("%-30s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",
+        cat(sprintf("%-50s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",
                     method_name,
                     i$pt_est,
                     i$se,
@@ -43,7 +43,7 @@ print.vegrowth <- function(x, ...) {
     })
     
     
-    cat(paste(rep("-", 100), collapse = ""), "\n")
+    cat(paste(rep("-", 120), collapse = ""), "\n")
   } 
   
   # If other methods used print separate (chop lump, hudgens)
@@ -51,9 +51,9 @@ print.vegrowth <- function(x, ...) {
     col_names <- c("Method", "Observed Diff.", "P-Value", "Reject")
     
     # Print header with dashed line
-    cat(sprintf("%-30s%-30s%-30s%-15s\n",
+    cat(sprintf("%-50s%-30s%-30s%-15s\n",
                 col_names[1], col_names[2], col_names[3], col_names[4]))
-    cat(paste(rep("-", 100), collapse = ""), "\n")
+    cat(paste(rep("-", 120), collapse = ""), "\n")
     
     # Iterate through objects and print their results
     lapply(x, function(i) {
@@ -65,7 +65,7 @@ print.vegrowth <- function(x, ...) {
                               "hudgens_upper_res" = "Hudgens: Upper Bound")
         
         # Print the results
-        cat(sprintf("%-30s%-30.4f%-30.4f%-10s\n",
+        cat(sprintf("%-50s%-30.4f%-30.4f%-10s\n",
                     method_name,
                     i$obs_diff,
                     i$pval,
