@@ -11,7 +11,7 @@ print.vegrowth <- function(x, ...) {
   cat(paste(rep("-", 100), collapse = ""), "\n")
   
   # Check if any methods with confidence intervals are used
-  if (any(sapply(x, function(item) inherits(item, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res"))))) {
+  if (any(sapply(x, function(item) inherits(item, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))))) {
     col_names <- c("Method", "Point Est.", "SE", "95% CI: Lower", "95% CI: Upper", "Reject")
     
     # Print header with dashed line
@@ -21,13 +21,15 @@ print.vegrowth <- function(x, ...) {
     
     # Iterate through objects and print their results
     lapply(x, function(i) {
-      if (inherits(i, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res"))) {
+      if (inherits(i, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))) {
         # Determine method name
         method_name <- switch(class(i)[1],
                               "gcomp_res" = "G-Comp VE Estimand",
                               "pop_gcomp_res" = "G-Comp Population Estimand",
                               "aipw_res" = "AIPW Estimand",
-                              "tmle_res" = "TMLE Estimand")
+                              "tmle_res" = "TMLE Estimand",
+                              "hudgens_adj_lower_res" = "Covariate-adjusted Hudgens: Lower Bound",
+                              "hudgens_adj_upper_res" = "Covariate-adjusted Hudgens: Upper Bound")
         
         # Print the results
         cat(sprintf("%-30s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",

@@ -25,7 +25,7 @@ vegrowth <- function(data,
                      X_name = "X",
                      Y_name = "Y",
                      est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle",
-                             "choplump", "hudgens_lower", "hudgens_upper"),
+                             "choplump", "hudgens_lower", "hudgens_upper", "hudgens_adj_lower", "hudgens_adj_upper"),
                      n_boot = 1000, 
                      seed = 12345,
                      return_se = FALSE,
@@ -39,7 +39,7 @@ vegrowth <- function(data,
   set.seed(seed)
   
   # Estimation methods requiring model fitting & bootstrap se
-  if(any(est %in% c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle"))){
+  if(any(est %in% c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_lower", "hudgens_adj_upper"))){
     models <- vegrowth::fit_models(data = data, 
                                    est = est, 
                                    G_name = G_name,
@@ -177,6 +177,32 @@ vegrowth <- function(data,
     
     class(hudgens_rslt_upper) <- "hudgens_upper_res"
     out$hudgens_rslt_upper <- hudgens_rslt_upper
+  }
+  if("hudgens_adj_lower" %in% est){
+    
+    hudgens_adj_rslt_lower <- list()
+    
+    hudgens_adj_rslt_lower$pt_est <- get_adjusted_hudgens_stat(data, models, family, lower_bound = TRUE)
+    hudgens_adj_rslt_lower$se <- bootstrap_results$se_hudgens_adj_lower
+    hudgens_adj_rslt_lower$lower_ci <- bootstrap_results$lower_ci_hudgens_adj_lower
+    hudgens_adj_rslt_lower$upper_ci <- bootstrap_results$upper_ci_hudgens_adj_lower
+    hudgens_adj_rslt_lower$reject <- ((hudgens_adj_rslt_lower$pt_est - null_hypothesis_value) / hudgens_adj_rslt_lower$se) > qnorm(1 - alpha_level)
+    
+    class(hudgens_adj_rslt_lower) <- "hudgens_adj_lower_res"
+    out$hudgens_adj_rslt_lower <- hudgens_adj_rslt_lower
+  }
+  if("hudgens_adj_lower" %in% est){
+    
+    hudgens_adj_rslt_upper <- list()
+    
+    hudgens_adj_rslt_upper$pt_est <- get_adjusted_hudgens_stat(data, models, family, lower_bound = TRUE)
+    hudgens_adj_rslt_upper$se <- bootstrap_results$se_hudgens_adj_upper
+    hudgens_adj_rslt_upper$lower_ci <- bootstrap_results$lower_ci_hudgens_adj_upper
+    hudgens_adj_rslt_upper$upper_ci <- bootstrap_results$upper_ci_hudgens_adj_upper
+    hudgens_adj_rslt_upper$reject <- ((hudgens_adj_rslt_upper$pt_est - null_hypothesis_value) / hudgens_adj_rslt_upper$se) > qnorm(1 - alpha_level)
+    
+    class(hudgens_adj_rslt_upper) <- "hudgens_adj_upper_res"
+    out$hudgens_adj_rslt_upper <- hudgens_adj_rslt_upper
   }
   
   class(out) <- "vegrowth"

@@ -4,12 +4,19 @@
 \alias{get_adjusted_hudgens_stat}
 \title{Function for Hudgens-style bounds on effect that incorporate covariates}
 \usage{
-get_adjusted_hudgens_stat(data, models, binary_G = FALSE, lower_bound = TRUE)
+get_adjusted_hudgens_stat(
+  data,
+  models,
+  family = "gaussian",
+  lower_bound = TRUE
+)
 }
 \arguments{
 \item{data}{dataframe containing dataset to use for analysis}
 
 \item{models}{list of pre-fit models needed for estimation}
+
+\item{family}{gaussian for continuous outcome G, binomial for binary outcome}
 
 \item{lower_bound}{A boolean. If TRUE, then adds the smallest growth measures
 to the infected vaccines thereby yielding a lower
@@ -67,8 +74,8 @@ get_hudgens_stat(data, lower_bound = FALSE)
 G_binary <- as.numeric(G > 1)
 data <- data.frame(X, V, Y, G = G_binary)
 models <- fit_models(data, family = binomial())
-get_adjusted_hudgens_stat(data, models, binary_G = TRUE, lower_bound = TRUE)
-get_adjusted_hudgens_stat(data, models, binary_G = TRUE, lower_bound = FALSE)
+get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = TRUE)
+get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = FALSE)
 
 
 }

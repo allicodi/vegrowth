@@ -17,7 +17,7 @@ one_boot <- function(
     V_name = "V",
     X_name = "X",
     Y_name = "Y", 
-    est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle"),
+    est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_upper", "hudgens_adj_lower"),
     G_X_model = NULL,
     Y_X_model = NULL,
     family = "gaussian"
@@ -38,6 +38,7 @@ one_boot <- function(
                             family = family)
   
   out <- list()
+  
   if("gcomp" %in% est){
     out$growth_effect <- do_gcomp(boot_data, boot_models)
   }
@@ -60,6 +61,18 @@ one_boot <- function(
                                                 G_name = G_name,
                                                 V_name = V_name,
                                                 Y_name = Y_name)
+  } 
+  if("hudgens_adj_upper" %in% est){
+    out$growth_effect_hudgens_adj_upper <- get_adjusted_hudgens_stat(boot_data,
+                                                                     boot_models,
+                                                                     family = family, 
+                                                                     lower_bound = FALSE)
+  } 
+  if("hudgens_adj_lower" %in% est){
+    out$growth_effect_hudgens_adj_lower <- get_adjusted_hudgens_stat(boot_data,
+                                                                     boot_models,
+                                                                     family = family, 
+                                                                     lower_bound = TRUE)
   }
   
   return(out)
@@ -86,7 +99,7 @@ bootstrap_estimates <- function(
     X_name = "X",
     Y_name = "Y", 
     n_boot = 1000, 
-    est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle"),
+    est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_upper", "hudgens_adj_lower"),
     G_X_model = NULL, 
     Y_X_model = NULL,
     family = "gaussian"
@@ -156,6 +169,36 @@ bootstrap_estimates <- function(
     out$se_efficient_tmle <- sd(growth_effect_tmle, na.rm = TRUE)
     out$lower_ci_efficient_tmle <- ci_efficient_tmle[1]    
     out$upper_ci_efficient_tmle <- ci_efficient_tmle[2]
+  }
+  if("hudgens_adj_upper" %in% est){
+    
+    # if there was only one method, unlist boot_est as is
+    if(length(boot_estimates) == n_boot){
+      growth_effect_hudgens_adj_upper <- unlist(boot_estimates)
+    } else{
+      growth_effect_hudgens_adj_upper <- unlist(boot_estimates["growth_effect_hudgens_adj_upper",])
+    }
+    
+    ci_hudgens_adj_upper <- quantile(growth_effect_hudgens_adj_upper, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_hudgens_adj_upper <- sd(growth_effect_hudgens_adj_upper, na.rm = TRUE)
+    out$lower_ci_hudgens_adj_upper <- ci_hudgens_adj_upper[1]
+    out$upper_ci_hudgens_adj_upper <- ci_hudgens_adj_upper[2]
+    
+  } 
+  if("hudgens_adj_lower" %in% est){
+    
+    # if there was only one method, unlist boot_est as is
+    if(length(boot_estimates) == n_boot){
+      growth_effect_hudgens_adj_lower <- unlist(boot_estimates)
+    } else{
+      growth_effect_hudgens_adj_lower <- unlist(boot_estimates["growth_effect_hudgens_adj_lower",])
+    }
+    
+    ci_hudgens_adj_lower <- quantile(growth_effect_hudgens_adj_lower, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_hudgens_adj_lower <- sd(growth_effect_hudgens_adj_lower, na.rm = TRUE)
+    out$lower_ci_hudgens_adj_lower <- ci_hudgens_adj_lower[1]
+    out$upper_ci_hudgens_adj_lower <- ci_hudgens_adj_lower[2]
+    
   }
   
   return(out)

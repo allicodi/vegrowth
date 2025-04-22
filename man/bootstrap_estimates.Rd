@@ -11,7 +11,8 @@ bootstrap_estimates(
   X_name = "X",
   Y_name = "Y",
   n_boot = 1000,
-  est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle"),
+  est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle",
+    "hudgens_adj_upper", "hudgens_adj_lower"),
   G_X_model = NULL,
   Y_X_model = NULL,
   family = "gaussian"

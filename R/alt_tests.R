@@ -283,6 +283,7 @@ hudgens_test <- function(
 #' 
 #' @param data dataframe containing dataset to use for analysis
 #' @param models list of pre-fit models needed for estimation
+#' @param family gaussian for continuous outcome G, binomial for binary outcome
 #' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
 #'    to the infected vaccines thereby yielding a lower
 #'    bound on the effect of interest. If FALSE, then adds the largest
@@ -332,15 +333,15 @@ hudgens_test <- function(
 #' G_binary <- as.numeric(G > 1)
 #' data <- data.frame(X, V, Y, G = G_binary)
 #' models <- fit_models(data, family = binomial())
-#' get_adjusted_hudgens_stat(data, models, binary_G = TRUE, lower_bound = TRUE)
-#' get_adjusted_hudgens_stat(data, models, binary_G = TRUE, lower_bound = FALSE)
+#' get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = TRUE)
+#' get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = FALSE)
 #' 
 #' 
 #' @returns Hudgens-style estimate of bound on effect in naturally infected
 get_adjusted_hudgens_stat <- function(
     data, 
     models,
-    binary_G = FALSE,
+    family = "gaussian",
     lower_bound = TRUE
 ){
   
@@ -360,7 +361,7 @@ get_adjusted_hudgens_stat <- function(
   q_X_low <- 1 - P_Y0_V0_X / P_Y0_V1_X
   q_X_high <- 1 - q_X_low
   
-  if(!binary_G){
+  if(family == "gaussian"){
     sd_G <- (mean(models$fit_G_V1_Y0_X$residuals^2))^(1/2)
   }
 
@@ -368,7 +369,7 @@ get_adjusted_hudgens_stat <- function(
     
     if(lower_bound){
       
-      if(!binary_G){
+      if(family == "gaussian"){
         # calculate mean of Normal given less than q_X_low
         beta_X <- (q_X_low - E_G_V1_Y0_X) / sd_G
         E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X - sd_G * dnorm(beta_X) / pnorm(beta_X)
@@ -377,7 +378,7 @@ get_adjusted_hudgens_stat <- function(
       }
     }else{
       
-      if(!binary_G){
+      if(family == "gaussian"){
         # calculate mean of Normal given greater than q_X_high
         alpha_X <- (q_X_high - E_G_V1_Y0_X) / sd_G
         E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X + sd_G * dnorm(alpha_X) / pnorm(alpha_X, lower.tail = FALSE)

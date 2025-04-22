@@ -10,7 +10,8 @@ one_boot(
   V_name = "V",
   X_name = "X",
   Y_name = "Y",
-  est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle"),
+  est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle",
+    "hudgens_adj_upper", "hudgens_adj_lower"),
   G_X_model = NULL,
   Y_X_model = NULL,
   family = "gaussian"

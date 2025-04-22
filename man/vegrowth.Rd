@@ -11,7 +11,7 @@ vegrowth(
   X_name = "X",
   Y_name = "Y",
   est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "choplump",
-    "hudgens_lower", "hudgens_upper"),
+    "hudgens_lower", "hudgens_upper", "hudgens_adj_lower", "hudgens_adj_upper"),
   n_boot = 1000,
   seed = 12345,
   return_se = FALSE,
