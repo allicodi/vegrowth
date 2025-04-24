@@ -196,15 +196,15 @@ vegrowth <- function(data,
       # Point est + closed form SE
       
       if(ml){
-        aipw_res <- do_efficient_aipw(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        aipw_result <- do_efficient_aipw(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       } else{
-        aipw_res <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        aipw_result <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       }
       
-      aipw_res$pt_est <- aipw_res[1]
-      aipw_res$se <- aipw_res[2]
-      aipw_res$lower_ci <- aipw_res[1] - 1.96*aipw_res[2]
-      aipw_res$upper_ci <- aipw_res[1] + 1.96*aipw_res[2]
+      aipw_res$pt_est <- aipw_result[1]
+      aipw_res$se <- aipw_result[2]
+      aipw_res$lower_ci <- aipw_res$pt_est - 1.96*aipw_res$se
+      aipw_res$upper_ci <- aipw_res$pt_est + 1.96*aipw_res$se
       aipw_res$reject <- ((aipw_res$pt_est - null_hypothesis_value) / aipw_res$se) > qnorm(1 - alpha_level)
     }
     
@@ -233,15 +233,15 @@ vegrowth <- function(data,
       # Point est + closed form SE
       
       if(ml){
-        tmle_res <- ddo_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        tmle_result <- do_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       } else{
-        tmle_res <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        tmle_result <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       }
       
-      tmle_res$pt_est <- tmle_res[1]
-      tmle_res$se <- tmle_res[2]
-      tmle_res$lower_ci <- tmle_res[1] - 1.96*tmle_res[2]
-      tmle_res$upper_ci <- tmle_res[1] + 1.96*tmle_res[2]
+      tmle_res$pt_est <- tmle_result[1]
+      tmle_res$se <- tmle_result[2]
+      tmle_res$lower_ci <- tmle_res$pt_est - 1.96*tmle_res$se
+      tmle_res$upper_ci <- tmle_res$pt_est + 1.96*tmle_res$se
       tmle_res$reject <- ((tmle_res$pt_est - null_hypothesis_value) / tmle_res$se) > qnorm(1 - alpha_level)
     }
     
