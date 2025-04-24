@@ -15,12 +15,18 @@ vegrowth(
   n_boot = 1000,
   seed = 12345,
   return_se = FALSE,
+  ml = FALSE,
+  G_V_X_model = NULL,
   G_X_model = NULL,
   Y_X_model = NULL,
+  G_V_X_library = c("SL.glm"),
+  G_X_library = c("SL.glm"),
+  Y_X_library = c("SL.glm"),
   null_hypothesis_value = 0,
   alpha_level = 0.025,
   return_models = TRUE,
-  family = "gaussian"
+  family = "gaussian",
+  v_folds = 3
 )
 }
 \arguments{
@@ -42,9 +48,19 @@ vegrowth(
 
 \item{return_se}{indicator to return closed form standard error for efficient_aipw or efficient_tmle, default FALSE}
 
+\item{ml}{boolean to use SuperLearner models, default FALSE}
+
+\item{G_V_X_model}{optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates}
+
 \item{G_X_model}{optional specify model to be used for fitting growth on covariates, otherwise growth on all covariates}
 
 \item{Y_X_model}{optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates}
+
+\item{G_V_X_library}{optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm}
+
+\item{G_X_library}{optional specify SuperLearner libraries for model fitting growth on covariates, default glm}
+
+\item{Y_X_library}{optional specify SuperLearner libraries for model fitting infection on covariates, default glm}
 
 \item{null_hypothesis_value}{null value for hypothesis test effect for VE and population estimand g-comp, default 0}
 
@@ -53,6 +69,8 @@ vegrowth(
 \item{return_models}{boolean return models, default TRUE}
 
 \item{family}{family for outcome variable 'G', defaults to gaussian for growth}
+
+\item{v_folds}{number of cross validation folds for SuperLearner, default 3}
 }
 \value{
 List of class \code{vegrowth}

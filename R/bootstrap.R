@@ -6,9 +6,13 @@
 #' @param X_name covariate name(s)
 #' @param Y_name infection variable name
 #' @param est character vector of names of estimators to use for growth effect
+#' @param ml boolean to use SuperLearner models, default FALSE
 #' @param G_X_model optional specify model to be used for fitting growth on covariates, otherwise growth on all covariates
 #' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
+#' @param G_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
+#' @param Y_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
 #' @param family family for outcome model, defaults to gaussian for growth
+#' @param v_folds number of cross validation folds for SuperLearner, default 3
 #' 
 #' @returns list containing results for specified estimators on single bootstrap sample
 one_boot <- function(
@@ -18,24 +22,86 @@ one_boot <- function(
     X_name = "X",
     Y_name = "Y", 
     est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_upper", "hudgens_adj_lower"),
+    ml = FALSE, 
+    G_V_X_model = NULL,
     G_X_model = NULL,
     Y_X_model = NULL,
-    family = "gaussian"
+    G_V_X_library = c("SL.glm"),
+    G_X_library = c("SL.glm"),
+    Y_X_library = c("SL.glm"),
+    family = "gaussian",
+    v_folds = 3
 ){
   n <- dim(data)[1]
   boot_row_idx <- sample(1:n, replace=TRUE)
   boot_data <- data[boot_row_idx,]
   
   # compute estimators using bootstrap data set
-  boot_models <- vegrowth::fit_models(boot_data, 
-                            G_name = G_name,
-                            V_name = V_name,
-                            X_name = X_name,
-                            Y_name = Y_name,
-                            est = est, 
-                            G_X_model = G_X_model,
-                            Y_X_model = Y_X_model,
-                            family = family)
+  if(ml){
+    
+    if(any(est %in% c("efficient_aipw", "efficient_tmle"))){
+      boot_ml_models <- vegrowth::fit_ml_models(data = boot_data, 
+                                           est = est, 
+                                           G_name = G_name,
+                                           V_name = V_name,
+                                           Y_name = Y_name,
+                                           X_name = X_name,
+                                           G_V_X_library = G_V_X_library,
+                                           G_X_library = G_X_library,
+                                           Y_X_library = Y_X_library,
+                                           family = family,
+                                           v_folds = v_folds)
+    } 
+    
+    if(any(est %in% c("gcomp_pop_estimand", "gcomp","hudgens_adj_lower", "hudgens_adj_upper"))){
+      boot_models <- vegrowth::fit_models(data = boot_data, 
+                                     est = est, 
+                                     G_name = G_name,
+                                     V_name = V_name,
+                                     Y_name = Y_name,
+                                     X_name = X_name,
+                                     G_V_X_model = G_V_X_model,
+                                     G_X_model = G_X_model,
+                                     Y_X_model = Y_X_model,
+                                     family = family)
+    }
+    
+  } else{
+    boot_models <- vegrowth::fit_models(data = boot_data, 
+                                   est = est, 
+                                   G_name = G_name,
+                                   V_name = V_name,
+                                   Y_name = Y_name,
+                                   X_name = X_name,
+                                   G_V_X_model = G_V_X_model,
+                                   G_X_model = G_X_model,
+                                   Y_X_model = Y_X_model,
+                                   family = family)
+  } 
+  # if(!ml){
+  #   boot_models <- vegrowth::fit_models(data = boot_data, 
+  #                                  est = est, 
+  #                                  G_name = G_name,
+  #                                  V_name = V_name,
+  #                                  Y_name = Y_name,
+  #                                  X_name = X_name,
+  #                                  G_V_X_model = G_V_X_model,
+  #                                  G_X_model = G_X_model,
+  #                                  Y_X_model = Y_X_model,
+  #                                  family = family)
+  # } else {
+  #   boot_models <- vegrowth::fit_ml_models(data = boot_data, 
+  #                                     est = est, 
+  #                                     G_name = G_name,
+  #                                     V_name = V_name,
+  #                                     Y_name = Y_name,
+  #                                     X_name = X_name,
+  #                                     G_V_X_library = G_V_X_library,
+  #                                     G_X_library = G_X_library,
+  #                                     Y_X_library = Y_X_library,
+  #                                     family = family,
+  #                                     v_folds = v_folds)
+  # }
   
   out <- list()
   
@@ -49,18 +115,34 @@ one_boot <- function(
                                                    X_name = X_name)
   }
   if("efficient_aipw" %in% est){
-    out$growth_effect_aipw <- do_efficient_aipw(boot_data, 
-                                                boot_models,
-                                                G_name = G_name,
-                                                V_name = V_name,
-                                                Y_name = Y_name)
+    if(ml){
+      out$growth_effect_aipw <- do_efficient_aipw(boot_data, 
+                                                  boot_ml_models,
+                                                  G_name = G_name,
+                                                  V_name = V_name,
+                                                  Y_name = Y_name)
+    } else{
+      out$growth_effect_aipw <- do_efficient_aipw(boot_data, 
+                                                  boot_models,
+                                                  G_name = G_name,
+                                                  V_name = V_name,
+                                                  Y_name = Y_name)
+    }
   }
   if("efficient_tmle" %in% est){
-    out$growth_effect_tmle <- do_efficient_tmle(boot_data, 
-                                                boot_models,
-                                                G_name = G_name,
-                                                V_name = V_name,
-                                                Y_name = Y_name)
+    if(ml){
+      out$growth_effect_tmle <- do_efficient_tmle(boot_data, 
+                                                  boot_ml_models,
+                                                  G_name = G_name,
+                                                  V_name = V_name,
+                                                  Y_name = Y_name)
+    } else{
+      out$growth_effect_tmle <- do_efficient_tmle(boot_data, 
+                                                  boot_models,
+                                                  G_name = G_name,
+                                                  V_name = V_name,
+                                                  Y_name = Y_name)
+    }
   } 
   if("hudgens_adj_upper" %in% est){
     out$growth_effect_hudgens_adj_upper <- get_adjusted_hudgens_stat(boot_data,
@@ -87,9 +169,15 @@ one_boot <- function(
 #' @param Y_name infection variable name
 #' @param n_boot number of bootstrap replicates
 #' @param est character vector of names of estimators to use for growth effect
+#' @param ml boolean to use SuperLearner models, default FALSE
+#' @param G_V_X_model optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates
 #' @param G_X_model optional specify model to be used for fitting growth on covariates, otherwise growth on all covariates
 #' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
+#' @param G_V_X_library optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm
+#' @param G_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
+#' @param Y_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
 #' @param family family for outcome model, defaults to gaussian for growth
+#' @param v_folds number of cross validation folds for SuperLearner, default 3
 #' 
 #' @returns list containing bootstrap se and 95% CI bounds for estimators specified in est
 bootstrap_estimates <- function(
@@ -100,9 +188,15 @@ bootstrap_estimates <- function(
     Y_name = "Y", 
     n_boot = 1000, 
     est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_upper", "hudgens_adj_lower"),
+    ml = ml,
+    G_V_X_model = NULL,
     G_X_model = NULL, 
     Y_X_model = NULL,
-    family = "gaussian"
+    G_V_X_library = c("SL.glm"),
+    G_X_library = c("SL.glm"),
+    Y_X_library = c("SL.glm"),
+    family = "gaussian",
+    v_folds = v_folds
 ){
   
   boot_estimates <- replicate(n_boot, one_boot(data, 
@@ -111,8 +205,14 @@ bootstrap_estimates <- function(
                                                Y_name = Y_name,
                                                X_name = X_name,
                                                est = est,
+                                               ml = ml,
+                                               G_V_X_model = G_V_X_model,
                                                G_X_model = G_X_model, 
                                                Y_X_model = Y_X_model,
+                                               G_V_X_library = G_V_X_library,
+                                               G_X_library = G_X_library,
+                                               Y_X_library = Y_X_library,
+                                               v_folds = v_folds,
                                                family = family))
   
   out <- list()

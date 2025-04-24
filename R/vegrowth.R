@@ -9,12 +9,18 @@
 #' @param n_boot number of bootstrap replicates
 #' @param seed seet to set for replicability of bootstrap
 #' @param return_se indicator to return closed form standard error for efficient_aipw or efficient_tmle, default FALSE
+#' @param ml boolean to use SuperLearner models, default FALSE
+#' @param G_V_X_model optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates
 #' @param G_X_model optional specify model to be used for fitting growth on covariates, otherwise growth on all covariates
 #' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
+#' @param G_V_X_library optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm
+#' @param G_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
+#' @param Y_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
 #' @param null_hypothesis_value null value for hypothesis test effect for VE and population estimand g-comp, default 0
 #' @param alpha_level alpha level for hypothesis testing, default 0.025
 #' @param return_models boolean return models, default TRUE
 #' @param family family for outcome variable 'G', defaults to gaussian for growth
+#' @param v_folds number of cross validation folds for SuperLearner, default 3
 #'
 #' @export
 #' 
@@ -29,27 +35,73 @@ vegrowth <- function(data,
                      n_boot = 1000, 
                      seed = 12345,
                      return_se = FALSE,
+                     ml = FALSE,
+                     G_V_X_model = NULL,
                      G_X_model = NULL,
-                     Y_X_model = NULL, 
+                     Y_X_model = NULL,
+                     G_V_X_library = c("SL.glm"),
+                     G_X_library = c("SL.glm"),
+                     Y_X_library = c("SL.glm"),
                      null_hypothesis_value = 0,
                      alpha_level = 0.025,
                      return_models = TRUE,
-                     family = "gaussian"){
+                     family = "gaussian",
+                     v_folds = 3){
   
   set.seed(seed)
   
+  # TODO ml models should only be for tmle and aipw, leaving off here for now
+  model_list <- list(models = NULL, 
+                     ml_models = NULL)
+  
   # Estimation methods requiring model fitting & bootstrap se
   if(any(est %in% c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_lower", "hudgens_adj_upper"))){
-    models <- vegrowth::fit_models(data = data, 
-                                   est = est, 
-                                   G_name = G_name,
-                                   V_name = V_name,
-                                   Y_name = Y_name,
-                                   X_name = X_name,
-                                   G_X_model = G_X_model,
-                                   Y_X_model = Y_X_model,
-                                   family = family)
     
+    if(ml){
+      if(any(est %in% c("efficient_aipw", "efficient_tmle"))){
+        ml_models <- vegrowth::fit_ml_models(data = data, 
+                                             est = est, 
+                                             G_name = G_name,
+                                             V_name = V_name,
+                                             Y_name = Y_name,
+                                             X_name = X_name,
+                                             G_V_X_library = G_V_X_library,
+                                             G_X_library = G_X_library,
+                                             Y_X_library = Y_X_library,
+                                             family = family,
+                                             v_folds = v_folds)
+        
+        model_list$ml_models <- ml_models
+      } 
+      
+      if(any(est %in% c("gcomp_pop_estimand", "gcomp","hudgens_adj_lower", "hudgens_adj_upper"))){
+        models <- vegrowth::fit_models(data = data, 
+                                       est = est, 
+                                       G_name = G_name,
+                                       V_name = V_name,
+                                       Y_name = Y_name,
+                                       X_name = X_name,
+                                       G_V_X_model = G_V_X_model,
+                                       G_X_model = G_X_model,
+                                       Y_X_model = Y_X_model,
+                                       family = family)
+        
+        model_list$models <- models
+      }
+    } else{
+      models <- vegrowth::fit_models(data = data, 
+                                     est = est, 
+                                     G_name = G_name,
+                                     V_name = V_name,
+                                     Y_name = Y_name,
+                                     X_name = X_name,
+                                     G_V_X_model = G_V_X_model,
+                                     G_X_model = G_X_model,
+                                     Y_X_model = Y_X_model,
+                                     family = family)
+      model_list$models <- models
+    } 
+      
     # If using return_se is true, do not use bootstrap se for AIPW and TMLE (remove from est for boot)
     if(return_se == TRUE){
       bootstrap_results <- bootstrap_estimates(data = data, 
@@ -59,8 +111,14 @@ vegrowth <- function(data,
                                                X_name = X_name,
                                                n_boot = n_boot, 
                                                family = family,
+                                               ml = ml,
+                                               G_V_X_model = G_V_X_model,
                                                G_X_model = G_X_model,
                                                Y_X_model = Y_X_model,
+                                               G_V_X_library = G_V_X_library,
+                                               G_X_library = G_X_library,
+                                               Y_X_library = Y_X_library,
+                                               v_folds = v_folds,
                                                est = setdiff(est, c("efficient_aipw", "efficient_tmle")))
     } else{
       bootstrap_results <- bootstrap_estimates(data = data, 
@@ -70,8 +128,14 @@ vegrowth <- function(data,
                                                X_name = X_name,
                                                n_boot = n_boot, 
                                                family = family,
+                                               ml = ml,
+                                               G_V_X_model = G_V_X_model,
                                                G_X_model = G_X_model,
                                                Y_X_model = Y_X_model,
+                                               G_V_X_library = G_V_X_library,
+                                               G_X_library = G_X_library,
+                                               Y_X_library = Y_X_library,
+                                               v_folds = v_folds,
                                                est = est)
     }
   }
@@ -80,7 +144,7 @@ vegrowth <- function(data,
   out <- list()
   
   if(return_models){
-    out$models <- models
+    out$models <- model_list
   }
   
   if("gcomp" %in% est){
@@ -117,14 +181,26 @@ vegrowth <- function(data,
     
     if(return_se == FALSE){
       # Point est + bootstrap SE
-      aipw_res$pt_est <- do_efficient_aipw(data, models, G_name = G_name, X_name = X_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      
+      if(ml){
+        aipw_res$pt_est <- do_efficient_aipw(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      } else{
+        aipw_res$pt_est <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      }
+      
       aipw_res$se <- bootstrap_results$se_efficient_aipw
       aipw_res$lower_ci <- bootstrap_results$lower_ci_efficient_aipw
       aipw_res$upper_ci <- bootstrap_results$upper_ci_efficient_aipw
       aipw_res$reject <- ((aipw_res$pt_est - null_hypothesis_value) / aipw_res$se) > qnorm(1 - alpha_level)
     } else {
       # Point est + closed form SE
-      aipw_res <- do_efficient_aipw(data, models, G_name = G_name, X_name = X_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      
+      if(ml){
+        aipw_res <- do_efficient_aipw(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      } else{
+        aipw_res <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      }
+      
       aipw_res$pt_est <- aipw_res[1]
       aipw_res$se <- aipw_res[2]
       aipw_res$lower_ci <- aipw_res[1] - 1.96*aipw_res[2]
@@ -142,14 +218,26 @@ vegrowth <- function(data,
     
     if(return_se == FALSE){
       # Point est + bootstrap SE
-      tmle_res$pt_est <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      
+      if(ml){
+        tmle_res$pt_est <- do_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      } else{
+        tmle_res$pt_est <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      }
+      
       tmle_res$se <- bootstrap_results$se_efficient_tmle
       tmle_res$lower_ci <- bootstrap_results$lower_ci_efficient_tmle
       tmle_res$upper_ci <- bootstrap_results$upper_ci_efficient_tmle
       tmle_res$reject <- ((tmle_res$pt_est - null_hypothesis_value) / tmle_res$se) > qnorm(1 - alpha_level)
     } else {
       # Point est + closed form SE
-      tmle_res <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      
+      if(ml){
+        tmle_res <- ddo_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      } else{
+        tmle_res <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+      }
+      
       tmle_res$pt_est <- tmle_res[1]
       tmle_res$se <- tmle_res[2]
       tmle_res$lower_ci <- tmle_res[1] - 1.96*tmle_res[2]
