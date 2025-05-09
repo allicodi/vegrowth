@@ -47,7 +47,7 @@ print.vegrowth <- function(x, ...) {
   } 
   
   # If other methods used print separate (chop lump, hudgens)
-  if (any(sapply(x, function(item) inherits(item, c("choplump_res", "hudgens_lower_res", "hudgens_upper_res"))))) {
+  if (any(sapply(x, function(item) inherits(item, c("choplump_res", "hudgens_lower_res", "hudgens_upper_res", "hudgens_lower_res_doomed", "hudgens_upper_res_doomed"))))) {
     col_names <- c("Method", "Observed Diff.", "P-Value", "Reject")
     
     # Print header with dashed line
@@ -57,12 +57,14 @@ print.vegrowth <- function(x, ...) {
     
     # Iterate through objects and print their results
     lapply(x, function(i) {
-      if (inherits(i, c("choplump_res", "hudgens_lower_res", "hudgens_upper_res"))) {
+      if (inherits(i, c("choplump_res", "hudgens_lower_res", "hudgens_upper_res", "hudgens_lower_res_doomed", "hudgens_upper_res_doomed"))) {
         # Determine method name
         method_name <- switch(class(i)[1],
                               "choplump_res" = "Chop-Lump",
-                              "hudgens_lower_res" = "Hudgens: Lower Bound",
-                              "hudgens_upper_res" = "Hudgens: Upper Bound")
+                              "hudgens_lower_res" = "Hudgens Naturally Infected: Lower Bound",
+                              "hudgens_upper_res" = "Hudgens Naturally Infected: Upper Bound",
+                              "hudgens_lower_res_doomed" = "Hudgens Doomed: Lower Bound",
+                              "hudgens_upper_res_doomed" = "Hudgens Doomed: Upper Bound")
         
         # Print the results
         cat(sprintf("%-50s%-30.4f%-30.4f%-10s\n",

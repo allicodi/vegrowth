@@ -271,6 +271,173 @@ hudgens_test <- function(
   }
 }
 
+#' Function for hudgens-style test statistic - doomed strata
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' @param lower_bound A boolean. If TRUE, then SUBTRACTS the smallest growth measures 
+#'    to the infected vaccinees thereby yielding a lower
+#'    bound on the effect of interest. If FALSE, then SUBTRACTS the largest
+#'    growth measures to the infected vacccinees thereby yielding an upper
+#'    bound on the effect of interest.
+#' 
+#' @returns Hudgens-style test statistic
+get_hudgens_stat_doomed <- function(
+    data, 
+    G_name = "G",
+    V_name = "V",
+    Y_name = "Y",
+    lower_bound = TRUE
+){
+  n_no_inf_plc <- sum(data[[Y_name]] == 0 & data[[V_name]] == 0)
+  n_no_inf_vax <- sum(data[[Y_name]] == 0 & data[[V_name]] == 1)
+  n_plc <- sum(data[[V_name]] == 0)
+  n_vax <- sum(data[[V_name]] == 1)
+  n_inf_plc <- n_plc - n_no_inf_plc
+  n_inf_vax <- n_vax - n_no_inf_vax
+  
+  n_diff <- n_inf_plc - n_inf_vax
+  
+  if(n_inf_plc > n_inf_vax){
+    
+    # E[G | Y_inf = 1, V = 0] (doomed in the vaccinated are observed)
+    mean_G_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1])
+    
+    # E[G | Y_inf = 1, V = 0]
+    #mean_G_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
+    
+    G_inf_plc <- data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1]
+    G_noinf_plc <- data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 0]
+    
+    # G_inf_vax <- data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1]
+    # G_noinf_vax <- data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 0]
+    
+    if(lower_bound){
+      # find the n_diff smallest growths in non-infected vaccinees 
+      # G_aug_vax <- sort(G_noinf_vax, decreasing = FALSE)[1:n_diff]
+      
+      # NEW
+      # find the n_diff largest growths in the infected placebos (not necessary, just take rest of vector)
+      # G_aug_plc <- sort(G_noinf_plc, decreasing = FALSE)[1:n_diff]
+      
+      # Get n_diff + 1 to end
+      # decreasing = FALSE means keeping bigger people --> lower bound
+      G_plc_doomed <- sort(G_noinf_plc, decreasing = FALSE)[(n_diff+1):length(G_noinf_plc)]
+      
+    }else{
+      # find the n_diff largest growths in non-infected vaccinees 
+      # G_aug_vax <- sort(G_noinf_vax, decreasing = TRUE)[1:n_diff]
+      
+      # NEW
+      # find the n_diff smallest growths in the infected placebos (not necessary, just take rest of vector)
+      #G_aug_plc <- sort(G_noinf_plc, decreasing = TRUE)[1:n_diff]
+      
+      # Get n_diff + 1 to end
+      # decreasing = TRUE means keeping smaller people --> subtracting smaller so upper bound
+      G_plc_doomed <- sort(G_noinf_plc, decreasing = TRUE)[(n_diff+1):length(G_noinf_plc)]
+    }
+    
+    mean_G_plc <- mean(G_plc_doomed)
+    #mean_G_vax <- mean(c(G_inf_vax, G_aug_vax))
+    
+  }else{
+    
+    stop("Method not applicable unless evidence of vaccine protection.")
+    
+  }
+  
+  return(mean_G_vax - mean_G_plc)
+  
+}
+
+#' Function for bootstrap test of Hudgens-style test statistic - doomed
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
+#'    to the infected vaccinees thereby yielding a lower
+#'    bound on the effect of interest. If FALSE, then adds the largest
+#'    growth measures to the infected vacccinees thereby yielding an upper
+#'    bound on the effect of interest.
+#'  @param n_boot number of bootstrap replicates
+#'  @param n_boot_try max number of attempts for bootstrap resampling
+#'  
+#'  @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
+hudgens_test_doomed <- function(
+    data, 
+    G_name = "G",
+    V_name = "V",
+    Y_name = "Y",
+    lower_bound = TRUE,
+    n_boot = 1e3, 
+    n_boot_try = n_boot*10
+){
+  n_no_inf_plc <- sum(data[[Y_name]] == 0 & data[[V_name]] == 0)
+  n_no_inf_vax <- sum(data[[Y_name]] == 0 & data[[V_name]] == 1)
+  n_plc <- sum(data[[V_name]] == 0)
+  n_vax <- sum(data[[V_name]] == 1)
+  n <- n_plc + n_vax
+  n_inf_plc <- n_plc - n_no_inf_plc
+  n_inf_vax <- n_vax - n_no_inf_vax
+  n_diff <- n_inf_plc - n_inf_vax
+  
+  if(n_diff > 0){
+    obs_diff <- get_hudgens_stat_doomed(
+      data = data, lower_bound = lower_bound, Y_name = Y_name, G_name = G_name, V_name = V_name
+    )
+    boot_diff <- rep(NA, n_boot)
+    success_ct <- 0
+    attempt_ct <- 0
+    while(success_ct < n_boot & attempt_ct <= n_boot_try){
+      attempt_ct <- attempt_ct + 1
+      boot_idx <- sample(seq_len(n), replace = TRUE)
+      boot_data <- data[boot_idx, , drop = FALSE]
+      
+      n_no_inf_plc_boot <- sum(boot_data[[Y_name]] == 0 & boot_data[[V_name]] == 0)
+      n_no_inf_vax_boot <- sum(boot_data[[Y_name]] == 0 & boot_data[[V_name]] == 1)
+      n_plc_boot <- sum(boot_data[[V_name]] == 0)
+      n_vax_boot <- sum(boot_data[[V_name]] == 1)
+      n_inf_plc_boot <- n_plc_boot - n_no_inf_plc_boot
+      n_inf_vax_boot <- n_vax_boot - n_no_inf_vax_boot
+      
+      if(n_inf_plc_boot > n_inf_vax_boot){
+        success_ct <- success_ct + 1
+        boot_diff[success_ct] <- get_hudgens_stat_doomed(boot_data, lower_bound = lower_bound, Y_name = Y_name, G_name = G_name, V_name = V_name)
+      }
+    }
+    if(sum(!is.na(boot_diff)) != n_boot){
+      warning(paste0(
+        "Only achieved ", sum(!is.na(boot_diff)), " successful resamples. Try again with larger n_boot_try? \n sample size: ", nrow(data)
+      ))
+    }
+    
+    if(sum(!is.na(boot_diff)) > 2){
+      sd_boot_diff <- sd(boot_diff, na.rm = TRUE)
+      test_stat <- obs_diff / sd_boot_diff
+      # one-sided p-value
+      pval <- pnorm(test_stat, lower.tail = FALSE)
+      
+      out <- list(
+        obs_diff = obs_diff,
+        test_stat = test_stat,
+        pval = pval
+      )
+      
+      class(out) <- "hudgens_res_doomed"
+      return(out)
+    }else{
+      stop("Did not achieve 2 successful bootstrap resamples. Try again with larger n_boot_try? Or give up?")
+    }
+    
+  }else{
+    stop("Method not applicable unless evidence of vaccine protection.")
+  }
+}
+
 
 # -----------------------------------------------------------------------------
 

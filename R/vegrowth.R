@@ -270,6 +270,20 @@ vegrowth <- function(data,
     class(hudgens_rslt_upper) <- "hudgens_upper_res"
     out$hudgens_rslt_upper <- hudgens_rslt_upper
   }
+  if("hudgens_lower_doomed" %in% est){
+    hudgens_rslt_lower_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
+    hudgens_rslt_lower_doomed$reject <- hudgens_rslt_lower_doomed$pval < 0.05
+    
+    class(hudgens_rslt_lower_doomed) <- "hudgens_lower_res_doomed"
+    out$hudgens_rslt_lower_doomed <- hudgens_rslt_lower_doomed
+  }
+  if("hudgens_upper_doomed" %in% est){
+    hudgens_rslt_upper_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
+    hudgens_rslt_upper_doomed$reject <- hudgens_rslt_upper_doomed$pval < 0.05
+    
+    class(hudgens_rslt_upper_doomed) <- "hudgens_upper_res_doomed"
+    out$hudgens_rslt_upper_doomed <- hudgens_rslt_upper_doomed
+  }
   if("hudgens_adj_lower" %in% est){
     
     hudgens_adj_rslt_lower <- list()
