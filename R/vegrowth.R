@@ -11,7 +11,8 @@
 #' @param return_se indicator to return closed form standard error for efficient_aipw or efficient_tmle, default FALSE
 #' @param ml boolean to use SuperLearner models, default FALSE
 #' @param G_V_X_model optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates
-#' @param G_X_model optional specify model to be used for fitting growth on covariates, otherwise growth on all covariates
+#' @param G_X_Y1_model optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates
+#' @param G_X_Y0_model optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates
 #' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
 #' @param G_V_X_library optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm
 #' @param G_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
@@ -37,7 +38,8 @@ vegrowth <- function(data,
                      return_se = FALSE,
                      ml = FALSE,
                      G_V_X_model = NULL,
-                     G_X_model = NULL,
+                     G_X_Y1_model = NULL,
+                     G_X_Y0_model = NULL,
                      Y_X_model = NULL,
                      G_V_X_library = c("SL.glm"),
                      G_X_library = c("SL.glm"),
@@ -82,7 +84,8 @@ vegrowth <- function(data,
                                        Y_name = Y_name,
                                        X_name = X_name,
                                        G_V_X_model = G_V_X_model,
-                                       G_X_model = G_X_model,
+                                       G_X_Y1_model = G_X_Y1_model,
+                                       G_X_Y0_model = G_X_Y0_model,
                                        Y_X_model = Y_X_model,
                                        family = family)
         
@@ -96,7 +99,8 @@ vegrowth <- function(data,
                                      Y_name = Y_name,
                                      X_name = X_name,
                                      G_V_X_model = G_V_X_model,
-                                     G_X_model = G_X_model,
+                                     G_X_Y1_model = G_X_Y1_model,
+                                     G_X_Y0_model = G_X_Y0_model,
                                      Y_X_model = Y_X_model,
                                      family = family)
       model_list$models <- models
@@ -113,7 +117,8 @@ vegrowth <- function(data,
                                                family = family,
                                                ml = ml,
                                                G_V_X_model = G_V_X_model,
-                                               G_X_model = G_X_model,
+                                               G_X_Y1_model = G_X_Y1_model,
+                                               G_X_Y0_model = G_X_Y0_model,
                                                Y_X_model = Y_X_model,
                                                G_V_X_library = G_V_X_library,
                                                G_X_library = G_X_library,
@@ -130,7 +135,8 @@ vegrowth <- function(data,
                                                family = family,
                                                ml = ml,
                                                G_V_X_model = G_V_X_model,
-                                               G_X_model = G_X_model,
+                                               G_X_Y1_model = G_X_Y1_model,
+                                               G_X_Y0_model = G_X_Y0_model,
                                                Y_X_model = Y_X_model,
                                                G_V_X_library = G_V_X_library,
                                                G_X_library = G_X_library,

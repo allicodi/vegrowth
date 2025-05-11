@@ -479,7 +479,8 @@ fit_models <- function(data,
                                "efficient_aipw", 
                                "efficient_tmle"),
                        G_V_X_model = NULL,
-                       G_X_model = NULL,
+                       G_X_Y1_model = NULL,
+                       G_X_Y0_model = NULL,
                        Y_X_model = NULL,
                        family = "gaussian"){
   
@@ -490,8 +491,13 @@ fit_models <- function(data,
                                    paste0(X_name, collapse = "+")))
   }
   
-  if(is.null(G_X_model)){
-    G_X_model <- as.formula(paste0(G_name, "~",
+  if(is.null(G_X_Y1_model)){
+    G_X_Y1_model <- as.formula(paste0(G_name, "~",
+                                   paste0(X_name, collapse = "+")))
+  }
+  
+  if(is.null(G_X_Y0_model)){
+    G_X_Y0_model <- as.formula(paste0(G_name, "~",
                                    paste0(X_name, collapse = "+")))
   }
   
@@ -516,13 +522,13 @@ fit_models <- function(data,
     out$fit_Y_V1_X <- glm(Y_X_model, sub_V1, family = "binomial")
     
     sub_V1_Y1 <- data[data[[V_name]] == 1 & data[[Y_name]] == 1,]
-    out$fit_G_V1_Y1_X <- glm(G_X_model, data = sub_V1_Y1, family = family)
+    out$fit_G_V1_Y1_X <- glm(G_X_Y1_model, data = sub_V1_Y1, family = family)
     
     sub_V1_Y0 <- data[data[[V_name]] == 1 & data[[Y_name]] == 0,]
-    out$fit_G_V1_Y0_X <- glm(G_X_model, data = sub_V1_Y0, family = family)
+    out$fit_G_V1_Y0_X <- glm(G_X_Y0_model, data = sub_V1_Y0, family = family)
     
     sub_V0_Y1 <- data[data[[V_name]] == 0 & data[[Y_name]] == 1,]
-    out$fit_G_V0_Y1_X <- glm(G_X_model, data = sub_V0_Y1, family = family)
+    out$fit_G_V0_Y1_X <- glm(G_X_Y1_model, data = sub_V0_Y1, family = family)
     
   }
   

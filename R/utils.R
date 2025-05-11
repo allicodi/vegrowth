@@ -61,10 +61,10 @@ print.vegrowth <- function(x, ...) {
         # Determine method name
         method_name <- switch(class(i)[1],
                               "choplump_res" = "Chop-Lump",
-                              "hudgens_lower_res" = "Hudgens Naturally Infected: Lower Bound",
-                              "hudgens_upper_res" = "Hudgens Naturally Infected: Upper Bound",
-                              "hudgens_lower_res_doomed" = "Hudgens Doomed: Lower Bound",
-                              "hudgens_upper_res_doomed" = "Hudgens Doomed: Upper Bound")
+                              "hudgens_lower_res" = "Naturally Infected: Lower Bound",
+                              "hudgens_upper_res" = "Naturally Infected: Upper Bound",
+                              "hudgens_lower_res_doomed" = "Doomed: Lower Bound",
+                              "hudgens_upper_res_doomed" = "Doomed: Upper Bound")
         
         # Print the results
         cat(sprintf("%-50s%-30.4f%-30.4f%-10s\n",
