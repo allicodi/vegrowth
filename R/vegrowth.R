@@ -266,12 +266,22 @@ vegrowth <- function(data,
     hudgens_rslt_lower <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
     hudgens_rslt_lower$reject <- hudgens_rslt_lower$pval < 0.05
     
+    hudgens_rslt_lower$se <- bootstrap_results$se_hudgens_lower
+    hudgens_rslt_lower$lower_ci <- bootstrap_results$lower_ci_hudgens_lower
+    hudgens_rslt_lower$upper_ci <- bootstrap_results$upper_ci_hudgens_lower
+    #hudgens_rslt_lower$reject <- ((hudgens_rslt_lower$pt_est - null_hypothesis_value) / hudgens_rslt_lower$se) > qnorm(1 - alpha_level)
+    
     class(hudgens_rslt_lower) <- "hudgens_lower_res"
     out$hudgens_rslt_lower <- hudgens_rslt_lower
   }
   if("hudgens_upper" %in% est){
     hudgens_rslt_upper <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
     hudgens_rslt_upper$reject <- hudgens_rslt_upper$pval < 0.05
+    
+    hudgens_rslt_upper$se <- bootstrap_results$se_hudgens_lower
+    hudgens_rslt_upper$lower_ci <- bootstrap_results$lower_ci_hudgens_upper
+    hudgens_rslt_upper$upper_ci <- bootstrap_results$upper_ci_hudgens_upper
+    #hudgens_rslt_upper$reject <- ((hudgens_rslt_upper$pt_est - null_hypothesis_value) / hudgens_rslt_upper$se) > qnorm(1 - alpha_level)
     
     class(hudgens_rslt_upper) <- "hudgens_upper_res"
     out$hudgens_rslt_upper <- hudgens_rslt_upper
@@ -280,12 +290,20 @@ vegrowth <- function(data,
     hudgens_rslt_lower_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
     hudgens_rslt_lower_doomed$reject <- hudgens_rslt_lower_doomed$pval < 0.05
     
+    hudgens_rslt_lower_doomed$se <- bootstrap_results$se_hudgens_lower_doomed
+    hudgens_rslt_lower_doomed$lower_ci <- bootstrap_results$lower_ci_hudgens_lower_doomed
+    hudgens_rslt_lower_doomed$upper_ci <- bootstrap_results$upper_ci_hudgens_lower_doomed
+    
     class(hudgens_rslt_lower_doomed) <- "hudgens_lower_res_doomed"
     out$hudgens_rslt_lower_doomed <- hudgens_rslt_lower_doomed
   }
   if("hudgens_upper_doomed" %in% est){
     hudgens_rslt_upper_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
     hudgens_rslt_upper_doomed$reject <- hudgens_rslt_upper_doomed$pval < 0.05
+    
+    hudgens_rslt_upper_doomed$se <- bootstrap_results$se_hudgens_upper_doomed
+    hudgens_rslt_upper_doomed$lower_ci <- bootstrap_results$lower_ci_hudgens_upper_doomed
+    hudgens_rslt_upper_doomed$upper_ci <- bootstrap_results$upper_ci_hudgens_upper_doomed
     
     class(hudgens_rslt_upper_doomed) <- "hudgens_upper_res_doomed"
     out$hudgens_rslt_upper_doomed <- hudgens_rslt_upper_doomed

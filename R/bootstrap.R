@@ -55,7 +55,10 @@ one_boot <- function(
                                            v_folds = v_folds)
     } 
     
-    if(any(est %in% c("gcomp_pop_estimand", "gcomp","hudgens_adj_lower", "hudgens_adj_upper"))){
+    if(any(est %in% c("gcomp_pop_estimand", "gcomp",
+                      "hudgens_adj_lower", "hudgens_adj_upper", 
+                      "hudgens_lower", "hudgens_upper",
+                      "hudgens_upper_doomed", "hudgens_lower_doomed"))){
       boot_models <- vegrowth::fit_models(data = boot_data, 
                                      est = est, 
                                      G_name = G_name,
@@ -82,30 +85,6 @@ one_boot <- function(
                                    Y_X_model = Y_X_model,
                                    family = family)
   } 
-  # if(!ml){
-  #   boot_models <- vegrowth::fit_models(data = boot_data, 
-  #                                  est = est, 
-  #                                  G_name = G_name,
-  #                                  V_name = V_name,
-  #                                  Y_name = Y_name,
-  #                                  X_name = X_name,
-  #                                  G_V_X_model = G_V_X_model,
-  #                                  G_X_model = G_X_model,
-  #                                  Y_X_model = Y_X_model,
-  #                                  family = family)
-  # } else {
-  #   boot_models <- vegrowth::fit_ml_models(data = boot_data, 
-  #                                     est = est, 
-  #                                     G_name = G_name,
-  #                                     V_name = V_name,
-  #                                     Y_name = Y_name,
-  #                                     X_name = X_name,
-  #                                     G_V_X_library = G_V_X_library,
-  #                                     G_X_library = G_X_library,
-  #                                     Y_X_library = Y_X_library,
-  #                                     family = family,
-  #                                     v_folds = v_folds)
-  # }
   
   out <- list()
   
@@ -159,6 +138,18 @@ one_boot <- function(
                                                                      boot_models,
                                                                      family = family, 
                                                                      lower_bound = TRUE)
+  } 
+  if("hudgens_lower" %in% est){
+    out$growth_effect_hudgens_lower <- get_hudgens_stat(boot_data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
+  }
+  if("hudgens_upper" %in% est){
+    out$growth_effect_hudgens_upper <- get_hudgens_stat(boot_data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
+  }
+  if("hudgens_lower_doomed" %in% est){
+    out$growth_effect_hudgens_lower_doomed <- get_hudgens_stat_doomed(boot_data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
+  }
+  if("hudgens_upper_doomed" %in% est){
+    out$growth_effect_hudgens_upper_doomed <- get_hudgens_stat_doomed(boot_data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
   }
   
   return(out)
@@ -305,6 +296,66 @@ bootstrap_estimates <- function(
     out$se_hudgens_adj_lower <- sd(growth_effect_hudgens_adj_lower, na.rm = TRUE)
     out$lower_ci_hudgens_adj_lower <- ci_hudgens_adj_lower[1]
     out$upper_ci_hudgens_adj_lower <- ci_hudgens_adj_lower[2]
+    
+  }
+  if("hudgens_lower" %in% est){
+    
+    # if there was only one method, unlist boot_est as is
+    if(length(boot_estimates) == n_boot){
+      growth_effect_hudgens_lower <- unlist(boot_estimates)
+    } else{
+      growth_effect_hudgens_lower <- unlist(boot_estimates["growth_effect_hudgens_lower",])
+    }
+    
+    ci_hudgens_lower <- quantile(growth_effect_hudgens_lower, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_hudgens_lower <- sd(growth_effect_hudgens_lower, na.rm = TRUE)
+    out$lower_ci_hudgens_lower <- ci_hudgens_lower[1]
+    out$upper_ci_hudgens_lower <- ci_hudgens_lower[2]
+    
+  }
+  if("hudgens_upper" %in% est){
+    
+    # if there was only one method, unlist boot_est as is
+    if(length(boot_estimates) == n_boot){
+      growth_effect_hudgens_upper <- unlist(boot_estimates)
+    } else{
+      growth_effect_hudgens_upper <- unlist(boot_estimates["growth_effect_hudgens_upper",])
+    }
+    
+    ci_hudgens_upper <- quantile(growth_effect_hudgens_upper, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_hudgens_upper <- sd(growth_effect_hudgens_upper, na.rm = TRUE)
+    out$lower_ci_hudgens_upper <- ci_hudgens_upper[1]
+    out$upper_ci_hudgens_upper <- ci_hudgens_upper[2]
+    
+  }
+  if("hudgens_lower_doomed" %in% est){
+    
+    # if there was only one method, unlist boot_est as is
+    if(length(boot_estimates) == n_boot){
+      growth_effect_hudgens_lower_doomed <- unlist(boot_estimates)
+    } else{
+      growth_effect_hudgens_lower_doomed <- unlist(boot_estimates["growth_effect_hudgens_lower_doomed",])
+    }
+    
+    ci_hudgens_lower_doomed <- quantile(growth_effect_hudgens_lower_doomed, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_hudgens_lower_doomed <- sd(growth_effect_hudgens_lower_doomed, na.rm = TRUE)
+    out$lower_ci_hudgens_lower_doomed <- ci_hudgens_lower_doomed[1]
+    out$upper_ci_hudgens_lower_doomed <- ci_hudgens_lower_doomed[2]
+    
+  }
+  if("hudgens_upper_doomed" %in% est){
+    
+    # if there was only one method, unlist boot_est as is
+    if(length(boot_estimates) == n_boot){
+      growth_effect_hudgens_upper_doomed <- unlist(boot_estimates)
+    } else{
+      growth_effect_hudgens_upper_doomed <- unlist(boot_estimates["growth_effect_hudgens_upper_doomed",])
+    }
+    
+    ci_hudgens_upper_doomed <- quantile(growth_effect_hudgens_upper_doomed, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_hudgens_upper_doomed <- sd(growth_effect_hudgens_upper_doomed, na.rm = TRUE)
+    out$lower_ci_hudgens_upper_doomed <- ci_hudgens_upper_doomed[1]
+    out$upper_ci_hudgens_upper_doomed <- ci_hudgens_upper_doomed[2]
     
   }
   

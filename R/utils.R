@@ -48,11 +48,11 @@ print.vegrowth <- function(x, ...) {
   
   # If other methods used print separate (chop lump, hudgens)
   if (any(sapply(x, function(item) inherits(item, c("choplump_res", "hudgens_lower_res", "hudgens_upper_res", "hudgens_lower_res_doomed", "hudgens_upper_res_doomed"))))) {
-    col_names <- c("Method", "Observed Diff.", "P-Value", "Reject")
+    col_names <- c("Method", "Observed Diff.", "P-Value", "95% CI: Lower", "95% CI: Upper", "Reject")
     
     # Print header with dashed line
-    cat(sprintf("%-50s%-30s%-30s%-15s\n",
-                col_names[1], col_names[2], col_names[3], col_names[4]))
+    cat(sprintf("%-50s%-15s%-15s%-15s%-15s%-10s\n",
+                col_names[1], col_names[2], col_names[3], col_names[4], col_names[5], col_names[6]))
     cat(paste(rep("-", 120), collapse = ""), "\n")
     
     # Iterate through objects and print their results
@@ -67,11 +67,24 @@ print.vegrowth <- function(x, ...) {
                               "hudgens_upper_res_doomed" = "Doomed: Upper Bound")
         
         # Print the results
-        cat(sprintf("%-50s%-30.4f%-30.4f%-10s\n",
-                    method_name,
-                    i$obs_diff,
-                    i$pval,
-                    ifelse(i$reject, "Yes", "No")))
+        if( inherits(i, c("choplump_res"))){
+          cat(sprintf("%-50s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",
+                      method_name,
+                      i$obs_diff,
+                      i$pval,
+                      NA, 
+                      NA,
+                      ifelse(i$reject, "Yes", "No")))
+        } else{
+          cat(sprintf("%-50s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",
+                      method_name,
+                      i$obs_diff,
+                      i$pval,
+                      i$lower_ci, 
+                      i$upper_ci,
+                      ifelse(i$reject, "Yes", "No")))
+        }
+        
       }
     })
     
