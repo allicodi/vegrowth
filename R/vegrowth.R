@@ -52,13 +52,14 @@ vegrowth <- function(data,
   
   set.seed(seed)
   
-  # TODO ml models should only be for tmle and aipw, leaving off here for now
+  # ml_models only for AIPW and TMLE
   model_list <- list(models = NULL, 
                      ml_models = NULL)
   
   # Estimation methods requiring model fitting & bootstrap se
   if(any(est %in% c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_lower", "hudgens_adj_upper"))){
     
+    # If ML specified and AIPW/TMLE are in est, fit ML models; otherwise only fit GLMs
     if(ml){
       if(any(est %in% c("efficient_aipw", "efficient_tmle"))){
         ml_models <- vegrowth::fit_ml_models(data = data, 
@@ -106,7 +107,7 @@ vegrowth <- function(data,
       model_list$models <- models
     } 
       
-    # If using return_se is true, do not use bootstrap se for AIPW and TMLE (remove from est for boot)
+    # If using return_se is true, do not use bootstrap se for AIPW and TMLE (remove from est for boot, used closed form SE for AIPW/TMLE)
     if(return_se == TRUE){
       bootstrap_results <- bootstrap_estimates(data = data, 
                                                G_name = G_name,

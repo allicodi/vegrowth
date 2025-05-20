@@ -44,8 +44,12 @@ do_gcomp <- function(data, models){
   )
 
   growth_effect <- psi_1 - psi_0
+  growth_effect_log_mult <- log(psi_1 / psi_0)
   
-  return(growth_effect)
+  out <- c(growth_effect, growth_effect_log_mult)
+  names(out) <- c("additive_effect","log_multiplicative_effect")
+  
+  return(out)
 }
 
 #' Function for g-computation of traditional population estimand
@@ -87,7 +91,11 @@ do_gcomp_pop_estimand <- function(data,
   
   pop_growth_effect <- psi_1 - psi_0
   
-  return(pop_growth_effect)
+  pop_growth_effect_log_mult <- log(psi_1 / psi_0)
+  
+  out <- c(pop_growth_effect, pop_growth_effect_log_mult)
+  names(out) <-  c("additive_effect","log_multiplicative_effect")
+  return(out)
 }
 
 #' Function for efficient AIPW estimator
@@ -165,15 +173,29 @@ do_efficient_aipw <- function(data,
   
   psi_1_aipw <- psi_1 + mean(augmentation_1)
   
+  # Additive effect
   efficient_growth_effect <- psi_1_aipw - psi_0_aipw
-  # TODO: add in multiplicative effects
-  # agumentation_1 = phi_1_data from tmle function
-  # similarly for _0
+  se <- sqrt(var(augmentation_1 - augmentation_0) / dim(data)[1])
+  
+  # Multiplicative effect (log scale)
+  efficient_growth_effect_log_mult <- log(psi_1_aipw / psi_0_aipw)
+  
+  # Get SE using IF matrix same way as TMLE
+  if_matrix <- cbind(augmentation_1, augmentation_0)
+  cov_matrix <- cov(if_matrix) / dim(data)[1]
+  
+  gradient <- matrix(c(1 / psi_1_aipw, -1 / psi_0_aipw), ncol = 1)
+  
+  se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
+  
   if(return_se){
-    se <- sqrt(var(augmentation_1 - augmentation_0) / dim(data)[1])
-    return(c(efficient_growth_effect, se))
+    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
+    return(out)
   }else{
-    return(efficient_growth_effect)
+    out <- c(efficient_growth_effect, efficient_growth_effect_log_mult)
+    names(out) <- c("additive_effect", "log_multiplicative_effect")
+    return(out)
   }
 }
 
@@ -445,13 +467,16 @@ do_efficient_tmle <- function(
     iter <- iter + 1
   }
   
+  # Additive growth effect
   tmle_ge <- psi_1_star - psi_0_star
+  
+  # Log multiplicative growth effect
   tmle_ge_log_mult <- log(psi_1_star / psi_0_star)
   
   if(return_se){
     se <- sqrt(var(phi_ge_data) / dim(data)[1])
 
-    if_matrix <- cbind(phi_0_data, phi_1_data)
+    if_matrix <- cbind(phi_1_data, phi_0_data)
     cov_matrix <- cov(if_matrix) / dim(data)[1]
     # 1/psi_1, -1/psi_0
     gradient <- matrix(c(1 / psi_1_star, -1 / psi_0_star), ncol = 1)
@@ -461,7 +486,9 @@ do_efficient_tmle <- function(
     names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
     return(out)
   }else{
-    return(c(tmle_ge, tmle_ge_log_mult))
+    out <- c(tmle_ge, tmle_ge_log_mult)
+    names(out) <- c("additive_effect", "log_multiplicative_effect")
+    return(out)
   }
   
 }

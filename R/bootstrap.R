@@ -232,41 +232,71 @@ bootstrap_estimates <- function(
   if("gcomp" %in% est){
     
     if(length(boot_estimates) == n_boot){
-      growth_effect <- unlist(boot_estimates)
+      #growth_effect <- unlist(boot_estimates)
+      growth_effect <- data.frame(do.call(rbind, boot_estimates))
     } else{
-      growth_effect <- unlist(boot_estimates["growth_effect",])
+      #growth_effect <- unlist(boot_estimates["growth_effect",])
+      growth_effect <- data.frame(do.call(rbind, boot_estimates["growth_effect",]))
     }
     
-    ci_gcomp <- quantile(growth_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_gcomp <- sd(growth_effect, na.rm = TRUE)
-    out$lower_ci_gcomp <- ci_gcomp[1]
-    out$upper_ci_gcomp <- ci_gcomp[2]
+    # Additive
+    ci_gcomp_additive <- quantile(growth_effect$additive_effect, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_gcomp_additive <- sd(growth_effect$additive_effect, na.rm = TRUE)
+    out$lower_ci_gcomp_additive <- ci_gcomp_additive[1]
+    out$upper_ci_gcomp_additive <- ci_gcomp_additive[2]
+    
+    # Multiplicative (**have david check this**)
+    ci_gcomp_log_mult <- quantile(growth_effect$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_gcomp_log_mult <- sd(growth_effect$log_multiplicative_effect, na.rm = TRUE)
+    out$lower_ci_gcomp_mult <- exp(ci_gcomp_log_mult[1])
+    out$upper_ci_gcomp_mult <- exp(ci_gcomp_log_mult[2])
+    
   }
   if("efficient_aipw" %in% est){
     
     if(length(boot_estimates) == n_boot){
-      growth_effect_aipw <- unlist(boot_estimates)
+      #growth_effect_aipw <- unlist(boot_estimates)
+      growth_effect_aipw <- data.frame(do.call(rbind, boot_estimates))
     } else{
-      growth_effect_aipw <- unlist(boot_estimates["growth_effect_aipw",])
+      #growth_effect_aipw <- unlist(boot_estimates["growth_effect_aipw",])
+      growth_effect_aipw <- data.frame(do.call(rbind, boot_estimates["growth_effect_aipw",]))
     }
     
-    ci_efficient_aipw <- quantile(growth_effect_aipw, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_efficient_aipw <- sd(growth_effect_aipw, na.rm = TRUE)
-    out$lower_ci_efficient_aipw <- ci_efficient_aipw[1]    
-    out$upper_ci_efficient_aipw <- ci_efficient_aipw[2]
+    # Additive
+    ci_efficient_aipw_additive <- quantile(growth_effect_aipw$additive_effect, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_efficient_aipw_additive <- sd(growth_effect_aipw$additive_effect, na.rm = TRUE)
+    out$lower_ci_efficient_aipw_additive <- ci_efficient_aipw_additive[1]    
+    out$upper_ci_efficient_aipw_additive <- ci_efficient_aipw_additive[2]
+    
+    # Multiplicative
+    ci_efficient_aipw_log_mult <- quantile(growth_effect_aipw$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_efficient_aipw_log_mult <- sd(growth_effect_aipw$log_multiplicative_effect, na.rm = TRUE)
+    out$lower_ci_efficient_aipw_mult <- exp(ci_efficient_aipw_log_mult[1])
+    out$upper_ci_efficient_aipw_mult <- exp(ci_efficient_aipw_log_mult[2])
+    
   }
   if("efficient_tmle" %in% est){
     
     if(length(boot_estimates) == n_boot){
-      growth_effect_tmle <- unlist(boot_estimates)
+      #growth_effect_tmle <- unlist(boot_estimates)
+      growth_effect_tmle <- data.frame(do.call(rbind, boot_estimates))
     } else{
-      growth_effect_tmle <- unlist(boot_estimates["growth_effect_tmle",])
+      #growth_effect_tmle <- unlist(boot_estimates["growth_effect_tmle",])
+      growth_effect_tmle <- data.frame(do.call(rbind, boot_estimates["growth_effect_tmle",]))
     }
     
-    ci_efficient_tmle <- quantile(growth_effect_tmle, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_efficient_tmle <- sd(growth_effect_tmle, na.rm = TRUE)
-    out$lower_ci_efficient_tmle <- ci_efficient_tmle[1]    
-    out$upper_ci_efficient_tmle <- ci_efficient_tmle[2]
+    # Additive
+    ci_efficient_tmle_additive <- quantile(growth_effect_tmle$additive_effect, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_efficient_tmle_additive <- sd(growth_effect_tmle$additive_effect, na.rm = TRUE)
+    out$lower_ci_efficient_tmle_additive <- ci_efficient_tmle_additive[1]    
+    out$upper_ci_efficient_tmle_additive <- ci_efficient_tmle_additive[2]
+    
+    # Multiplicative
+    ci_efficient_tmle_log_mult <- quantile(growth_effect_tmle$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_efficient_tmle_log_mult <- sd(growth_effect_tmle$log_multiplicative_effect, na.rm = TRUE)
+    out$lower_ci_efficient_tmle <- exp(ci_efficient_tmle_log_mult[1])    
+    out$upper_ci_efficient_tmle <- exp(ci_efficient_tmle_log_mult[2])
+    
   }
   if("hudgens_adj_upper" %in% est){
     
@@ -302,9 +332,11 @@ bootstrap_estimates <- function(
     
     # if there was only one method, unlist boot_est as is
     if(length(boot_estimates) == n_boot){
-      growth_effect_hudgens_lower <- unlist(boot_estimates)
+      #growth_effect_hudgens_lower <- unlist(boot_estimates)
+      growth_effect_hudgens_lower <- data.frame(do.call(rbind, boot_estimates))
     } else{
-      growth_effect_hudgens_lower <- unlist(boot_estimates["growth_effect_hudgens_lower",])
+      #growth_effect_hudgens_lower <- unlist(boot_estimates["growth_effect_hudgens_lower",])
+      growth_effect_hudgens_lower <- do.call(rbind, boot_estimates["growth_effect_hudgens_lower",])
     }
     
     ci_hudgens_lower <- quantile(growth_effect_hudgens_lower, p = c(0.025, 0.975), na.rm=TRUE)
@@ -317,9 +349,11 @@ bootstrap_estimates <- function(
     
     # if there was only one method, unlist boot_est as is
     if(length(boot_estimates) == n_boot){
-      growth_effect_hudgens_upper <- unlist(boot_estimates)
+      #growth_effect_hudgens_upper <- unlist(boot_estimates)
+      growth_effect_hudgens_upper <- data.frame(do.call(rbind, boot_estimates))
     } else{
-      growth_effect_hudgens_upper <- unlist(boot_estimates["growth_effect_hudgens_upper",])
+      #growth_effect_hudgens_upper <- unlist(boot_estimates["growth_effect_hudgens_upper",])
+      growth_effect_hudgens_upper <- do.call(rbind, boot_estimates["growth_effect_hudgens_upper",])
     }
     
     ci_hudgens_upper <- quantile(growth_effect_hudgens_upper, p = c(0.025, 0.975), na.rm=TRUE)
@@ -332,9 +366,11 @@ bootstrap_estimates <- function(
     
     # if there was only one method, unlist boot_est as is
     if(length(boot_estimates) == n_boot){
-      growth_effect_hudgens_lower_doomed <- unlist(boot_estimates)
+      #growth_effect_hudgens_lower_doomed <- unlist(boot_estimates)
+      growth_effect_hudgens_lower_dooemd <- do.call(rbind, boot_estimates)
     } else{
-      growth_effect_hudgens_lower_doomed <- unlist(boot_estimates["growth_effect_hudgens_lower_doomed",])
+      #growth_effect_hudgens_lower_doomed <- unlist(boot_estimates["growth_effect_hudgens_lower_doomed",])
+      growth_effect_hudgens_lower_dooemd <- do.call(rbind, boot_estimates["growth_effect_hudgens_lower_doomed",])
     }
     
     ci_hudgens_lower_doomed <- quantile(growth_effect_hudgens_lower_doomed, p = c(0.025, 0.975), na.rm=TRUE)
@@ -347,9 +383,11 @@ bootstrap_estimates <- function(
     
     # if there was only one method, unlist boot_est as is
     if(length(boot_estimates) == n_boot){
-      growth_effect_hudgens_upper_doomed <- unlist(boot_estimates)
+      #growth_effect_hudgens_upper_doomed <- unlist(boot_estimates)
+      growth_effect_hudgens_upper_dooemd <- do.call(rbind, boot_estimates)
     } else{
-      growth_effect_hudgens_upper_doomed <- unlist(boot_estimates["growth_effect_hudgens_upper_doomed",])
+      #growth_effect_hudgens_upper_doomed <- unlist(boot_estimates["growth_effect_hudgens_upper_doomed",])
+      growth_effect_hudgens_upper_dooemd <- do.call(rbind, boot_estimates["growth_effect_hudgens_upper_doomed",])
     }
     
     ci_hudgens_upper_doomed <- quantile(growth_effect_hudgens_upper_doomed, p = c(0.025, 0.975), na.rm=TRUE)

@@ -181,7 +181,14 @@ get_hudgens_stat <- function(
     
   }
   
-  return(mean_G_vax - mean_G_plc)
+  additive <- mean_G_vax - mean_G_plc
+  #log_mult <- log(mean_G_vax / mean_G_plc)
+  
+  #out <- c(additive, multiplicative)
+  #names(out) <- c("additive_effect", "log_multiplicative_effect")
+  #return(out)
+  
+  return(additive)
   
 }
 
