@@ -166,7 +166,9 @@ do_efficient_aipw <- function(data,
   psi_1_aipw <- psi_1 + mean(augmentation_1)
   
   efficient_growth_effect <- psi_1_aipw - psi_0_aipw
-  
+  # TODO: add in multiplicative effects
+  # agumentation_1 = phi_1_data from tmle function
+  # similarly for _0
   if(return_se){
     se <- sqrt(var(augmentation_1 - augmentation_0) / dim(data)[1])
     return(c(efficient_growth_effect, se))
@@ -444,12 +446,22 @@ do_efficient_tmle <- function(
   }
   
   tmle_ge <- psi_1_star - psi_0_star
+  tmle_ge_log_mult <- log(psi_1_star / psi_0_star)
   
   if(return_se){
     se <- sqrt(var(phi_ge_data) / dim(data)[1])
-    return(c(tmle_ge, se))
+
+    if_matrix <- cbind(phi_0_data, phi_1_data)
+    cov_matrix <- cov(if_matrix) / dim(data)[1]
+    # 1/psi_1, -1/psi_0
+    gradient <- matrix(c(1 / psi_1_star, -1 / psi_0_star), ncol = 1)
+    se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
+
+    out <- c(tmle_ge, se, tmle_ge_log_mult, se_log_mult_eff)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
+    return(out)
   }else{
-    return(tmle_ge)
+    return(c(tmle_ge, tmle_ge_log_mult))
   }
   
 }
