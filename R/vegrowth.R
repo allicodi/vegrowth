@@ -22,6 +22,7 @@
 #' @param return_models boolean return models, default TRUE
 #' @param family family for outcome variable 'G', defaults to gaussian for growth
 #' @param v_folds number of cross validation folds for SuperLearner, default 3
+#' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
 #'
 #' @export
 #' 
@@ -48,7 +49,8 @@ vegrowth <- function(data,
                      alpha_level = 0.025,
                      return_models = TRUE,
                      family = "gaussian",
-                     v_folds = 3){
+                     v_folds = 3,
+                     effect_dir = "positive"){
   
   set.seed(seed)
   
@@ -125,7 +127,8 @@ vegrowth <- function(data,
                                                G_X_library = G_X_library,
                                                Y_X_library = Y_X_library,
                                                v_folds = v_folds,
-                                               est = setdiff(est, c("efficient_aipw", "efficient_tmle")))
+                                               est = setdiff(est, c("efficient_aipw", "efficient_tmle")),
+                                               effect_dir = effect_dir)
     } else{
       bootstrap_results <- bootstrap_estimates(data = data, 
                                                G_name = G_name,
@@ -143,7 +146,8 @@ vegrowth <- function(data,
                                                G_X_library = G_X_library,
                                                Y_X_library = Y_X_library,
                                                v_folds = v_folds,
-                                               est = est)
+                                               est = est,
+                                               effect_dir = effect_dir)
     }
   }
   
@@ -170,9 +174,9 @@ vegrowth <- function(data,
     
     gcomp_res$lower_ci_mult <- bootstrap_results$lower_ci_gcomp_mult
     gcomp_res$upper_ci_mult <- bootstrap_results$upper_ci_gcomp_mult
-    
-    # just needed on an additive scale?
-    gcomp_res$reject <- ((gcomp_res$pt_est_additive - null_hypothesis_value) / gcomp_res$se_additive) > qnorm(1 - alpha_level)
+  
+    gcomp_res$reject_additive <- (abs(gcomp_res$pt_est_additive - null_hypothesis_value) / gcomp_res$se_additive) > qnorm(1 - alpha_level/2)
+    gcomp_res$reject_mult <- (abs(log(gcomp_res$pt_est_mult) - null_hypothesis_value) / gcomp_res$se_log_mult) > qnorm(1 - alpha_level/2)
     
     class(gcomp_res) <- "gcomp_res"
     out$gcomp_res <- gcomp_res
@@ -195,7 +199,8 @@ vegrowth <- function(data,
     pop_gcomp_res$lower_ci_mult <- bootstrap_results$lower_ci_gcomp_pop_estimand_mult
     pop_gcomp_res$upper_ci_mult <- bootstrap_results$upper_ci_gcomp_pop_estimand_mult
     
-    pop_gcomp_res$reject <- ((pop_gcomp_res$pt_est_additive - null_hypothesis_value) / pop_gcomp_res$se_additive) > qnorm(1 - alpha_level)
+    pop_gcomp_res$reject_additive <- (abs(pop_gcomp_res$pt_est_additive - null_hypothesis_value) / pop_gcomp_res$se_additive) > qnorm(1 - alpha_level/2)
+    pop_gcomp_res$reject_mult <- (abs(log(pop_gcomp_res$pt_est_mult) - null_hypothesis_value) / pop_gcomp_res$se_log_mult) > qnorm(1 - alpha_level/2)
     
     class(pop_gcomp_res) <- "pop_gcomp_res"
     out$pop_gcomp_res <- pop_gcomp_res
@@ -226,7 +231,8 @@ vegrowth <- function(data,
       aipw_res$lower_ci_mult <- bootstrap_results$lower_ci_efficient_aipw_mult
       aipw_res$upper_ci_mult <- bootstrap_results$upper_ci_efficient_aipw_mult
       
-      aipw_res$reject <- ((aipw_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level)
+      aipw_res$reject_additive <- (abs(aipw_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level/2)
+      aipw_res$reject_mult <- (abs(log(aipw_res$pt_est_mult) - null_hypothesis_value) / aipw_res$se_log_mult) > qnorm(1 - alpha_level/2)
       
     } else {
       # Point est + closed form SE
@@ -246,12 +252,11 @@ vegrowth <- function(data,
       aipw_res$lower_ci_additive <- aipw_res$pt_est_additive - 1.96*aipw_res$se_additive
       aipw_res$upper_ci_additive <- aipw_res$pt_est_additive + 1.96*aipw_res$se_additive
       
-      # CHECK THIS BRAIN NOT WORKING
-      # already exponentiated the pt est
       aipw_res$lower_ci_mult <- exp(log(aipw_res$pt_est_mult) - 1.96*aipw_res$se_log_mult)
       aipw_res$upper_ci_mult <- exp(log(aipw_res$pt_est_mult) + 1.96*aipw_res$se_log_mult)
       
-      aipw_res$reject <- ((aipw_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level)
+      aipw_res$reject_additive <- (abs(aipw_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level/2)
+      aipw_res$reject_mult <- (abs(log(aipw_res$pt_est_mult) - null_hypothesis_value) / aipw_res$se_log_mult) > qnorm(1 - alpha_level/2)
     }
     
     class(aipw_res) <- "aipw_res"
@@ -283,7 +288,8 @@ vegrowth <- function(data,
       tmle_res$lower_ci_mult <- bootstrap_results$lower_ci_efficient_tmle_mult
       tmle_res$upper_ci_mult <- bootstrap_results$upper_ci_efficient_tmle_mult
       
-      tmle_res$reject <- ((tmle_res$pt_est_additive - null_hypothesis_value) / tmle_res$se_additive) > qnorm(1 - alpha_level)
+      tmle_res$reject_additive <- (abs(tmle_res$pt_est_additive - null_hypothesis_value) / tmle_res$se_additive) > qnorm(1 - alpha_level/2)
+      tmle_res$reject_mult <- (abs(log(tmle_res$pt_est_mult) - null_hypothesis_value) / tmle_res$se_log_mult) > qnorm(1 - alpha_level/2)
       
     } else {
       # Point est + closed form SE
@@ -303,12 +309,11 @@ vegrowth <- function(data,
       tmle_res$lower_ci_additive <- tmle_res$pt_est_additive - 1.96*tmle_res$se_additive
       tmle_res$upper_ci_additive <- tmle_res$pt_est_additive + 1.96*tmle_res$se_additive
       
-      # CHECK THIS BRAIN NOT WORKING
-      # already exponentiated the pt est
       tmle_res$lower_ci_mult <- exp(log(tmle_res$pt_est_mult) - 1.96*tmle_res$se_log_mult)
       tmle_res$upper_ci_mult <- exp(log(tmle_res$pt_est_mult) + 1.96*tmle_res$se_log_mult)
       
-      tmle_res$reject <- ((tmle_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level)
+      tmle_res$reject_additive <- (abs(tmle_res$pt_est_additive - null_hypothesis_value) / tmle_res$se_additive) > qnorm(1 - alpha_level/2)
+      tmle_res$reject_mult <- (abs(log(tmle_res$pt_est_mult) - null_hypothesis_value) / tmle_res$se_log_mult) > qnorm(1 - alpha_level/2)
     }
     
     class(tmle_res) <- "tmle_res"
@@ -323,31 +328,29 @@ vegrowth <- function(data,
     out$chop_lump_res <- choplump_rslt
   }
   if("hudgens_lower" %in% est){
-    hudgens_rslt_lower <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
+    hudgens_rslt_lower <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE, effect_dir = effect_dir)
     hudgens_rslt_lower$reject <- hudgens_rslt_lower$pval < 0.05
     
     hudgens_rslt_lower$se <- bootstrap_results$se_hudgens_lower
     hudgens_rslt_lower$lower_ci <- bootstrap_results$lower_ci_hudgens_lower
     hudgens_rslt_lower$upper_ci <- bootstrap_results$upper_ci_hudgens_lower
-    #hudgens_rslt_lower$reject <- ((hudgens_rslt_lower$pt_est - null_hypothesis_value) / hudgens_rslt_lower$se) > qnorm(1 - alpha_level)
     
     class(hudgens_rslt_lower) <- "hudgens_lower_res"
     out$hudgens_rslt_lower <- hudgens_rslt_lower
   }
   if("hudgens_upper" %in% est){
-    hudgens_rslt_upper <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
+    hudgens_rslt_upper <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE, effect_dir = effect_dir)
     hudgens_rslt_upper$reject <- hudgens_rslt_upper$pval < 0.05
     
     hudgens_rslt_upper$se <- bootstrap_results$se_hudgens_lower
     hudgens_rslt_upper$lower_ci <- bootstrap_results$lower_ci_hudgens_upper
     hudgens_rslt_upper$upper_ci <- bootstrap_results$upper_ci_hudgens_upper
-    #hudgens_rslt_upper$reject <- ((hudgens_rslt_upper$pt_est - null_hypothesis_value) / hudgens_rslt_upper$se) > qnorm(1 - alpha_level)
     
     class(hudgens_rslt_upper) <- "hudgens_upper_res"
     out$hudgens_rslt_upper <- hudgens_rslt_upper
   }
   if("hudgens_lower_doomed" %in% est){
-    hudgens_rslt_lower_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
+    hudgens_rslt_lower_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE, effect_dir = effect_dir)
     hudgens_rslt_lower_doomed$reject <- hudgens_rslt_lower_doomed$pval < 0.05
     
     hudgens_rslt_lower_doomed$se <- bootstrap_results$se_hudgens_lower_doomed
@@ -358,7 +361,7 @@ vegrowth <- function(data,
     out$hudgens_rslt_lower_doomed <- hudgens_rslt_lower_doomed
   }
   if("hudgens_upper_doomed" %in% est){
-    hudgens_rslt_upper_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
+    hudgens_rslt_upper_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE, effect_dir = effect_dir)
     hudgens_rslt_upper_doomed$reject <- hudgens_rslt_upper_doomed$pval < 0.05
     
     hudgens_rslt_upper_doomed$se <- bootstrap_results$se_hudgens_upper_doomed

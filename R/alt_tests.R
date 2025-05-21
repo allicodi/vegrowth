@@ -137,8 +137,8 @@ plot.chop_lump_res <- function(out){
 #' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
 #'    to the infected vaccinees thereby yielding a lower
 #'    bound on the effect of interest. If FALSE, then adds the largest
-#'    growth measures to the infected vacccinees thereby yielding an upper
-#'    bound on the effect of interest.
+#'    growth measures to the infected vaccinees thereby yielding an upper
+#'    bound on the effect of interest. 
 #' 
 #' @returns Hudgens-style test statistic
 get_hudgens_stat <- function(
@@ -205,6 +205,7 @@ get_hudgens_stat <- function(
 #'    bound on the effect of interest.
 #'  @param n_boot number of bootstrap replicates
 #'  @param n_boot_try max number of attempts for bootstrap resampling
+#'  @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
 #'  
 #'  @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
 hudgens_test <- function(
@@ -214,7 +215,8 @@ hudgens_test <- function(
     Y_name = "Y",
     lower_bound = TRUE,
     n_boot = 1e3, 
-    n_boot_try = n_boot*10
+    n_boot_try = n_boot*10,
+    effect_dir = "positive"
 ){
   n_no_inf_plc <- sum(data[[Y_name]] == 0 & data[[V_name]] == 0)
   n_no_inf_vax <- sum(data[[Y_name]] == 0 & data[[V_name]] == 1)
@@ -258,8 +260,15 @@ hudgens_test <- function(
     if(sum(!is.na(boot_diff)) > 2){
       sd_boot_diff <- sd(boot_diff, na.rm = TRUE)
       test_stat <- obs_diff / sd_boot_diff
+      
+      if(effect_dir == "positive"){
+        pval <- pnorm(test_stat, lower.tail = FALSE)
+      } else{
+        pval <- pnorm(test_stat, lower.tail = TRUE)
+      }
+      
       # one-sided p-value
-      pval <- pnorm(test_stat, lower.tail = FALSE)
+      # pval <- pnorm(test_stat, lower.tail = FALSE)
       
       out <- list(
         obs_diff = obs_diff,
@@ -370,8 +379,9 @@ get_hudgens_stat_doomed <- function(
 #'    bound on the effect of interest. If FALSE, then adds the largest
 #'    growth measures to the infected vacccinees thereby yielding an upper
 #'    bound on the effect of interest.
-#'  @param n_boot number of bootstrap replicates
-#'  @param n_boot_try max number of attempts for bootstrap resampling
+#' @param n_boot number of bootstrap replicates
+#' @param n_boot_try max number of attempts for bootstrap resampling
+#' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
 #'  
 #'  @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
 hudgens_test_doomed <- function(
@@ -381,7 +391,8 @@ hudgens_test_doomed <- function(
     Y_name = "Y",
     lower_bound = TRUE,
     n_boot = 1e3, 
-    n_boot_try = n_boot*10
+    n_boot_try = n_boot*10,
+    effect_dir = "positive"
 ){
   n_no_inf_plc <- sum(data[[Y_name]] == 0 & data[[V_name]] == 0)
   n_no_inf_vax <- sum(data[[Y_name]] == 0 & data[[V_name]] == 1)
@@ -425,8 +436,15 @@ hudgens_test_doomed <- function(
     if(sum(!is.na(boot_diff)) > 2){
       sd_boot_diff <- sd(boot_diff, na.rm = TRUE)
       test_stat <- obs_diff / sd_boot_diff
+      
+      if(effect_dir == "positive"){
+        pval <- pnorm(test_stat, lower.tail = FALSE)
+      } else{
+        pval <- pnorm(test_stat, lower.tail = TRUE)
+      }
+      
       # one-sided p-value
-      pval <- pnorm(test_stat, lower.tail = FALSE)
+      #pval <- pnorm(test_stat, lower.tail = FALSE)
       
       out <- list(
         obs_diff = obs_diff,

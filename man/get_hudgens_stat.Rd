@@ -24,7 +24,7 @@ get_hudgens_stat(
 \item{lower_bound}{A boolean. If TRUE, then adds the smallest growth measures
 to the infected vaccinees thereby yielding a lower
 bound on the effect of interest. If FALSE, then adds the largest
-growth measures to the infected vacccinees thereby yielding an upper
+growth measures to the infected vaccinees thereby yielding an upper
 bound on the effect of interest.}
 }
 \value{

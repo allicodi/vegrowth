@@ -8,16 +8,16 @@
 print.vegrowth <- function(x, ...) {
   
   cat("                                        Growth Effect Estimation Results: Additive\n")
-  cat(paste(rep("-", 120), collapse = ""), "\n")
+  cat(paste(rep("-", 130), collapse = ""), "\n")
   
   # Check if any methods with confidence intervals are used
   if (any(sapply(x, function(item) inherits(item, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))))) {
-    col_names <- c("Method", "Point Est.", "SE", "95% CI: Lower", "95% CI: Upper", "Reject")
+    col_names <- c("Method", "Point Est.", "SE", "95% CI: Lower", "95% CI: Upper", "Reject (2-sided)")
     
     # Print header with dashed line
     cat(sprintf("%-50s%-15s%-15s%-15s%-15s%-10s\n",
                 col_names[1], col_names[2], col_names[3], col_names[4], col_names[5], col_names[6]))
-    cat(paste(rep("-", 120), collapse = ""), "\n")
+    cat(paste(rep("-", 130), collapse = ""), "\n")
     
     # Iterate through objects and print their results
     lapply(x, function(i) {
@@ -38,22 +38,22 @@ print.vegrowth <- function(x, ...) {
                     i$se_additive,
                     i$lower_ci_additive,
                     i$upper_ci_additive,
-                    ifelse(i$reject, "Yes", "No")))
+                    ifelse(i$reject_additive, "Yes", "No")))
       }
     })
     
     
-    cat(paste(rep("-", 120), collapse = ""), "\n")
+    cat(paste(rep("-", 130), collapse = ""), "\n")
   } 
   
   # If other methods used print separate (chop lump, hudgens)
   if (any(sapply(x, function(item) inherits(item, c("choplump_res", "hudgens_lower_res", "hudgens_upper_res", "hudgens_lower_res_doomed", "hudgens_upper_res_doomed"))))) {
-    col_names <- c("Method", "Observed Diff.", "P-Value", "95% CI: Lower", "95% CI: Upper", "Reject")
+    col_names <- c("Method", "Observed Diff.", "P-Value", "95% CI: Lower", "95% CI: Upper", "Reject (1-sided)")
     
     # Print header with dashed line
     cat(sprintf("%-50s%-15s%-15s%-15s%-15s%-10s\n",
                 col_names[1], col_names[2], col_names[3], col_names[4], col_names[5], col_names[6]))
-    cat(paste(rep("-", 120), collapse = ""), "\n")
+    cat(paste(rep("-", 130), collapse = ""), "\n")
     
     # Iterate through objects and print their results
     lapply(x, function(i) {
@@ -93,16 +93,16 @@ print.vegrowth <- function(x, ...) {
   # REPEAT FOR MULTIPLICATIVE EFFECTS:
   cat("\n\n")
   cat("                                        Growth Effect Estimation Results: Multiplicative\n")
-  cat(paste(rep("-", 120), collapse = ""), "\n")
+  cat(paste(rep("-", 130), collapse = ""), "\n")
   
   # Check if any methods with confidence intervals are used
   if (any(sapply(x, function(item) inherits(item, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))))) {
-    col_names <- c("Method", "Point Est.", "SE", "95% CI: Lower", "95% CI: Upper", "Reject")
+    col_names <- c("Method", "Point Est.", "SE", "95% CI: Lower", "95% CI: Upper", "Reject (2-sided)")
     
     # Print header with dashed line
     cat(sprintf("%-50s%-15s%-15s%-15s%-15s%-10s\n",
                 col_names[1], col_names[2], col_names[3], col_names[4], col_names[5], col_names[6]))
-    cat(paste(rep("-", 120), collapse = ""), "\n")
+    cat(paste(rep("-", 130), collapse = ""), "\n")
     
     # Iterate through objects and print their results
     lapply(x, function(i) {
@@ -123,12 +123,12 @@ print.vegrowth <- function(x, ...) {
                     i$se_log_mult,
                     i$lower_ci_mult,
                     i$upper_ci_mult,
-                    ifelse(i$reject, "Yes", "No")))
+                    ifelse(i$reject_mult, "Yes", "No")))
       }
     })
     
     
-    cat(paste(rep("-", 120), collapse = ""), "\n")
+    cat(paste(rep("-", 130), collapse = ""), "\n")
   } 
   
 }

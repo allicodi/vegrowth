@@ -11,7 +11,8 @@ hudgens_test_doomed(
   Y_name = "Y",
   lower_bound = TRUE,
   n_boot = 1000,
-  n_boot_try = n_boot * 10
+  n_boot_try = n_boot * 10,
+  effect_dir = "positive"
 )
 }
 \arguments{
@@ -27,9 +28,13 @@ hudgens_test_doomed(
 to the infected vaccinees thereby yielding a lower
 bound on the effect of interest. If FALSE, then adds the largest
 growth measures to the infected vacccinees thereby yielding an upper
-bound on the effect of interest.
-@param n_boot number of bootstrap replicates
-@param n_boot_try max number of attempts for bootstrap resampling
+bound on the effect of interest.}
+
+\item{n_boot}{number of bootstrap replicates}
+
+\item{n_boot_try}{max number of attempts for bootstrap resampling}
+
+\item{effect_dir}{direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.
 
 @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value}
 }

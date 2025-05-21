@@ -21,7 +21,8 @@ one_boot(
   G_X_library = c("SL.glm"),
   Y_X_library = c("SL.glm"),
   family = "gaussian",
-  v_folds = 3
+  v_folds = 3,
+  effect_dir = "positive"
 )
 }
 \arguments{
@@ -52,6 +53,8 @@ one_boot(
 \item{family}{family for outcome model, defaults to gaussian for growth}
 
 \item{v_folds}{number of cross validation folds for SuperLearner, default 3}
+
+\item{effect_dir}{direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.}
 }
 \value{
 list containing results for specified estimators on single bootstrap sample

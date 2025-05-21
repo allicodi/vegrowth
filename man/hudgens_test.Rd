@@ -11,7 +11,8 @@ hudgens_test(
   Y_name = "Y",
   lower_bound = TRUE,
   n_boot = 1000,
-  n_boot_try = n_boot * 10
+  n_boot_try = n_boot * 10,
+  effect_dir = "positive"
 )
 }
 \arguments{
@@ -30,6 +31,7 @@ growth measures to the infected vacccinees thereby yielding an upper
 bound on the effect of interest.
 @param n_boot number of bootstrap replicates
 @param n_boot_try max number of attempts for bootstrap resampling
+@param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.
 
 @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value}
 }

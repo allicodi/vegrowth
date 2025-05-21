@@ -27,7 +27,8 @@ vegrowth(
   alpha_level = 0.025,
   return_models = TRUE,
   family = "gaussian",
-  v_folds = 3
+  v_folds = 3,
+  effect_dir = "positive"
 )
 }
 \arguments{
@@ -74,6 +75,8 @@ vegrowth(
 \item{family}{family for outcome variable 'G', defaults to gaussian for growth}
 
 \item{v_folds}{number of cross validation folds for SuperLearner, default 3}
+
+\item{effect_dir}{direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.}
 }
 \value{
 List of class \code{vegrowth}

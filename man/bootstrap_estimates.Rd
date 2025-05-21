@@ -22,7 +22,8 @@ bootstrap_estimates(
   G_X_library = c("SL.glm"),
   Y_X_library = c("SL.glm"),
   family = "gaussian",
-  v_folds = v_folds
+  v_folds = 3,
+  effect_dir = "positive"
 )
 }
 \arguments{
@@ -59,6 +60,8 @@ bootstrap_estimates(
 \item{family}{family for outcome model, defaults to gaussian for growth}
 
 \item{v_folds}{number of cross validation folds for SuperLearner, default 3}
+
+\item{effect_dir}{direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.}
 }
 \value{
 list containing bootstrap se and 95\% CI bounds for estimators specified in est

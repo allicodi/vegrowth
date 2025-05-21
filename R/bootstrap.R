@@ -14,6 +14,7 @@
 #' @param Y_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
 #' @param family family for outcome model, defaults to gaussian for growth
 #' @param v_folds number of cross validation folds for SuperLearner, default 3
+#' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
 #' 
 #' @returns list containing results for specified estimators on single bootstrap sample
 one_boot <- function(
@@ -32,7 +33,8 @@ one_boot <- function(
     G_X_library = c("SL.glm"),
     Y_X_library = c("SL.glm"),
     family = "gaussian",
-    v_folds = 3
+    v_folds = 3,
+    effect_dir = "positive"
 ){
   n <- dim(data)[1]
   boot_row_idx <- sample(1:n, replace=TRUE)
@@ -174,6 +176,7 @@ one_boot <- function(
 #' @param Y_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
 #' @param family family for outcome model, defaults to gaussian for growth
 #' @param v_folds number of cross validation folds for SuperLearner, default 3
+#' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
 #' 
 #' @returns list containing bootstrap se and 95% CI bounds for estimators specified in est
 bootstrap_estimates <- function(
@@ -193,7 +196,8 @@ bootstrap_estimates <- function(
     G_X_library = c("SL.glm"),
     Y_X_library = c("SL.glm"),
     family = "gaussian",
-    v_folds = v_folds
+    v_folds = 3,
+    effect_dir = "positive"
 ){
   
   boot_estimates <- replicate(n_boot, one_boot(data, 
