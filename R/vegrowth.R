@@ -158,11 +158,21 @@ vegrowth <- function(data,
     
     gcomp_res <- list()
     
-    gcomp_res$pt_est <- do_gcomp(data, models)
-    gcomp_res$se <- bootstrap_results$se_gcomp
-    gcomp_res$lower_ci <- bootstrap_results$lower_ci_gcomp
-    gcomp_res$upper_ci <- bootstrap_results$upper_ci_gcomp
-    gcomp_res$reject <- ((gcomp_res$pt_est - null_hypothesis_value) / gcomp_res$se) > qnorm(1 - alpha_level)
+    pt_est <- do_gcomp(data, models)
+    gcomp_res$pt_est_additive <- pt_est['additive_effect']
+    gcomp_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
+    
+    gcomp_res$se_additive <- bootstrap_results$se_gcomp_additive
+    gcomp_res$se_log_mult <- bootstrap_results$se_gcomp_log_mult
+    
+    gcomp_res$lower_ci_additive <- bootstrap_results$lower_ci_gcomp_additive
+    gcomp_res$upper_ci_additive <- bootstrap_results$upper_ci_gcomp_additive
+    
+    gcomp_res$lower_ci_mult <- bootstrap_results$lower_ci_gcomp_mult
+    gcomp_res$upper_ci_mult <- bootstrap_results$upper_ci_gcomp_mult
+    
+    # just needed on an additive scale?
+    gcomp_res$reject <- ((gcomp_res$pt_est_additive - null_hypothesis_value) / gcomp_res$se_additive) > qnorm(1 - alpha_level)
     
     class(gcomp_res) <- "gcomp_res"
     out$gcomp_res <- gcomp_res
@@ -172,11 +182,20 @@ vegrowth <- function(data,
     
     pop_gcomp_res <- list() 
     
-    pop_gcomp_res$pt_est <- do_gcomp_pop_estimand(data, models, V_name = V_name, X_name = X_name)
-    pop_gcomp_res$se <- bootstrap_results$se_gcomp_pop_estimand
-    pop_gcomp_res$lower_ci <- bootstrap_results$lower_ci_gcomp_pop_estimand
-    pop_gcomp_res$upper_ci <- bootstrap_results$upper_ci_gcomp_pop_estimand
-    pop_gcomp_res$reject <- ((pop_gcomp_res$pt_est - null_hypothesis_value) / pop_gcomp_res$se) > qnorm(1 - alpha_level)
+    pt_est <- do_gcomp_pop_estimand(data, models, V_name = V_name, X_name = X_name)
+    pop_gcomp_res$pt_est_additive <- pt_est['additive_effect']
+    pop_gcomp_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
+    
+    pop_gcomp_res$se_additive <- bootstrap_results$se_gcomp_pop_estimand_additive
+    pop_gcomp_res$se_log_mult <- bootstrap_results$se_gcomp_pop_estimand_log_mult
+    
+    pop_gcomp_res$lower_ci_additive <- bootstrap_results$lower_ci_gcomp_pop_estimand_additive
+    pop_gcomp_res$upper_ci_additive <- bootstrap_results$upper_ci_gcomp_pop_estimand_additive
+    
+    pop_gcomp_res$lower_ci_mult <- bootstrap_results$lower_ci_gcomp_pop_estimand_mult
+    pop_gcomp_res$upper_ci_mult <- bootstrap_results$upper_ci_gcomp_pop_estimand_mult
+    
+    pop_gcomp_res$reject <- ((pop_gcomp_res$pt_est_additive - null_hypothesis_value) / pop_gcomp_res$se_additive) > qnorm(1 - alpha_level)
     
     class(pop_gcomp_res) <- "pop_gcomp_res"
     out$pop_gcomp_res <- pop_gcomp_res
@@ -190,15 +209,25 @@ vegrowth <- function(data,
       # Point est + bootstrap SE
       
       if(ml){
-        aipw_res$pt_est <- do_efficient_aipw(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        pt_est <- do_efficient_aipw(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       } else{
-        aipw_res$pt_est <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        pt_est <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       }
       
-      aipw_res$se <- bootstrap_results$se_efficient_aipw
-      aipw_res$lower_ci <- bootstrap_results$lower_ci_efficient_aipw
-      aipw_res$upper_ci <- bootstrap_results$upper_ci_efficient_aipw
-      aipw_res$reject <- ((aipw_res$pt_est - null_hypothesis_value) / aipw_res$se) > qnorm(1 - alpha_level)
+      aipw_res$pt_est_additive <- pt_est['additive_effect']
+      aipw_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
+      
+      aipw_res$se_additive <- bootstrap_results$se_efficient_aipw_additive
+      aipw_res$se_log_mult <- bootstrap_results$se_efficient_aipw_log_mult
+      
+      aipw_res$lower_ci_additive <- bootstrap_results$lower_ci_efficient_aipw_additive
+      aipw_res$upper_ci_additive <- bootstrap_results$upper_ci_efficient_aipw_additive
+      
+      aipw_res$lower_ci_mult <- bootstrap_results$lower_ci_efficient_aipw_mult
+      aipw_res$upper_ci_mult <- bootstrap_results$upper_ci_efficient_aipw_mult
+      
+      aipw_res$reject <- ((aipw_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level)
+      
     } else {
       # Point est + closed form SE
       
@@ -208,11 +237,21 @@ vegrowth <- function(data,
         aipw_result <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       }
       
-      aipw_res$pt_est <- aipw_result[1]
-      aipw_res$se <- aipw_result[2]
-      aipw_res$lower_ci <- aipw_res$pt_est - 1.96*aipw_res$se
-      aipw_res$upper_ci <- aipw_res$pt_est + 1.96*aipw_res$se
-      aipw_res$reject <- ((aipw_res$pt_est - null_hypothesis_value) / aipw_res$se) > qnorm(1 - alpha_level)
+      aipw_res$pt_est_additive <- aipw_result['additive_effect']
+      aipw_res$pt_est_mult <- exp(aipw_result['log_multiplicative_effect'])
+      
+      aipw_res$se_additive <- aipw_result['additive_se']
+      aipw_res$se_log_mult <- aipw_result['log_multiplicative_se']
+      
+      aipw_res$lower_ci_additive <- aipw_res$pt_est_additive - 1.96*aipw_res$se_additive
+      aipw_res$upper_ci_additive <- aipw_res$pt_est_additive + 1.96*aipw_res$se_additive
+      
+      # CHECK THIS BRAIN NOT WORKING
+      # already exponentiated the pt est
+      aipw_res$lower_ci_mult <- exp(log(aipw_res$pt_est_mult) - 1.96*aipw_res$se_log_mult)
+      aipw_res$upper_ci_mult <- exp(log(aipw_res$pt_est_mult) + 1.96*aipw_res$se_log_mult)
+      
+      aipw_res$reject <- ((aipw_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level)
     }
     
     class(aipw_res) <- "aipw_res"
@@ -226,16 +265,28 @@ vegrowth <- function(data,
     if(return_se == FALSE){
       # Point est + bootstrap SE
       
+      # STOPPED HERE IMPLEMENTING THE MULTIPLICATIVE EFFECT
+      
       if(ml){
-        tmle_res$pt_est <- do_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        pt_est <- do_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       } else{
-        tmle_res$pt_est <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        pt_est <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       }
       
-      tmle_res$se <- bootstrap_results$se_efficient_tmle
-      tmle_res$lower_ci <- bootstrap_results$lower_ci_efficient_tmle
-      tmle_res$upper_ci <- bootstrap_results$upper_ci_efficient_tmle
-      tmle_res$reject <- ((tmle_res$pt_est - null_hypothesis_value) / tmle_res$se) > qnorm(1 - alpha_level)
+      tmle_res$pt_est_additive <- pt_est['additive_effect']
+      tmle_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
+      
+      tmle_res$se_additive <- bootstrap_results$se_efficient_tmle_additive
+      tmle_res$se_log_mult <- bootstrap_results$se_efficient_tmle_log_mult
+      
+      tmle_res$lower_ci_additive <- bootstrap_results$lower_ci_efficient_tmle_additive
+      tmle_res$upper_ci_additive <- bootstrap_results$upper_ci_efficient_tmle_additive
+      
+      tmle_res$lower_ci_mult <- bootstrap_results$lower_ci_efficient_tmle_mult
+      tmle_res$upper_ci_mult <- bootstrap_results$upper_ci_efficient_tmle_mult
+      
+      tmle_res$reject <- ((tmle_res$pt_est_additive - null_hypothesis_value) / tmle_res$se_additive) > qnorm(1 - alpha_level)
+      
     } else {
       # Point est + closed form SE
       
@@ -245,11 +296,21 @@ vegrowth <- function(data,
         tmle_result <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       }
       
-      tmle_res$pt_est <- tmle_result[1]
-      tmle_res$se <- tmle_result[2]
-      tmle_res$lower_ci <- tmle_res$pt_est - 1.96*tmle_res$se
-      tmle_res$upper_ci <- tmle_res$pt_est + 1.96*tmle_res$se
-      tmle_res$reject <- ((tmle_res$pt_est - null_hypothesis_value) / tmle_res$se) > qnorm(1 - alpha_level)
+      tmle_res$pt_est_additive <- tmle_result['additive_effect']
+      tmle_res$pt_est_mult <- exp(tmle_result['log_multiplicative_effect'])
+      
+      tmle_res$se_additive <- tmle_result['additive_se']
+      tmle_res$se_log_mult <- tmle_result['log_multiplicative_se']
+      
+      tmle_res$lower_ci_additive <- tmle_res$pt_est_additive - 1.96*tmle_res$se_additive
+      tmle_res$upper_ci_additive <- tmle_res$pt_est_additive + 1.96*tmle_res$se_additive
+      
+      # CHECK THIS BRAIN NOT WORKING
+      # already exponentiated the pt est
+      tmle_res$lower_ci_mult <- exp(log(tmle_res$pt_est_mult) - 1.96*tmle_res$se_log_mult)
+      tmle_res$upper_ci_mult <- exp(log(tmle_res$pt_est_mult) + 1.96*tmle_res$se_log_mult)
+      
+      tmle_res$reject <- ((tmle_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level)
     }
     
     class(tmle_res) <- "tmle_res"

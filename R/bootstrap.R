@@ -245,7 +245,7 @@ bootstrap_estimates <- function(
     out$lower_ci_gcomp_additive <- ci_gcomp_additive[1]
     out$upper_ci_gcomp_additive <- ci_gcomp_additive[2]
     
-    # Multiplicative (**have david check this**)
+    # Multiplicative 
     ci_gcomp_log_mult <- quantile(growth_effect$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
     out$se_gcomp_log_mult <- sd(growth_effect$log_multiplicative_effect, na.rm = TRUE)
     out$lower_ci_gcomp_mult <- exp(ci_gcomp_log_mult[1])
