@@ -219,15 +219,29 @@ bootstrap_estimates <- function(
     
     # if there was only one method, unlist boot_est as is
     if(length(boot_estimates) == n_boot){
-      growth_effect_pop <- unlist(boot_estimates)
+      #growth_effect_pop <- unlist(boot_estimates)
+      growth_effect_pop <- data.frame(do.call(rbind, boot_estimates))
     } else{
-      growth_effect_pop <- unlist(boot_estimates["growth_effect_pop",])
+      #growth_effect_pop <- unlist(boot_estimates["growth_effect_pop",])
+      growth_effect_pop <- data.frame(do.call(rbind, boot_estimates["growth_effect_pop",]))
     }
     
-    ci_gcomp_pop_estimand <- quantile(growth_effect_pop, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_gcomp_pop_estimand <- sd(growth_effect_pop, na.rm = TRUE)
-    out$lower_ci_gcomp_pop_estimand <- ci_gcomp_pop_estimand[1]
-    out$upper_ci_gcomp_pop_estimand <- ci_gcomp_pop_estimand[2]
+    # Additive
+    ci_gcomp_pop_estimand_additive <- quantile(growth_effect_pop$additive_effect, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_gcomp_pop_estimand_additive <- sd(growth_effect_pop$additive_effect, na.rm = TRUE)
+    out$lower_ci_gcomp_pop_estimand_additive <- ci_gcomp_pop_estimand_additive[1]
+    out$upper_ci_gcomp_pop_estimand_additive <- ci_gcomp_pop_estimand_additive[2]
+    
+    # Multiplicative 
+    ci_gcomp_pop_log_mult <- quantile(growth_effect_pop$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
+    out$se_gcomp_pop_estimand_log_mult <- sd(growth_effect_pop$log_multiplicative_effect, na.rm = TRUE)
+    out$lower_ci_gcomp_pop_estimand_mult <- exp(ci_gcomp_pop_log_mult[1])
+    out$upper_ci_gcomp_pop_estimand_mult <- exp(ci_gcomp_pop_log_mult[2])
+    
+    # ci_gcomp_pop_estimand <- quantile(growth_effect_pop, p = c(0.025, 0.975), na.rm=TRUE)
+    # out$se_gcomp_pop_estimand <- sd(growth_effect_pop, na.rm = TRUE)
+    # out$lower_ci_gcomp_pop_estimand <- ci_gcomp_pop_estimand[1]
+    # out$upper_ci_gcomp_pop_estimand <- ci_gcomp_pop_estimand[2]
   }
   if("gcomp" %in% est){
     
@@ -370,7 +384,7 @@ bootstrap_estimates <- function(
       growth_effect_hudgens_lower_dooemd <- do.call(rbind, boot_estimates)
     } else{
       #growth_effect_hudgens_lower_doomed <- unlist(boot_estimates["growth_effect_hudgens_lower_doomed",])
-      growth_effect_hudgens_lower_dooemd <- do.call(rbind, boot_estimates["growth_effect_hudgens_lower_doomed",])
+      growth_effect_hudgens_lower_doomed <- do.call(rbind, boot_estimates["growth_effect_hudgens_lower_doomed",])
     }
     
     ci_hudgens_lower_doomed <- quantile(growth_effect_hudgens_lower_doomed, p = c(0.025, 0.975), na.rm=TRUE)
@@ -387,7 +401,7 @@ bootstrap_estimates <- function(
       growth_effect_hudgens_upper_dooemd <- do.call(rbind, boot_estimates)
     } else{
       #growth_effect_hudgens_upper_doomed <- unlist(boot_estimates["growth_effect_hudgens_upper_doomed",])
-      growth_effect_hudgens_upper_dooemd <- do.call(rbind, boot_estimates["growth_effect_hudgens_upper_doomed",])
+      growth_effect_hudgens_upper_doomed <- do.call(rbind, boot_estimates["growth_effect_hudgens_upper_doomed",])
     }
     
     ci_hudgens_upper_doomed <- quantile(growth_effect_hudgens_upper_doomed, p = c(0.025, 0.975), na.rm=TRUE)

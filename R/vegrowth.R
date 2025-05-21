@@ -265,8 +265,6 @@ vegrowth <- function(data,
     if(return_se == FALSE){
       # Point est + bootstrap SE
       
-      # STOPPED HERE IMPLEMENTING THE MULTIPLICATIVE EFFECT
-      
       if(ml){
         pt_est <- do_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
       } else{
