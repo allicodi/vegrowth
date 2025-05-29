@@ -107,7 +107,7 @@ vegrowth <- function(data,
                                      Y_X_model = Y_X_model,
                                      family = family)
       model_list$models <- models
-    } 
+    } }
       
     # If using return_se is true, do not use bootstrap se for AIPW and TMLE (remove from est for boot, used closed form SE for AIPW/TMLE)
     if(return_se == TRUE){
@@ -149,7 +149,6 @@ vegrowth <- function(data,
                                                est = est,
                                                effect_dir = effect_dir)
     }
-  }
   
   # Point estimates for effects of interest & format results
   out <- list()
