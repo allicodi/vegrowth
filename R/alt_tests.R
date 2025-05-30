@@ -156,8 +156,8 @@ get_hudgens_stat <- function(
   n_inf_vax <- n_vax - n_no_inf_vax
   
   n_diff <- n_inf_plc - n_inf_vax
-  
-  if(n_inf_plc > n_inf_vax){
+  # rho_0n > rho_1n
+  if(n_inf_plc / n_plc > n_inf_vax / n_vax){
     
     # E[G | Y_inf = 1, V = 0]
     mean_G_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
@@ -285,6 +285,117 @@ hudgens_test <- function(
   }else{
     stop("Method not applicable unless evidence of vaccine protection.")
   }
+}
+
+#' Function for hudgens-style test statistic
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
+#'    to the infected vaccinees thereby yielding a lower
+#'    bound on the effect of interest. If FALSE, then adds the largest
+#'    growth measures to the infected vaccinees thereby yielding an upper
+#'    bound on the effect of interest. 
+#' 
+#' @returns Hudgens-style test statistic
+get_hudgens_stat_new <- function(
+    data, 
+    G_name = "G",
+    V_name = "V",
+    Y_name = "Y",
+    lower_bound = TRUE
+){
+  
+  # Step 1: rhobar_z_n
+  
+  # 1.1 rhobar_0_n
+  rhobar_0_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 0)) / 
+    sum(as.numeric(data[[V_name]] == 0))
+  
+  # 1.2 rhobar_1_n
+  rhobar_1_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 1)) / 
+    sum(as.numeric(data[[V_name]] == 1))
+  
+  if(rhobar_0_n > rhobar_1_n){
+    # Step 2: mubar_11_n 
+    mubar_11_n <- sum(data[[G_name]]*data[[Y_name]]*data[[V_name]]) / sum(data[[Y_name]]*data[[V_name]])
+    
+    # Step 3: q_n
+    q_n = 1 - (1 - rhobar_0_n) / (1 - rhobar_1_n)
+    
+    # Step 4: q_n^th quintiles of Y__Z0_S0 (aka G__V0_Y0, need to rename everything at some point)
+    G__V0_Y0 <- data[[G_name]][which(data[[V_name]] == 0 & data[[Y_name]] == 0)]
+    q_nth_quintile <- quantile(G__V0_Y0, probs = q_n)
+    one_minus_q_nth_quintile <- quantile(G__V0_Y0, probs = 1 - q_n)
+    
+    # Step 5: mubar_10_l,u_n # NOT WORKING FOR BINARY OUTCOME, Q_NTH_QUINTILE == 0 SO NOTHING <
+    mubar_10_l_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[G_name]] < q_nth_quintile )) / 
+      sum(as.numeric(data[[Y_name]] == 0 & data[[G_name]] < q_nth_quintile ))
+    
+    mubar_10_u_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[G_name]] > one_minus_q_nth_quintile )) / 
+      sum(as.numeric(data[[Y_name]] == 0 & data[[G_name]] > one_minus_q_nth_quintile ))
+    
+    # Step 6: final estimates of the bounds (just doing both each time for now??)
+    
+    l_n <- mubar_11_n * (rhobar_1_n / rhobar_0_n) + mubar_10_l_n * (1 - (rhobar_1_n / rhobar_0_n))
+    u_n <- mubar_11_n * (rhobar_1_n / rhobar_0_n) + mubar_10_u_n * (1 - (rhobar_1_n / rhobar_0_n))
+  } else{
+    stop("Method not applicable unless evidence of vaccine protection.")
+  }
+  
+  out <- list(lower_bound = l_n,
+              upper_bound = u_n)
+  
+  return(out)
+  
+  # 
+  # 
+  # 
+  # # Old
+  # n_no_inf_plc <- sum(data[[Y_name]] == 0 & data[[V_name]] == 0)
+  # n_no_inf_vax <- sum(data[[Y_name]] == 0 & data[[V_name]] == 1)
+  # n_plc <- sum(data[[V_name]] == 0)
+  # n_vax <- sum(data[[V_name]] == 1)
+  # n_inf_plc <- n_plc - n_no_inf_plc
+  # n_inf_vax <- n_vax - n_no_inf_vax
+  # 
+  # n_diff <- n_inf_plc - n_inf_vax
+  # # rho_0n > rho_1n
+  # if(n_inf_plc / n_plc > n_inf_vax / n_vax){
+  #   
+  #   # E[G | Y_inf = 1, V = 0]
+  #   mean_G_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
+  #   
+  #   G_inf_vax <- data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1]
+  #   G_noinf_vax <- data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 0]
+  #   
+  #   if(lower_bound){
+  #     # find the n_diff smallest growths in non-infected vaccinees 
+  #     G_aug_vax <- sort(G_noinf_vax, decreasing = FALSE)[1:n_diff]
+  #   }else{
+  #     # find the n_diff largest growths in non-infected vaccinees 
+  #     G_aug_vax <- sort(G_noinf_vax, decreasing = TRUE)[1:n_diff]
+  #   }
+  #   
+  #   mean_G_vax <- mean(c(G_inf_vax, G_aug_vax))
+  #   
+  # }else{
+  #   
+  #   stop("Method not applicable unless evidence of vaccine protection.")
+  #   
+  # }
+  # 
+  # additive <- mean_G_vax - mean_G_plc
+  # #log_mult <- log(mean_G_vax / mean_G_plc)
+  # 
+  # #out <- c(additive, multiplicative)
+  # #names(out) <- c("additive_effect", "log_multiplicative_effect")
+  # #return(out)
+  # 
+  # return(additive)
+  
 }
 
 #' Function for hudgens-style test statistic - doomed strata
