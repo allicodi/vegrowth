@@ -98,6 +98,58 @@ do_gcomp_pop_estimand <- function(data,
   return(out)
 }
 
+#' Function for g-computation of short-term growth estimand
+#' 
+#' @param data dataset to predict on
+#' @param models list of pre-fit models needed for estimation
+#' @param V_name name of vaccine treatment variable, default V
+#' @param X_name character vector containing name(s) of covariates, default X
+#' 
+#' @returns g-comp estimate of growth effect for short term growth estimand
+do_gcomp_short_term <- function(data, 
+                                models,
+                                V_name = "V",
+                                X_name = c("X")){
+  
+  # tau = 2mo prior to study end
+  # S_t(z) = have diarrhea by t
+  
+  # E[Y_3(1) - Y_3(0) | S_1(0) = 1]*P(S_1(0) = 1 | S_tau(0) = 1) +
+  # E[Y_6(1) - Y_6(0) | S_4(0) = 1]*P(S_4(0) = 1 | S_tau(0) = 1) +
+  # ...
+  
+  #df_V1 <- data.frame(V = 1, X = data[[X_name]])
+  # df_V1 <- data.frame(V = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
+  # names(df_V1) <- c(V_name, X_name)
+  # 
+  # if(inherits(models$fit_G_V_X, "SuperLearner")){
+  #   Qbar_V1 <- predict(models$fit_G_V_X, newdata = df_V1, type = "response")$pred
+  # } else{
+  #   Qbar_V1 <- predict(models$fit_G_V_X, newdata = df_V1, type = "response")
+  # }
+  # 
+  # psi_1 <- mean(Qbar_V1)
+  # 
+  # df_V0 <- data.frame(V = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
+  # names(df_V0) <- c(V_name, X_name)
+  # 
+  # if(inherits(models$fit_G_V_X, "SuperLearner")){
+  #   Qbar_V0 <- predict(models$fit_G_V_X, newdata = df_V0, type = "response")$pred 
+  # } else{
+  #   Qbar_V0 <- predict(models$fit_G_V_X, newdata = df_V0, type = "response") 
+  # }
+  # 
+  # psi_0 <- mean(Qbar_V0) 
+  # 
+  # pop_growth_effect <- psi_1 - psi_0
+  # 
+  # pop_growth_effect_log_mult <- log(psi_1 / psi_0)
+  # 
+  # out <- c(pop_growth_effect, pop_growth_effect_log_mult)
+  # names(out) <-  c("additive_effect","log_multiplicative_effect")
+  # return(out)
+}
+
 #' Function for efficient AIPW estimator
 #' 
 #' @param data dataset to predict on
