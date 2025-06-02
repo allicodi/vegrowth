@@ -287,17 +287,13 @@ hudgens_test <- function(
   }
 }
 
-#' Function for hudgens-style test statistic
+#' Function for hudgens-style test statistic - match description in the paper
 #' 
 #' @param data dataframe containing dataset to use for analysis
 #' @param G_name growth outcome variable name
 #' @param V_name vaccination variable name
 #' @param Y_name infection variable name
-#' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
-#'    to the infected vaccinees thereby yielding a lower
-#'    bound on the effect of interest. If FALSE, then adds the largest
-#'    growth measures to the infected vaccinees thereby yielding an upper
-#'    bound on the effect of interest. 
+#' @param family gaussian for continuous outcome, binomial for binary
 #' 
 #' @returns Hudgens-style test statistic
 get_hudgens_stat_new <- function(
@@ -305,96 +301,245 @@ get_hudgens_stat_new <- function(
     G_name = "G",
     V_name = "V",
     Y_name = "Y",
-    lower_bound = TRUE
+    family = "gaussian"
 ){
   
   # Step 1: rhobar_z_n
   
-  # 1.1 rhobar_0_n
-  rhobar_0_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 0)) / 
-    sum(as.numeric(data[[V_name]] == 0))
+  # 1.1 rhobar_0_n (or mean in subset)
+  rhobar_0_n <- mean(data[[Y_name]][data[[V_name]] == 0])
+  
+  # rhobar_0_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 0)) / 
+  #   sum(as.numeric(data[[V_name]] == 0))
   
   # 1.2 rhobar_1_n
-  rhobar_1_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 1)) / 
-    sum(as.numeric(data[[V_name]] == 1))
+  rhobar_1_n <- mean(data[[Y_name]][data[[V_name]] == 1])
+  
+  # rhobar_1_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 1)) / 
+  #   sum(as.numeric(data[[V_name]] == 1))
   
   if(rhobar_0_n > rhobar_1_n){
     # Step 2: mubar_11_n 
     mubar_11_n <- sum(data[[G_name]]*data[[Y_name]]*data[[V_name]]) / sum(data[[Y_name]]*data[[V_name]])
     
-    # Step 3: q_n
+    # Step 3: q_n (relative size of protected? in (immune + protected) in vax)
     q_n = 1 - (1 - rhobar_0_n) / (1 - rhobar_1_n)
+    #one_minus_q_n <- 1 - q_n # relative size of the immune? unclear why added?? 
     
-    # Step 4: q_n^th quintiles of Y__Z0_S0 (aka G__V0_Y0, need to rename everything at some point)
-    G__V0_Y0 <- data[[G_name]][which(data[[V_name]] == 0 & data[[Y_name]] == 0)]
-    q_nth_quintile <- quantile(G__V0_Y0, probs = q_n)
-    one_minus_q_nth_quintile <- quantile(G__V0_Y0, probs = 1 - q_n)
+    # Step 4: q_n^th quintiles of Y__Z1_S0 (aka G__V1_Y0, need to rename everything at some point)
+    G__V1_Y0 <- data[[G_name]][which(data[[V_name]] == 1 & data[[Y_name]] == 0)]
+    q_nth_quintile <- quantile(G__V1_Y0, probs = q_n)
+    one_minus_q_nth_quintile <- quantile(G__V1_Y0, probs = 1 - q_n)
     
-    # Step 5: mubar_10_l,u_n # NOT WORKING FOR BINARY OUTCOME, Q_NTH_QUINTILE == 0 SO NOTHING <
-    mubar_10_l_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[G_name]] < q_nth_quintile )) / 
-      sum(as.numeric(data[[Y_name]] == 0 & data[[G_name]] < q_nth_quintile ))
-    
-    mubar_10_u_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[G_name]] > one_minus_q_nth_quintile )) / 
-      sum(as.numeric(data[[Y_name]] == 0 & data[[G_name]] > one_minus_q_nth_quintile ))
+    # Step 5: mubar_10_l,u_n 
+    if(family == "gaussian"){
+      mubar_10_l_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] < q_nth_quintile )) / 
+        sum(as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] < q_nth_quintile ))
+      
+      mubar_10_u_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] > one_minus_q_nth_quintile )) / 
+        sum(as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] > one_minus_q_nth_quintile ))
+    } else{
+      # Binary outcome
+      
+      # Vaccinated, Uninfected
+      data__V1_Y0 <- data[which(data[[V_name]] == 1 & data[[Y_name]] == 0),]
+      
+      target_num <- ceiling(q_n * nrow(data__V1_Y0))
+      num_0s <- length(which(data__V1_Y0[[G_name]] == 0))
+      num_1s <- length(which(data__V1_Y0[[G_name]] == 1))
+      
+      ## Lower Bound:
+      
+      # Check if at least q_n * 100 % 0s in the vax uninfected 
+      if(num_0s >= target_num){
+        # If so, muhat_10_l = 0
+        mubar_10_l_n <- 0
+      } else{
+        # Else, mubar_10_l = (q_n - prop zeros in vax uninf) / q_n
+        mubar_10_l_n <- (q_n - (num_0s / nrow(data__V1_Y0)) ) /
+          q_n
+      }
+      
+      ## Upper Bound:
+      
+      # Check if at least q_n * 100 % 1s in the vax uninfected 
+      if(num_1s >= target_num){
+        # If so, mubar_10_u = 1
+        mubar_10_u_n <- 1
+      } else{
+        # Else, mubar_10_u = (q_n - prop ones in vax uninf) / q_n
+         
+        mubar_10_u_n <- 1 - ((q_n - (num_1s / nrow(data__V1_Y0)) ) /
+          q_n)
+      }
+
+      # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+      # ^^^^ NOT WORKING FOR BINARY OUTCOME, Q_NTH_QUINTILE == 0 OR 1 SO NOTHING < OR >
+      # randomly sample q%??
+      
+      # # Get subset uninfected
+      # data__Y0 <- data[which(data[[Y_name]] == 0),]
+      # data__Y0$idx <- 1:nrow(data__Y0)
+      # 
+      # # which rows match q_n^th and 1 - q_n^th quintiles (likely 0 and 1)
+      # rows_q_nth_quintile <- which(data__Y0[[G_name]] == q_nth_quintile)
+      # rows_one_minus_q_nth_quintile <- which(data__Y0[[G_name]] == one_minus_q_nth_quintile)
+      # 
+      # # number of rows to sample = q_n% of uninfected participants (round up to whole number)
+      # num_q_nth <- ceiling(q_n * nrow(data__Y0))
+      # 
+      # # randomly remove q_n% of the people matching each quintile? not going to be the same estimate every time
+      # rm_lower <- sample(rows_q_nth_quintile, size = num_q_nth, replace = FALSE)
+      # rm_upper <- sample(rows_one_minus_q_nth_quintile, size = num_q_nth, replace = FALSE)
+      # 
+      # # add removal flag to data 
+      # data__Y0$rm_lower <- ifelse(data__Y0$idx %in% rm_lower, 1, 0)
+      # data__Y0$rm_upper <- ifelse(data__Y0$idx %in% rm_upper, 1, 0)
+      # 
+      # mubar_10_l_n <- sum(data__Y0[[G_name]] * data__Y0$rm_lower) / 
+      #   sum(data__Y0$rm_lower)
+      # 
+      # mubar_10_u_n <- sum(data__Y0[[G_name]] * data__Y0$rm_upper) / 
+      #   sum(data__Y0$rm_upper)
+      
+      # ^^ results from this are equivalent to what i changed it to after discussion??
+      
+    }
     
     # Step 6: final estimates of the bounds (just doing both each time for now??)
     
     l_n <- mubar_11_n * (rhobar_1_n / rhobar_0_n) + mubar_10_l_n * (1 - (rhobar_1_n / rhobar_0_n))
     u_n <- mubar_11_n * (rhobar_1_n / rhobar_0_n) + mubar_10_u_n * (1 - (rhobar_1_n / rhobar_0_n))
+    
   } else{
     stop("Method not applicable unless evidence of vaccine protection.")
   }
   
-  out <- list(lower_bound = l_n,
-              upper_bound = u_n)
+  #mean in unvaccinated infecteds for comparison
+  E_G0__Y0_1 <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 0])
+
+  out <- list(E_G0__Y0_1 = E_G0__Y0_1,
+              E_G1__Y0_1_lower = l_n,
+              E_G1__Y0_1_upper = u_n,
+              additive_effect_lower = l_n - E_G0__Y0_1,
+              additive_effect_upper = u_n - E_G0__Y0_1,
+              mult_effect_lower = l_n / E_G0__Y0_1,
+              mult_effect_upper = u_n / E_G0__Y0_1)
   
   return(out)
+
+}
+
+#' Function for hudgens-style test statistic - match description in the paper
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' @param family gaussian for continuous outcome, binomial for binary
+#' 
+#' @returns Hudgens-style test statistic
+get_hudgens_stat_doomed_new <- function(
+    data, 
+    G_name = "G",
+    V_name = "V",
+    Y_name = "Y",
+    family = "gaussian"
+){
   
-  # 
-  # 
-  # 
-  # # Old
-  # n_no_inf_plc <- sum(data[[Y_name]] == 0 & data[[V_name]] == 0)
-  # n_no_inf_vax <- sum(data[[Y_name]] == 0 & data[[V_name]] == 1)
-  # n_plc <- sum(data[[V_name]] == 0)
-  # n_vax <- sum(data[[V_name]] == 1)
-  # n_inf_plc <- n_plc - n_no_inf_plc
-  # n_inf_vax <- n_vax - n_no_inf_vax
-  # 
-  # n_diff <- n_inf_plc - n_inf_vax
-  # # rho_0n > rho_1n
-  # if(n_inf_plc / n_plc > n_inf_vax / n_vax){
-  #   
-  #   # E[G | Y_inf = 1, V = 0]
-  #   mean_G_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
-  #   
-  #   G_inf_vax <- data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1]
-  #   G_noinf_vax <- data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 0]
-  #   
-  #   if(lower_bound){
-  #     # find the n_diff smallest growths in non-infected vaccinees 
-  #     G_aug_vax <- sort(G_noinf_vax, decreasing = FALSE)[1:n_diff]
-  #   }else{
-  #     # find the n_diff largest growths in non-infected vaccinees 
-  #     G_aug_vax <- sort(G_noinf_vax, decreasing = TRUE)[1:n_diff]
-  #   }
-  #   
-  #   mean_G_vax <- mean(c(G_inf_vax, G_aug_vax))
-  #   
-  # }else{
-  #   
-  #   stop("Method not applicable unless evidence of vaccine protection.")
-  #   
-  # }
-  # 
-  # additive <- mean_G_vax - mean_G_plc
-  # #log_mult <- log(mean_G_vax / mean_G_plc)
-  # 
-  # #out <- c(additive, multiplicative)
-  # #names(out) <- c("additive_effect", "log_multiplicative_effect")
-  # #return(out)
-  # 
-  # return(additive)
+  # Step 1: rhobar_z_n
+  
+  # 1.1 rhobar_0_n (or mean in subset) -- size of infected in unvaccinated (naturally infected, doomed + protected)
+  rhobar_0_n <- mean(data[[Y_name]][data[[V_name]] == 0])
+  
+  # rhobar_0_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 0)) / 
+  #   sum(as.numeric(data[[V_name]] == 0))
+  
+  # 1.2 rhobar_1_n -- size of infected in vaccinated (doomed)
+  rhobar_1_n <- mean(data[[Y_name]][data[[V_name]] == 1])
+  
+  # rhobar_1_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 1)) / 
+  #   sum(as.numeric(data[[V_name]] == 1))
+  
+  if(rhobar_0_n > rhobar_1_n){
+    # Step 2: mubar_11_n - doomed we observe
+    # mubar_11_n <- sum(data[[G_name]]*data[[Y_name]]*data[[V_name]]) / sum(data[[Y_name]]*data[[V_name]])
+    
+    # Step 3: q_n (relative size of protected in naturally infected (doomed + protected) in unvax)
+    q_n = 1 - rhobar_1_n / rhobar_0_n
+    
+    # Step 4: q_n^th quintiles of Y__Z1_S0 (aka G__V1_Y0, need to rename everything at some point)
+    G__V0_Y1 <- data[[G_name]][which(data[[V_name]] == 0 & data[[Y_name]] == 1)]
+    q_nth_quintile <- quantile(G__V0_Y1, probs = q_n)
+    one_minus_q_nth_quintile <- quantile(G__V0_Y1, probs = 1 - q_n)
+    
+    # Step 5: mubar_10_l,u_n 
+    if(family == "gaussian"){
+      # get people < quintile lower (protected people)
+      mubar_10_u_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 1 & data[[V_name]] == 0 & data[[G_name]] < q_nth_quintile )) / 
+        sum(as.numeric(data[[Y_name]] == 1 & data[[V_name]] == 0 & data[[G_name]] < q_nth_quintile ))
+      
+      # get people > quintile upper (protected people)
+      mubar_10_l_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 1 & data[[V_name]] == 0 & data[[G_name]] > one_minus_q_nth_quintile )) / 
+        sum(as.numeric(data[[Y_name]] == 1 & data[[V_name]] == 0 & data[[G_name]] > one_minus_q_nth_quintile ))
+    } else{
+      # Binary outcome
+      
+      # Unvaccinated, infected
+      data__V0_Y1 <- data[which(data[[V_name]] == 0 & data[[Y_name]] == 1),]
+      
+      # Number of protected
+      target_num <- ceiling(q_n * nrow(data__V0_Y1))
+      num_0s <- length(which(data__V0_Y1[[G_name]] == 0))
+      num_1s <- length(which(data__V0_Y1[[G_name]] == 1))
+      
+      ## Lower Bound:
+      
+      # Check if at least q_n * 100 % 0s in the vax uninfected 
+      if(num_0s >= target_num){
+        # If so, muhat_10_l = 0
+        mubar_10_l_n <- 0
+      } else{
+        # Else, mubar_10_l = (q_n - prop zeros in vax uninf) / q_n
+        mubar_10_l_n <- (q_n - (num_0s / nrow(data__V0_Y1)) ) /
+          q_n
+      }
+      
+      ## Lower Bound:
+      
+      # Check if at least q_n * 100 % 1s in the vax uninfected 
+      if(num_1s >= target_num){
+        # If so, mubar_10_u = 1
+        mubar_10_u_n <- 1
+      } else{
+        # Else, mubar_10_u = (q_n - prop ones in vax uninf) / q_n
+        
+        mubar_10_u_n <- 1 - ((q_n - (num_1s / nrow(data__V0_Y1)) ) /
+                               q_n)
+      }
+
+    }
+    
+    # Step 6: final estimates of the bounds: effect in naturally infected in placebo arm - effect in protected*proportion protected???
+    l_n <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 0]) - mubar_10_l_n * rhobar_1_n / rhobar_0_n
+    u_n <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 0]) - mubar_10_u_n * rhobar_1_n / rhobar_0_n
+    
+  } else{
+    stop("Method not applicable unless evidence of vaccine protection.")
+  }
+  
+  #mean in vaccinated infecteds for comparison
+  E_G1__Y0_1 <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 1])
+  
+  out <- list(E_G1__Y0_1 = E_G1__Y0_1,
+              E_G0__Y0_1_lower = l_n,
+              E_G0__Y0_1_upper = u_n,
+              additive_effect_lower = E_G1__Y0_1 - l_n,
+              additive_effect_upper = E_G1__Y0_1 - u_n,
+              mult_effect_lower = E_G1__Y0_1 / l_n,
+              mult_effect_upper = E_G1__Y0_1 / u_n)
+  
+  return(out)
   
 }
 
