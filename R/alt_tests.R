@@ -589,12 +589,10 @@ get_hudgens_stat_doomed_new <- function(
         mubar_10_l_n_2 <- 0
       } else{
         # Else, determine fraction of 1s that need to be kept
-        
-        
-        
+
         # Version from notes "fraction of 1s in z=0, s=1 that need to be kept" --> (1 - (prop 0s in z=0, s=1 / rho_bar_1_n)) 
         # 
-        mubar_10_l_n <- 1 - (num_0s / nrow(data__V0_Y1)) / target_num
+        mubar_10_l_n <- 1 - (num_0s / nrow(data__V0_Y1)) / rhobar_1_n
         
         # alternative
         mubar_10_l_n_2 <- ( (target_num - num_0s) / target_num )
