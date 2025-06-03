@@ -572,23 +572,32 @@ get_hudgens_stat_doomed_new <- function(
       # Unvaccinated, infected (naturally infected in placebo arm)
       data__V0_Y1 <- data[which(data[[V_name]] == 0 & data[[Y_name]] == 1),]
       
-      target_num <- ceiling((1 - q_n)*nrow(data__V0_Y1)) # number of doomed in placebo arm
-      num_0s <- length(which(data__V0_Y1[[G_name]] == 0))  # number of 0s in Doomed + Protected box in the placebo arm
-      num_1s <- length(which(data__V0_Y1[[G_name]] == 1))  # number of 1s in Doomed + Protected box in the placebo arm
+      # q_n = proportion of people in naturally infected, placebo arm that are protected
+      # 1 - q_n = proportion of people in naturally infected, placebo arm that are doomed
+      # target_num = proportion of doomed people * number of people in naturally infected = target number of doomed people
+      
+      target_num <- ceiling((1 - q_n)*nrow(data__V0_Y1)) # target number of doomed in placebo arm
+      num_0s <- length(which(data__V0_Y1[[G_name]] == 0))  # observed number of 0s in Doomed + Protected (naturally infected) box in the placebo arm
+      num_1s <- length(which(data__V0_Y1[[G_name]] == 1))  # observed number of 1s in Doomed + Protected (naturally infected) box in the placebo arm
       
       ## Lower Bound:
       
-      # Check if at least q_n * 100 % 0s in the vax uninfected 
+      # Check if at least target_num 0s in the vax uninfected 
       if(num_0s >= target_num){
         # If so, muhat_10_l = 0
         mubar_10_l_n <- 0
+        mubar_10_l_n_2 <- 0
       } else{
         # Else, determine fraction of 1s that need to be kept
         
-        mubar_10_l_n <- ( (target_num - num_0s) / target_num )
         
-        # Version from notes "fraction of 1s in z=0, s=1 that need to be kept" --> (1 - (prop 0s in z=0, s=1 / z= 1, s=1)) but i don't think that makes sense?
-        # mubar_10_l_n <- 1 - (num_0s / nrow(data__V0_Y1)) / target_num
+        
+        # Version from notes "fraction of 1s in z=0, s=1 that need to be kept" --> (1 - (prop 0s in z=0, s=1 / rho_bar_1_n)) 
+        # 
+        mubar_10_l_n <- 1 - (num_0s / nrow(data__V0_Y1)) / target_num
+        
+        # alternative
+        mubar_10_l_n_2 <- ( (target_num - num_0s) / target_num )
         
         # Version whatever i was thinking on monday
         # whatever i was doing before is different, 0.8 in rota example
@@ -603,13 +612,14 @@ get_hudgens_stat_doomed_new <- function(
       if(num_1s >= target_num){
         # If so, mubar_10_u = 1
         mubar_10_u_n <- 1
+        mubar_10_u_n_2 <- 1
       } else{
         # Else, proportion of 1s in doomed box
         
-        mubar_10_u_n <- num_1s / target_num
-        
         # Version from notes "prop of 1s in z=0,s=1 / z=1, s=1"
-        # mubar_10_u_n <- (num_1s / nrow(data__V0_Y1)) / target_num
+        mubar_10_u_n <- (num_1s / nrow(data__V0_Y1)) / rhobar_1_n
+        
+        mubar_10_u_n_2 <- num_1s / target_num
         
         # Version whatever i was thinking on monday
         # Else, mubar_10_u = (q_n - prop ones in vax uninf) / q_n
@@ -621,6 +631,9 @@ get_hudgens_stat_doomed_new <- function(
     
     l_n <- mubar_10_l_n
     u_n <- mubar_10_u_n
+    
+    l_n_2 <- mubar_10_l_n_2
+    u_n_2 <- mubar_10_u_n_2
     
     # Step 6: final estimates of the bounds: effect in naturally infected in placebo arm - effect in protected*proportion protected???
     # l_n <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 0]) - mubar_10_l_n * rhobar_1_n / rhobar_0_n
@@ -636,8 +649,12 @@ get_hudgens_stat_doomed_new <- function(
   out <- list(E_G1__Y0_1 = E_G1__Y0_1,
               E_G0__Y0_1_lower = l_n,
               E_G0__Y0_1_upper = u_n,
+              E_G0__Y0_1_lower_2 = l_n_2,
+              E_G0__Y0_1_upper_2 = u_n_2,
               additive_effect_lower = E_G1__Y0_1 - l_n,
               additive_effect_upper = E_G1__Y0_1 - u_n,
+              additive_effect_lower_2 = E_G1__Y0_1 - l_n_2,
+              additive_effect_upper_2 = E_G1__Y0_1 - u_n_2,
               mult_effect_lower = E_G1__Y0_1 / l_n,
               mult_effect_upper = E_G1__Y0_1 / u_n)
   
