@@ -1,4 +1,6 @@
+.Rapp.history
 .Rproj.user
 .Rbuildignore
 .Rhistory
 vegrowth.Rproj
+sandbox/*
