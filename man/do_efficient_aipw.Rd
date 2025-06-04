@@ -10,6 +10,17 @@ do_efficient_aipw(
   G_name = "G",
   V_name = "V",
   Y_name = "Y",
+  epsilon = seq(0.5, 2, length = 50),
+  return_se = FALSE
+)
+
+do_efficient_aipw(
+  data,
+  models,
+  G_name = "G",
+  V_name = "V",
+  Y_name = "Y",
+  epsilon = seq(0.5, 2, length = 50),
   return_se = FALSE
 )
 }
@@ -25,10 +36,16 @@ do_efficient_aipw(
 \item{Y_name}{name of infection variable, default Y}
 
 \item{return_se}{flag to return standard error, defualt FALSE}
+
+\item{epislon}{a vector of values for the sensitivity parameter}
 }
 \value{
+AIPW estimate of growth effect (+ standard error if return_se = TRUE)
+
 AIPW estimate of growth effect (+ standard error if return_se = TRUE)
 }
 \description{
 Function for efficient AIPW estimator
+
+Function for efficient AIPW estimator for sensitivity analysis
 }
