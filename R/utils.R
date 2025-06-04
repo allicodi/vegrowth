@@ -1,3 +1,16 @@
+#' Example simulated dataset based on the PROVIDE study
+#' 
+#' @format A data frame with X rows and Y variables:
+#' \describe{
+#'   \item{wk10_haz}{Height-for-age Z-score at 10 weeks of age (numeric)}
+#'   \item{gender}{Infant gender, either `"Male"` or `"Female"` (character)}
+#'   \item{num_hh_sleep}{Number of people sleeping in the household (integer)}
+#'   \item{rotaarm}{Indicator for assignment to rotavirus vaccination arm (0 = control, 1 = vaccine) (integer)}
+#'   \item{rotaepi}{Indicator for rotavirus episode during follow-up (0 = no, 1 = yes) (integer)}
+#'   \item{any_abx_wk52}{Any antibiotic usage reported through 52 weeks of age (0 = no, 1 = yes) (integer)}
+#' }
+"provide"
+
 #' Print the output of a \code{"vegrowth"} object
 #' 
 #' @param x An \code{"vegrowth"} object.
@@ -131,4 +144,56 @@ print.vegrowth <- function(x, ...) {
     cat(paste(rep("-", 130), collapse = ""), "\n")
   } 
   
+}
+
+#' @method plot sens
+#' @export
+
+#' Plot method for sens objects
+#'
+#' @param object An object of class "sens"
+#' @param se Logical; whether to include error bars
+#' @param effect_type Character; either "additive" or "multiplicative"
+#' @param ... Additional arguments passed to plot (not used here)
+#' @export
+
+plot.sens <- function(
+  object, se = TRUE, effect_type = c("additive", "multiplicative"), 
+  ...
+) {
+  effect_type <- match.arg(effect_type)
+
+  if (!inherits(object, "sens")) {
+    stop("Object must be of class 'sens'")
+  }
+
+  df <- object
+  class(df) <- "data.frame"
+
+  if (effect_type == "additive") {
+    df$effect <- df$additive_effect
+    if (se) {
+      df$lower <- df$additive_effect - 1.96 * df$additive_se
+      df$upper <- df$additive_effect + 1.96 * df$additive_se
+    }
+    ylab <- "Additive Effect"
+  } else {
+    df$effect <- exp(df$log_multiplicative_effect)
+    if (se) {
+      df$lower <- exp(df$log_multiplicative_effect - 1.96 * df$log_multiplicative_se)
+      df$upper <- exp(df$log_multiplicative_effect + 1.96 * df$log_multiplicative_se)
+    }
+    ylab <- "Multiplicative Effect"
+  }
+
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = epsilon, y = effect)) +
+    ggplot2::geom_line() +
+    ggplot2::labs(x = expression(epsilon), y = ylab) +
+    ggplot2::theme_minimal()
+
+  if (se) {
+    p <- p + ggplot2::geom_ribbon(ggplot2::aes(ymin = lower, ymax = upper), alpha = 0.2)
+  }
+
+  print(p)
 }

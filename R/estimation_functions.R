@@ -158,6 +158,7 @@ do_gcomp_short_term <- function(data,
 #' @param V_name name of vaccine treatment variable, default V
 #' @param Y_name name of infection variable, default Y
 #' @param return_se flag to return standard error, defualt FALSE
+#' @param epislon A 
 #' 
 #' @returns AIPW estimate of growth effect (+ standard error if return_se = TRUE)
 do_efficient_aipw <- function(data, 
@@ -250,6 +251,181 @@ do_efficient_aipw <- function(data,
     return(out)
   }
 }
+
+#' Function for efficient AIPW estimator for sensitivity analysis
+#' 
+#' @param data dataset to predict on
+#' @param models list of pre-fit models needed for estimation
+#' @param G_name name of growth outcome variable, default G
+#' @param V_name name of vaccine treatment variable, default V
+#' @param Y_name name of infection variable, default Y
+#' @param epislon a vector of values for the sensitivity parameter
+#' @param return_se flag to return standard error, defualt FALSE
+#' 
+#' 
+#' @returns AIPW estimate of growth effect (+ standard error if return_se = TRUE)
+#' 
+#' @example
+#' data(provide)
+#' models <- fit_models(
+#'   data,
+#'   G_name = "any_abx_wk52",
+#'   V_name = "rotaarm",
+#'   X_name = c("wk10_haz", "gender", "num_hh_sleep"),
+#'   Y_name = "rotaepi",
+#'   est = "efficient_aipw"
+#' )
+#' 
+#' # debug(do_sens_aipw)
+#' out <- do_sens_aipw(
+#'   provide, models, 
+#'   G_name = "any_abx_wk52",
+#'   V_name = "rotaarm",
+#'   Y_name = "rotaepi",
+#'   return_se = TRUE
+#' )
+#' 
+#' plot(out, se = TRUE, effect_type = "additive")
+#' plot(out, se = TRUE, effect_type = "multiplicative")
+
+do_sens_aipw <- function(data,
+                         models,
+                         G_name = "G",
+                         V_name = "V",
+                         Y_name = "Y",
+                         epsilon = exp(seq(log(0.5), log(2), length = 50)),
+                         return_se = FALSE){
+  
+  # vaccine probabilities
+  pi_bar_1 <- mean(data[[V_name]])
+  pi_bar_0 <- 1 - pi_bar_1
+  
+  # Get weight
+  sub_V0 <- data[data[[V_name]] == 0,]
+  
+  rho_bar_0 <- mean(sub_V0[[Y_name]])
+  
+  if(inherits(models$fit_Y_V0_X, "SuperLearner")){
+    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")$pred
+    mu_01_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")$pred
+  } else{
+    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+    mu_01_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+  }
+  
+  psi_tilde_0_X <- rho_0_X / rho_bar_0 * mu_01_X
+  
+  psi_0 <- mean( psi_tilde_0_X )
+  
+  Z_i <- data[[V_name]]
+  S_i <- data[[Y_name]]
+  Y_i <- data[[G_name]]
+
+  augmentation_0 <- (
+    (1 - Z_i) / pi_bar_0 * ( S_i / rho_bar_0 ) * (Y_i - mu_01_X) + 
+      (1 - Z_i) / pi_bar_0 * ( mu_01_X - psi_0 ) / rho_bar_0 * ( S_i - rho_0_X ) + 
+      ( psi_0 / rho_bar_0 ) * ( rho_0_X - rho_bar_0 ) + 
+      psi_tilde_0_X - psi_0
+  )
+  
+  psi_0_aipw <- psi_0 + mean(augmentation_0)
+  
+  if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
+    mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")$pred
+    mu_10_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")$pred
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")$pred
+  } else{
+    mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
+    mu_10_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+  }
+  
+  psi_11_epsilon_X <- rho_1_X / rho_bar_0 * mu_11_X 
+  psi_10_epsilon_X <- sapply(epsilon, function(eps){
+    (rho_0_X - rho_1_X) / rho_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X
+  }, simplify = FALSE)
+  psi_11_epsilon <- mean(psi_11_epsilon_X)
+  psi_10_epsilon <- lapply(psi_10_epsilon_X, mean)
+
+  psi_1_epsilon <- lapply(psi_10_epsilon, function(psi_10_eps){
+    psi_11_epsilon + psi_10_eps
+  })
+
+  augmentation_1_epsilon <- mapply(
+    eps = epsilon, psi_10_eps_X = psi_10_epsilon_X, psi_10_eps = psi_10_epsilon,
+    function(eps, psi_10_eps_X, psi_10_eps){
+      ( Z_i / pi_bar_1) * ( S_i / rho_bar_0 ) * ( Y_i - mu_11_X ) + 
+      Z_i / pi_bar_1 * ( mu_11_X / rho_bar_0 ) * ( S_i - rho_1_X ) - 
+      mean(psi_11_epsilon) / rho_bar_0 * ( 1 - Z_i ) / pi_bar_0 * (S_i - rho_bar_0) + 
+      psi_11_epsilon_X - psi_11_epsilon + 
+      Z_i / pi_bar_1 * (1 - S_i) / (rho_bar_0) * (rho_0_X - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( Y_i - mu_10_X ) + 
+      ( 1 - Z_i ) / pi_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_0_X ) -
+      Z_i / pi_bar_1 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_1_X ) - 
+      psi_10_eps / rho_bar_0 * (1 - Z_i) / pi_bar_0 * ( S_i - rho_bar_0 ) -
+      Z_i / pi_bar_1 * ( rho_0_X - rho_1_X ) / rho_bar_0 * mu_10_X / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( S_i - rho_1_X ) - 
+      (1 - eps) * (1 - Z_i) / (pi_bar_0) * (rho_0_X - rho_1_X) / rho_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps)^2 * mu_10_X * (S_i - rho_0_X) + 
+      Z_i / pi_bar_1 * (rho_0_X - rho_1_X) / rho_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps)^2 * mu_10_X * ( S_i - rho_1_X ) + 
+      psi_10_eps_X - psi_10_eps
+    }, SIMPLIFY = FALSE
+  )
+  
+  psi_1_epsilon_aipw <- mapply(
+    psi_1_eps = psi_1_epsilon, 
+    augmentation_1_eps = augmentation_1_epsilon, 
+    function(psi_1_eps, augmentation_1_eps){
+      psi_1_eps + mean(augmentation_1_eps)
+    },
+    SIMPLIFY = FALSE
+  )
+
+  
+  # Additive effect
+  efficient_growth_effect_epsilon <- lapply(psi_1_epsilon_aipw, function(psi_1_eps){
+    psi_1_eps - psi_0_aipw
+  })
+  se_epsilon <- lapply(augmentation_1_epsilon, function(augmentation_1_eps){
+    sqrt(var(augmentation_1_eps - augmentation_0) / dim(data)[1])
+  })
+  
+  # Multiplicative effect (log scale)
+  efficient_growth_effect_log_mult_epsilon <- lapply(psi_1_epsilon_aipw, function(psi_1_eps){
+    log(psi_1_eps / psi_0_aipw)
+  })
+
+  # Get SE using IF matrix same way as TMLE
+  se_log_mult_eff <- mapply(
+    augmentation_1_eps = augmentation_1_epsilon, 
+    psi_1_eps_aipw = psi_1_epsilon_aipw,
+    function(augmentation_1_eps, psi_1_eps_aipw){
+      if_matrix <- cbind(augmentation_1_eps, augmentation_0)
+      cov_matrix <- cov(if_matrix) / dim(data)[1]
+      gradient <- matrix(c(1 / psi_1_eps_aipw, -1 / psi_0_aipw), ncol = 1)
+      return(sqrt(t(gradient) %*% cov_matrix %*% gradient))
+  })
+
+
+  
+  if(return_se){
+    out <- data.frame(
+      epsilon,
+      additive_effect = unlist(efficient_growth_effect_epsilon, use.names = FALSE), 
+      additive_se = unlist(se_epsilon, use.names = FALSE), 
+      log_multiplicative_effect = unlist(efficient_growth_effect_log_mult_epsilon, use.names = FALSE), 
+      log_multiplicative_se = unlist(se_log_mult_eff, use.names = FALSE)
+    )
+  }else{
+    out <- data.frame(
+      epsilon,
+      additive_effect = unlist(efficient_growth_effect_epsilon, use.names = FALSE), 
+      log_multiplicative_effect = unlist(efficient_growth_effect_log_mult_epsilon, use.names = FALSE) 
+    )
+  }
+  
+  class(out) <- "sens"
+
+  return(out)
+}
+
 
 #' Function for efficient TMLE estimator
 #' 
