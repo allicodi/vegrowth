@@ -309,14 +309,8 @@ get_hudgens_stat_new <- function(
   # 1.1 rhobar_0_n (or mean in subset)
   rhobar_0_n <- mean(data[[Y_name]][data[[V_name]] == 0])
   
-  # rhobar_0_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 0)) / 
-  #   sum(as.numeric(data[[V_name]] == 0))
-  
   # 1.2 rhobar_1_n
   rhobar_1_n <- mean(data[[Y_name]][data[[V_name]] == 1])
-  
-  # rhobar_1_n <- sum(data[[Y_name]]*as.numeric(data[[V_name]] == 1)) / 
-  #   sum(as.numeric(data[[V_name]] == 1))
   
   if(rhobar_0_n > rhobar_1_n){
     # Step 2: mubar_11_n 
@@ -324,7 +318,6 @@ get_hudgens_stat_new <- function(
     
     # Step 3: q_n (relative size of protected? in (immune + protected) in vax)
     q_n = 1 - (1 - rhobar_0_n) / (1 - rhobar_1_n)
-    #one_minus_q_n <- 1 - q_n # relative size of the immune? unclear why added?? 
     
     # Step 4: q_n^th quintiles of Y__Z1_S0 (aka G__V1_Y0, need to rename everything at some point)
     G__V1_Y0 <- data[[G_name]][which(data[[V_name]] == 1 & data[[Y_name]] == 0)]
@@ -372,37 +365,6 @@ get_hudgens_stat_new <- function(
         mubar_10_u_n <- 1 - ((q_n - (num_1s / nrow(data__V1_Y0)) ) /
           q_n)
       }
-
-      # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-      # ^^^^ NOT WORKING FOR BINARY OUTCOME, Q_NTH_QUINTILE == 0 OR 1 SO NOTHING < OR >
-      # randomly sample q%??
-      
-      # # Get subset uninfected
-      # data__Y0 <- data[which(data[[Y_name]] == 0),]
-      # data__Y0$idx <- 1:nrow(data__Y0)
-      # 
-      # # which rows match q_n^th and 1 - q_n^th quintiles (likely 0 and 1)
-      # rows_q_nth_quintile <- which(data__Y0[[G_name]] == q_nth_quintile)
-      # rows_one_minus_q_nth_quintile <- which(data__Y0[[G_name]] == one_minus_q_nth_quintile)
-      # 
-      # # number of rows to sample = q_n% of uninfected participants (round up to whole number)
-      # num_q_nth <- ceiling(q_n * nrow(data__Y0))
-      # 
-      # # randomly remove q_n% of the people matching each quintile? not going to be the same estimate every time
-      # rm_lower <- sample(rows_q_nth_quintile, size = num_q_nth, replace = FALSE)
-      # rm_upper <- sample(rows_one_minus_q_nth_quintile, size = num_q_nth, replace = FALSE)
-      # 
-      # # add removal flag to data 
-      # data__Y0$rm_lower <- ifelse(data__Y0$idx %in% rm_lower, 1, 0)
-      # data__Y0$rm_upper <- ifelse(data__Y0$idx %in% rm_upper, 1, 0)
-      # 
-      # mubar_10_l_n <- sum(data__Y0[[G_name]] * data__Y0$rm_lower) / 
-      #   sum(data__Y0$rm_lower)
-      # 
-      # mubar_10_u_n <- sum(data__Y0[[G_name]] * data__Y0$rm_upper) / 
-      #   sum(data__Y0$rm_upper)
-      
-      # ^^ results from this are equivalent to what i changed it to after discussion??
       
     }
     
@@ -546,18 +508,16 @@ get_hudgens_stat_doomed_new <- function(
   rhobar_1_n <- mean(data[[Y_name]][data[[V_name]] == 1])
   
   if(rhobar_0_n > rhobar_1_n){
-    # Step 2: mubar_11_n - doomed we observe
-    # mubar_11_n <- sum(data[[G_name]]*data[[Y_name]]*data[[V_name]]) / sum(data[[Y_name]]*data[[V_name]])
     
-    # Step 3: q_n (relative size of protected in naturally infected (doomed + protected) in unvax)
+    # Step 2: q_n (relative size of protected in naturally infected (doomed + protected) in unvax)
     q_n = 1 - rhobar_1_n / rhobar_0_n
     
-    # Step 4: q_n^th quintiles of Y__Z1_S0 (aka G__V1_Y0, need to rename everything at some point)
+    # Step 3: q_n^th quintiles of Y__Z1_S0 (aka G__V1_Y0, need to rename everything at some point)
     G__V0_Y1 <- data[[G_name]][which(data[[V_name]] == 0 & data[[Y_name]] == 1)]
     q_nth_quintile <- quantile(G__V0_Y1, probs = q_n)
     one_minus_q_nth_quintile <- quantile(G__V0_Y1, probs = 1 - q_n)
     
-    # Step 5: mubar_10_l,u_n 
+    # Step 4: mubar_10_l,u_n 
     if(family == "gaussian"){
       # get people < quintile lower (protected people)
       mubar_10_u_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 1 & data[[V_name]] == 0 & data[[G_name]] > q_nth_quintile )) / 
@@ -575,11 +535,13 @@ get_hudgens_stat_doomed_new <- function(
       # q_n = proportion of people in naturally infected, placebo arm that are protected
       # 1 - q_n = proportion of people in naturally infected, placebo arm that are doomed
       # target_num = proportion of doomed people * number of people in naturally infected = target number of doomed people
-      
       target_num <- ceiling((1 - q_n)*nrow(data__V0_Y1)) # target number of doomed in placebo arm
       num_0s <- length(which(data__V0_Y1[[G_name]] == 0))  # observed number of 0s in Doomed + Protected (naturally infected) box in the placebo arm
       num_1s <- length(which(data__V0_Y1[[G_name]] == 1))  # observed number of 1s in Doomed + Protected (naturally infected) box in the placebo arm
       
+      prop_0s__V0_Y1 <- 1 - mean(data__V0_Y1[[G_name]])
+      # check equivalence
+      (num_0s >= target_num) == (prop_0s__V0_Y1 > rhobar_1_n / rhobar_0_n)
       ## Lower Bound:
       
       # Check if at least target_num 0s in the vax uninfected 
@@ -590,18 +552,8 @@ get_hudgens_stat_doomed_new <- function(
       } else{
         # Else, determine fraction of 1s that need to be kept
 
-        # Version from notes "fraction of 1s in z=0, s=1 that need to be kept" --> (1 - (prop 0s in z=0, s=1 / rho_bar_1_n)) 
-        # 
-        mubar_10_l_n <- 1 - (num_0s / nrow(data__V0_Y1)) / rhobar_1_n
-        
-        # alternative
-        mubar_10_l_n_2 <- ( (target_num - num_0s) / target_num )
-        
-        # Version whatever i was thinking on monday
-        # whatever i was doing before is different, 0.8 in rota example
-        # Else, mubar_10_l = (q_n - prop zeros in vax uninf) / q_n
-        # mubar_10_l_n <- (q_n - (num_0s / nrow(data__V0_Y1)) ) /
-        #   q_n
+        # (number of 0s to be size of doomed - num 0s observed) / number of 0s to be size of doomed = proportion of 1s to be added
+        mubar_10_l_n <- ( (target_num - num_0s) / target_num )
       }
       
       ## Upper Bound:
@@ -614,29 +566,15 @@ get_hudgens_stat_doomed_new <- function(
       } else{
         # Else, proportion of 1s in doomed box
         
-        # Version from notes "prop of 1s in z=0,s=1 / z=1, s=1"
-        mubar_10_u_n <- (num_1s / nrow(data__V0_Y1)) / rhobar_1_n
+        mubar_10_u_n <- num_1s / target_num
         
-        mubar_10_u_n_2 <- num_1s / target_num
-        
-        # Version whatever i was thinking on monday
-        # Else, mubar_10_u = (q_n - prop ones in vax uninf) / q_n
-        # mubar_10_u_n <- 1 - ((q_n - (num_1s / nrow(data__V0_Y1)) ) /
-        #                        q_n)
       }
 
     }
     
     l_n <- mubar_10_l_n
     u_n <- mubar_10_u_n
-    
-    l_n_2 <- mubar_10_l_n_2
-    u_n_2 <- mubar_10_u_n_2
-    
-    # Step 6: final estimates of the bounds: effect in naturally infected in placebo arm - effect in protected*proportion protected???
-    # l_n <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 0]) - mubar_10_l_n * rhobar_1_n / rhobar_0_n
-    # u_n <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 0]) - mubar_10_u_n * rhobar_1_n / rhobar_0_n
-    
+
   } else{
     stop("Method not applicable unless evidence of vaccine protection.")
   }
@@ -647,12 +585,8 @@ get_hudgens_stat_doomed_new <- function(
   out <- list(E_G1__Y0_1 = E_G1__Y0_1,
               E_G0__Y0_1_lower = l_n,
               E_G0__Y0_1_upper = u_n,
-              E_G0__Y0_1_lower_2 = l_n_2,
-              E_G0__Y0_1_upper_2 = u_n_2,
               additive_effect_lower = E_G1__Y0_1 - l_n,
               additive_effect_upper = E_G1__Y0_1 - u_n,
-              additive_effect_lower_2 = E_G1__Y0_1 - l_n_2,
-              additive_effect_upper_2 = E_G1__Y0_1 - u_n_2,
               mult_effect_lower = E_G1__Y0_1 / l_n,
               mult_effect_upper = E_G1__Y0_1 / u_n)
   
