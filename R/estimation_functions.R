@@ -303,16 +303,21 @@ do_sens_aipw <- function(data,
   # Get weight
   sub_V0 <- data[data[[V_name]] == 0,]
   
-  rho_bar_0 <- mean(sub_V0[[Y_name]])
+  # rho_bar_0 <- mean(sub_V0[[Y_name]])
   
+  data_0 <- data; data[[V_name]] <- 0
+  data_1 <- data; data[[V_name]] <- 1
+
   if(inherits(models$fit_Y_V0_X, "SuperLearner")){
-    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")$pred
+    rho_0_X <- predict(models$fit_Y_V_X, newdata = data_0, type = "response")$pred
     mu_01_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")$pred
   } else{
-    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+    rho_0_X <- predict(models$fit_Y_V_X, newdata = data_0, type = "response")
     mu_01_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
   }
   
+  rho_bar_0 <- mean(rho_0_X)
+
   psi_tilde_0_X <- rho_0_X / rho_bar_0 * mu_01_X
   
   psi_0 <- mean( psi_tilde_0_X )
@@ -327,17 +332,17 @@ do_sens_aipw <- function(data,
       ( psi_0 / rho_bar_0 ) * ( rho_0_X - rho_bar_0 ) + 
       psi_tilde_0_X - psi_0
   )
-  
+    
   psi_0_aipw <- psi_0 + mean(augmentation_0)
   
   if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
     mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")$pred
     mu_10_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")$pred
-    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")$pred
+    rho_1_X <- predict(models$fit_Y_V_X, newdata = data_1, type = "response")$pred
   } else{
     mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
     mu_10_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
-    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+    rho_1_X <- predict(models$fit_Y_V_X, newdata = data_1, type = "response")
   }
   
   psi_11_epsilon_X <- rho_1_X / rho_bar_0 * mu_11_X 
@@ -368,10 +373,10 @@ do_sens_aipw <- function(data,
       psi_10_eps_X - psi_10_eps
     }, SIMPLIFY = FALSE
   )
+
   
   psi_1_epsilon_aipw <- mapply(
-    psi_1_eps = psi_1_epsilon, 
-    augmentation_1_eps = augmentation_1_epsilon, 
+    psi_1_eps = psi_1_epsilon, augmentation_1_eps = augmentation_1_epsilon, 
     function(psi_1_eps, augmentation_1_eps){
       psi_1_eps + mean(augmentation_1_eps)
     },
@@ -743,7 +748,8 @@ fit_models <- function(data,
                        Y_name = "Y",
                        est = c("gcomp_pop_estimand", 
                                "gcomp", 
-                               "efficient_aipw", 
+                               "efficient_aipw",
+                               "efficient_aipw_sens",
                                "efficient_tmle"),
                        G_V_X_model = NULL,
                        G_X_Y1_model = NULL,
@@ -781,7 +787,7 @@ fit_models <- function(data,
   } 
   
   # needed for any weight-based estimator
-  if(any(c("gcomp", "efficient_aipw", "efficient_tmle") %in% est)){
+  if(any(c("gcomp", "efficient_aipw", "efficient_tmle", "efficient_aipw_sens") %in% est)){
     sub_V0 <- data[data[[V_name]] == 0,]
     out$fit_Y_V0_X <- glm(Y_X_model, sub_V0, family = "binomial")
     
@@ -797,6 +803,14 @@ fit_models <- function(data,
     sub_V0_Y1 <- data[data[[V_name]] == 0 & data[[Y_name]] == 1,]
     out$fit_G_V0_Y1_X <- glm(G_X_Y1_model, data = sub_V0_Y1, family = family)
     
+  }
+
+  if(any(c("efficient_aipw_sens") %in% est)){
+    out$fit_Y_V_X <- glm(
+      paste0(Y_name, "~", V_name, "+", paste0(X_name, collapse = "+")),
+      family = "binomial",
+      data = data
+    )
   }
   
   return(out)
