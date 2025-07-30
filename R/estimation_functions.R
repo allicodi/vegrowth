@@ -1,4 +1,5 @@
-#' Function for g-computation of VE estimand
+#' Function for g-computation of counterfactual post-infection outcomes in the 
+#' naturally infected principal strata
 #' 
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
@@ -52,7 +53,60 @@ do_gcomp <- function(data, models){
   return(out)
 }
 
-#' Function for g-computation of traditional population estimand
+
+#' Function for IPW of counterfactual post-infection outcomes in the 
+#' naturally infected principal strata
+#' 
+#' @param data dataset to predict on
+#' @param models list of pre-fit models needed for estimation
+#' 
+#' @returns IPW estimate of growth effect for VE estimand
+
+do_ipw <- function(data, models){
+  
+  # Psi_1 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=1, X] ]
+  if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
+    P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")$pred
+    P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")$pred
+  } else{
+    P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+    P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+  }
+  
+  P_Y1_V0 <- mean(P_Y1_V0_X)
+  VE_X <- 1 - ( P_Y1_V1_X / P_Y1_V0_X )
+  E_G1_Y01_X <- E_G_V1_Y1_X * (1 - VE_X) + E_G_V1_Y0_X * VE_X
+  
+  psi_1 <- mean(
+    ( P_Y1_V0_X / P_Y1_V0 ) * E_G1_Y01_X
+  )
+  
+  # Psi_0 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=0, Y = 1, X] ]
+  
+  # Option 1 for estimation:
+  # psi_0 <- mean(sub_V0_Y1$G) 
+  
+  # Option 2 for estimation:
+  if(inherits(models$fit_G_V0_Y1_X, "SuperLearner")){
+    E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")$pred
+  } else {
+    E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+  }
+  
+  psi_0 <- mean(
+    ( P_Y1_V0_X / P_Y1_V0 ) * E_G_V0_Y1_X
+  )
+
+  growth_effect <- psi_1 - psi_0
+  growth_effect_log_mult <- log(psi_1 / psi_0)
+  
+  out <- c(growth_effect, growth_effect_log_mult)
+  names(out) <- c("additive_effect","log_multiplicative_effect")
+  
+  return(out)
+}
+
+#' Function for g-computation of average counterfactual post-infection outcome marginally
 #' 
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
@@ -168,22 +222,17 @@ do_efficient_aipw <- function(data,
                               Y_name = "Y",
                               return_se = FALSE){
   
-  # vaccine probabilities
-  pi_1 <- mean(data[[V_name]])
-  pi_0 <- 1 - pi_1
-  
-  # Get weight
-  sub_V0 <- data[data[[V_name]] == 0,]
-  
-  rho_bar_0 <- mean(sub_V0[[Y_name]])
-  
   if(inherits(models$fit_Y_V0_X, "SuperLearner")){
-    rho_0 <- predict(models$fit_Y_V0_X, newdata = data, type = "response")$pred
-    mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")$pred
+    rho_0 <- predict(models$fit_Y_V0_X, newdata = data)$pred
+    mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data)$pred
+    pi_1 <- predict(models$fit_V_X, newdata = data)$pred
   } else{
     rho_0 <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
     mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+    pi_1 <- models$fit_V_X$fitted.values
   }
+  pi_0 <- 1 - pi_1
+  rho_bar_0 <- mean(rho_0)
   
   
   # psi_0 = Weight * E[E[G | V = 0, Y = 1, X]]
@@ -296,8 +345,8 @@ do_sens_aipw <- function(data,
                          return_se = FALSE){
   
   # vaccine probabilities
-  pi_bar_1 <- mean(data[[V_name]])
-  pi_bar_0 <- 1 - pi_bar_1
+  pi_1 <- models$fit_V_X$fitted.values
+  pi_0 <- 1 - pi_1
   
   # Get weight
   sub_V0 <- data[data[[V_name]] == 0,]
@@ -326,8 +375,8 @@ do_sens_aipw <- function(data,
   Y_i <- data[[G_name]]
 
   augmentation_0 <- (
-    (1 - Z_i) / pi_bar_0 * ( S_i / rho_bar_0 ) * (Y_i - mu_01_X) + 
-      (1 - Z_i) / pi_bar_0 * ( mu_01_X - psi_0 ) / rho_bar_0 * ( S_i - rho_0_X ) + 
+    (1 - Z_i) / pi_0 * ( S_i / rho_bar_0 ) * (Y_i - mu_01_X) + 
+      (1 - Z_i) / pi_0 * ( mu_01_X - psi_0 ) / rho_bar_0 * ( S_i - rho_0_X ) + 
       ( psi_0 / rho_bar_0 ) * ( rho_0_X - rho_bar_0 ) + 
       psi_tilde_0_X - psi_0
   )
@@ -358,17 +407,17 @@ do_sens_aipw <- function(data,
   augmentation_1_epsilon <- mapply(
     eps = epsilon, psi_10_eps_X = psi_10_epsilon_X, psi_10_eps = psi_10_epsilon,
     function(eps, psi_10_eps_X, psi_10_eps){
-      ( Z_i / pi_bar_1) * ( S_i / rho_bar_0 ) * ( Y_i - mu_11_X ) + 
-      Z_i / pi_bar_1 * ( mu_11_X / rho_bar_0 ) * ( S_i - rho_1_X ) - 
-      mean(psi_11_epsilon) / rho_bar_0 * ( 1 - Z_i ) / pi_bar_0 * (S_i - rho_bar_0) + 
+      ( Z_i / pi_1) * ( S_i / rho_bar_0 ) * ( Y_i - mu_11_X ) + 
+      Z_i / pi_1 * ( mu_11_X / rho_bar_0 ) * ( S_i - rho_1_X ) - 
+      mean(psi_11_epsilon) / rho_bar_0 * ( 1 - Z_i ) / pi_0 * (S_i - rho_bar_0) + 
       psi_11_epsilon_X - psi_11_epsilon + 
-      Z_i / pi_bar_1 * (1 - S_i) / (rho_bar_0) * (rho_0_X - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( Y_i - mu_10_X ) + 
-      ( 1 - Z_i ) / pi_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_0_X ) -
-      Z_i / pi_bar_1 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_1_X ) - 
-      psi_10_eps / rho_bar_0 * (1 - Z_i) / pi_bar_0 * ( S_i - rho_bar_0 ) -
-      Z_i / pi_bar_1 * ( rho_0_X - rho_1_X ) / rho_bar_0 * mu_10_X / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( S_i - rho_1_X ) - 
-      (1 - eps) * (1 - Z_i) / (pi_bar_0) * (rho_0_X - rho_1_X) / rho_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps)^2 * mu_10_X * (S_i - rho_0_X) + 
-      Z_i / pi_bar_1 * (rho_0_X - rho_1_X) / rho_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps)^2 * mu_10_X * ( S_i - rho_1_X ) + 
+      Z_i / pi_1 * (1 - S_i) / (rho_bar_0) * (rho_0_X - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( Y_i - mu_10_X ) + 
+      ( 1 - Z_i ) / pi_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_0_X ) -
+      Z_i / pi_1 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_1_X ) - 
+      psi_10_eps / rho_bar_0 * (1 - Z_i) / pi_0 * ( S_i - rho_bar_0 ) -
+      Z_i / pi_1 * ( rho_0_X - rho_1_X ) / rho_bar_0 * mu_10_X / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( S_i - rho_1_X ) - 
+      (1 - eps) * (1 - Z_i) / (pi_0) * (rho_0_X - rho_1_X) / rho_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps)^2 * mu_10_X * (S_i - rho_0_X) + 
+      Z_i / pi_1 * (rho_0_X - rho_1_X) / rho_bar_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps)^2 * mu_10_X * ( S_i - rho_1_X ) + 
       psi_10_eps_X - psi_10_eps
     }, SIMPLIFY = FALSE
   )
@@ -455,17 +504,20 @@ do_efficient_tmle <- function(
   l <- min(data[[G_name]])
   u <- max(data[[G_name]])
   
-  pi_1 <- rep(mean(data[[V_name]]), dim(data)[1])
-  pi_0 <- 1 - pi_1
   
   if(inherits(models$fit_Y_V0_X, "SuperLearner")){
-    rho_0 <- predict(models$fit_Y_V0_X, newdata = data, type = "response")$pred
-    rho_1 <- predict(models$fit_Y_V1_X, newdata = data, type = "response")$pred
+    pi_1 <- predict(models$fit_V_X, newdata = data)$pred
+
+    rho_0 <- predict(models$fit_Y_V0_X, newdata = data)$pred
+    rho_1 <- predict(models$fit_Y_V1_X, newdata = data)$pred
     
-    mu_11 <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")$pred
-    mu_10 <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")$pred
-    mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")$pred
+    mu_11 <- predict(models$fit_G_V1_Y1_X, newdata = data)$pred
+    mu_10 <- predict(models$fit_G_V1_Y0_X, newdata = data)$pred
+    mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data)$pred
+    
   } else{
+    pi_1 <- models$fit_V_X$fitted.values
+
     rho_0 <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
     rho_1 <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
     
@@ -473,7 +525,8 @@ do_efficient_tmle <- function(
     mu_10 <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
     mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
   }
-  
+
+  pi_0 <- 1 - pi_1
   rho_bar_0 <- mean(rho_0)
   
   psi_tilde_0 <- rho_0 / rho_bar_0 * mu_01
@@ -746,7 +799,8 @@ fit_models <- function(data,
                        X_name = c("X"),
                        Y_name = "Y",
                        est = c("gcomp_pop_estimand", 
-                               "gcomp", 
+                               "gcomp",
+                               "ipw",
                                "efficient_aipw",
                                "efficient_aipw_sens",
                                "efficient_tmle"),
@@ -754,6 +808,7 @@ fit_models <- function(data,
                        G_X_Y1_model = NULL,
                        G_X_Y0_model = NULL,
                        Y_X_model = NULL,
+                       V_X_model = paste0(V_name, " ~ 1"),
                        family = "gaussian"){
   
   # Prep model formulas if not pre-specified
@@ -812,6 +867,11 @@ fit_models <- function(data,
     )
   }
   
+  if(any(c("efficient_aipw_sens", "efficient_aipw", "ipw", "efficient_tmle") %in% est)){
+    out$fit_V_X <- glm(
+      V_X_model, family = "binomial", data = data
+    )
+  }
   return(out)
   
 }
@@ -839,12 +899,14 @@ fit_ml_models <- function(data,
                        X_name = c("X"),
                        Y_name = "Y",
                        est = c("gcomp_pop_estimand", 
-                               "gcomp", 
+                               "gcomp",
+                               "ipw",
                                "efficient_aipw", 
                                "efficient_tmle"),
                        G_V_X_library = c("SL.glm"),
                        G_X_library = c("SL.glm"),
                        Y_X_library = c("SL.glm"),
+                       Z_X_library = c("SL.mean"),
                        family = "gaussian",
                        v_folds = 3){
   
@@ -897,6 +959,14 @@ fit_ml_models <- function(data,
                                                     SL.library = G_X_library, 
                                                     cvControl = list(V = v_folds))
     
+  }
+
+  if(any(c("ipw", "efficient_aipw", "efficient_tmle") %in% est)){
+      out$fit_V_X <- SuperLearner::SuperLearner(Y = data[[V_name]],
+                                                X = data[, X_name, drop = FALSE],
+                                                family = binomial(),
+                                                SL.library = V_X_library, 
+                                                cvControl = list(V = v_folds))
   }
   
   return(out)
