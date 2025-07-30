@@ -265,7 +265,7 @@ do_efficient_aipw <- function(data,
 #' 
 #' @returns AIPW estimate of growth effect (+ standard error if return_se = TRUE)
 #' 
-#' @example
+#' @examples
 #' data(provide)
 #' models <- fit_models(
 #'   data,
@@ -287,7 +287,6 @@ do_efficient_aipw <- function(data,
 #' 
 #' plot(out, se = TRUE, effect_type = "additive")
 #' plot(out, se = TRUE, effect_type = "multiplicative")
-
 do_sens_aipw <- function(data,
                          models,
                          G_name = "G",

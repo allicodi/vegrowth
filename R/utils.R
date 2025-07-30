@@ -146,17 +146,14 @@ print.vegrowth <- function(x, ...) {
   
 }
 
-#' @method plot sens
-#' @export
-
 #' Plot method for sens objects
 #'
 #' @param object An object of class "sens"
 #' @param se Logical; whether to include error bars
 #' @param effect_type Character; either "additive" or "multiplicative"
 #' @param ... Additional arguments passed to plot (not used here)
+#' 
 #' @export
-
 plot.sens <- function(
   object, se = TRUE, effect_type = c("additive", "multiplicative"), 
   ...

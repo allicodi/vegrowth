@@ -260,6 +260,8 @@ hudgens_test <- function(
     if(sum(!is.na(boot_diff)) > 2){
       sd_boot_diff <- sd(boot_diff, na.rm = TRUE)
       test_stat <- obs_diff / sd_boot_diff
+      # test_stat <- abs(obs_diff / sd_boot_diff)
+      # just look at lower.tail = FALSE then * 2 for two-sided test then with test stat can figure out what side it is?? 
       
       if(effect_dir == "positive"){
         pval <- pnorm(test_stat, lower.tail = FALSE)

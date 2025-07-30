@@ -10,17 +10,6 @@ do_efficient_aipw(
   G_name = "G",
   V_name = "V",
   Y_name = "Y",
-  epsilon = seq(0.5, 2, length = 50),
-  return_se = FALSE
-)
-
-do_efficient_aipw(
-  data,
-  models,
-  G_name = "G",
-  V_name = "V",
-  Y_name = "Y",
-  epsilon = seq(0.5, 2, length = 50),
   return_se = FALSE
 )
 }
@@ -37,15 +26,11 @@ do_efficient_aipw(
 
 \item{return_se}{flag to return standard error, defualt FALSE}
 
-\item{epislon}{a vector of values for the sensitivity parameter}
+\item{epislon}{A}
 }
 \value{
-AIPW estimate of growth effect (+ standard error if return_se = TRUE)
-
 AIPW estimate of growth effect (+ standard error if return_se = TRUE)
 }
 \description{
 Function for efficient AIPW estimator
-
-Function for efficient AIPW estimator for sensitivity analysis
 }
