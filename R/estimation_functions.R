@@ -4,7 +4,7 @@
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
 #' 
-#' @returns g-comp estimate of growth effect for VE estimand
+#' @returns g-comp estimate of growth effect in the naturally infected strata
 do_gcomp <- function(data, models){
   
   # Psi_1 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=1, X] ]
@@ -53,48 +53,84 @@ do_gcomp <- function(data, models){
   return(out)
 }
 
+#' Function for g-computation of counterfactual post-infection outcomes in the 
+#' doomed principal strata
+#' 
+#' @param data dataset to predict on
+#' @param models list of pre-fit models needed for estimation
+#' 
+#' @returns g-comp estimate of growth effect in the doomed strata
+do_gcomp_doomed <- function(data, models){
+  
+  # Psi_1 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=1, X] ]
+  if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
+    mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data)$pred
+    mu_10_X <- predict(models$fit_G_V0_Y1_X, newdata = data)$pred
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data)$pred
+  } else{
+    mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
+    mu_10_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+  }
+  rho_bar_1 <- mean(rho_1_X)
+
+  psi_1 <- mean(
+    rho_1_X / rho_bar_1 * mu_11_X
+  )
+  psi_0 <- mean(
+    rho_1_X / rho_bar_1 * mu_01_X
+  )
+  
+  growth_effect <- psi_1 - psi_0
+  growth_effect_log_mult <- log(psi_1 / psi_0)
+  
+  out <- c(growth_effect, growth_effect_log_mult)
+  names(out) <- c("additive_effect","log_multiplicative_effect")
+  
+  return(out)
+}
+
+
+
 
 #' Function for IPW of counterfactual post-infection outcomes in the 
 #' naturally infected principal strata
 #' 
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
+#' @param Y_name TODO
+#' @param G_name TODO
+#' @param V_name TODO
 #' 
-#' @returns IPW estimate of growth effect for VE estimand
+#' @returns IPW estimate of growth effect in the naturally infected principal stratum
 
-do_ipw <- function(data, models){
+do_ipw <- function(
+  data, models,
+  Y_name, G_name, V_name
+){
   
   # Psi_1 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=1, X] ]
   if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
-    P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")$pred
-    P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")$pred
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data)$pred
+    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data)$pred
+    pi_1_X <- predict(models$fit_V_X, newdata = data)$pred
   } else{
-    P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
-    P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+    pi_1_X <- predict(models$fit_V_X, newdata = data, type = "response")
   }
-  
-  P_Y1_V0 <- mean(P_Y1_V0_X)
-  VE_X <- 1 - ( P_Y1_V1_X / P_Y1_V0_X )
-  E_G1_Y01_X <- E_G_V1_Y1_X * (1 - VE_X) + E_G_V1_Y0_X * VE_X
-  
+  pi_0_X <- 1 - pi_1_X
+  rho_bar_0 <- mean(rho_0_X)
+  S <- data[[Y_name]]
+  Y <- data[[G_name]]
+  Z <- data[[V_name]]
+
   psi_1 <- mean(
-    ( P_Y1_V0_X / P_Y1_V0 ) * E_G1_Y01_X
+    ( S / rho_bar_0 ) * ( Z / pi_1_X + ( 1 - Z ) / pi_0_X * (1 - rho_1_X / rho_0_X) ) * Y
   )
   
-  # Psi_0 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=0, Y = 1, X] ]
-  
-  # Option 1 for estimation:
-  # psi_0 <- mean(sub_V0_Y1$G) 
-  
-  # Option 2 for estimation:
-  if(inherits(models$fit_G_V0_Y1_X, "SuperLearner")){
-    E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")$pred
-  } else {
-    E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
-  }
-  
   psi_0 <- mean(
-    ( P_Y1_V0_X / P_Y1_V0 ) * E_G_V0_Y1_X
+    ( S / rho_bar_0 ) * ( ( 1 - Z ) / pi_0_X ) * Y
   )
 
   growth_effect <- psi_1 - psi_0
@@ -105,6 +141,54 @@ do_ipw <- function(data, models){
   
   return(out)
 }
+
+#' Function for IPW of counterfactual post-infection outcomes in the 
+#' doomed principal stratum
+#' 
+#' @param data dataset to predict on
+#' @param models list of pre-fit models needed for estimation
+#' 
+#' @returns IPW estimate of growth effect in the doomed principal stratum
+
+do_ipw_doomed <- function(
+  data, models,
+  Y_name, G_name, V_name
+){
+  
+  # Psi_1 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=1, X] ]
+  if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data)$pred
+    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data)$pred
+    pi_1_X <- predict(models$fit_V_X, newdata = data)$pred
+  } else{
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+    pi_1_X <- predict(models$fit_V_X, newdata = data, type = "response")
+  }
+  pi_0_X <- 1 - pi_1_X
+  rho_bar_1 <- mean(rho_1_X)
+  
+  S <- data[[Y_name]]
+  Y <- data[[G_name]]
+  Z <- data[[V_name]]
+
+  eta_1 <- mean(
+    ( Z / pi_1_X ) * ( S / rho_bar_1 ) * Y
+  )
+  
+  eta_0 <- mean(
+    ( (1 - Z) / pi_0_X ) * ( S / rho_0_X ) * ( rho_1_X / rho_bar_1 ) * Y
+  )
+
+  growth_effect <- eta_1 - eta_0
+  growth_effect_log_mult <- log(eta_1 / eta_0)
+  
+  out <- c(growth_effect, growth_effect_log_mult)
+  names(out) <- c("additive_effect","log_multiplicative_effect")
+  
+  return(out)
+}
+
 
 #' Function for g-computation of average counterfactual post-infection outcome marginally
 #' 
@@ -150,6 +234,121 @@ do_gcomp_pop_estimand <- function(data,
   out <- c(pop_growth_effect, pop_growth_effect_log_mult)
   names(out) <-  c("additive_effect","log_multiplicative_effect")
   return(out)
+}
+
+#' Function for IPW of average counterfactual post-infection outcome marginally
+#' 
+#' @param data dataset to predict on
+#' @param models list of pre-fit models needed for estimation
+#' @param V_name name of vaccine treatment variable, default V
+#' @param G_name character vector containing name(s) of post-infection outcome, default G
+#' 
+#' @returns g-comp estimate of growth effect for population estimand
+do_ipw_pop_estimand <- function(data, models, V_name = "V", X_name = "G"){
+  
+
+  if(inherits(models$fit_G_V_X, "SuperLearner")){
+    pi_1_X <- predict(models$fit_V_X, newdata = data)$pred
+  } else{
+    pi_1_X <- models$fit_V_X$fitted.values
+  }
+  pi_0_X <- 1 - pi_1_X
+  
+  Y <- data[[G_name]]
+  Z <- data[[V_name]]
+
+  psi_1_ipw <- mean(
+    Z / pi_1_X * Y
+  ) 
+  psi_0_ipw <- mean(
+    (1 - Z) / pi_0_X * Y
+  ) 
+  
+  pop_growth_effect <- psi_1_ipw - psi_0_ipw
+  pop_growth_effect_log_mult <- log(psi_1_ipw / psi_0_ipw)
+
+  out <- c(pop_growth_effect, pop_growth_effect_log_mult)
+  names(out) <-  c("additive_effect","log_multiplicative_effect")
+  return(out)
+}
+
+#' Function for AIPW of average counterfactual post-infection outcome marginally
+#' 
+#' @param data dataset to predict on
+#' @param models list of pre-fit models needed for estimation
+#' @param V_name name of vaccine treatment variable, default V
+#' @param X_name character vector containing name(s) of covariates, default X
+#' @param Y_name character vector containing name(s) of covariates, default Y
+#' 
+#' @returns g-comp estimate of growth effect for population estimand
+do_efficient_aipw_pop_estimand <- function(
+  data, 
+  models,
+  V_name = "V",
+  X_name = c("X"),
+  G_name = "G",
+  return_se = TRUE
+){
+  
+  df_V1 <- data.frame(V = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
+  names(df_V1) <- c(V_name, X_name)
+  
+  if(inherits(models$fit_G_V_X, "SuperLearner")){
+    Qbar_V1 <- predict(models$fit_G_V_X, newdata = df_V1)$pred
+    pi_1_X <- predict(models$fit_V_X, newdata = data)$pred
+  } else{
+    Qbar_V1 <- predict(models$fit_G_V_X, newdata = df_V1, type = "response")
+    pi_1_X <- models$fit_V_X$fitted.values
+  }
+  pi_0_X <- 1 - pi_1_X
+  
+  Y <- data[[G_name]]
+  Z <- data[[V_name]]
+
+  psi_1_plugin <- mean(Qbar_V1)
+  augmentation_1 <- Z / pi_1_X * ( Y - Qbar_V1 ) + Qbar_V1 - psi_1
+  psi_1_aipw <- psi_1_plugin + mean(eif_psi_1)
+  
+
+  df_V0 <- data.frame(V = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
+  names(df_V0) <- c(V_name, X_name)
+  
+  if(inherits(models$fit_G_V_X, "SuperLearner")){
+    Qbar_V0 <- predict(models$fit_G_V_X, newdata = df_V0, type = "response")$pred 
+  } else{
+    Qbar_V0 <- predict(models$fit_G_V_X, newdata = df_V0, type = "response") 
+  }
+
+  psi_0_plugin <- mean(Qbar_V0)
+  augmentation_0 <- (1 - Z) / pi_0_X * ( Y - Qbar_V0 ) + Qbar_V0 - psi_0
+  psi_0_aipw <- psi_0_plugin + mean(eif_psi_0)
+
+  # Additive effect
+  n <- dim(data)[1]
+  efficient_growth_effect <- psi_1_aipw - psi_0_aipw
+  se <- sqrt(var(augmentation_1 - augmentation_0) / n)
+  
+  # Multiplicative effect (log scale)
+  efficient_growth_effect_log_mult <- log(psi_1_aipw / psi_0_aipw)
+  
+  # Get SE using IF matrix same way as TMLE
+  if_matrix <- cbind(augmentation_1, augmentation_0)
+  cov_matrix <- cov(if_matrix) / n
+  
+  gradient <- matrix(c(1 / psi_1_aipw, -1 / psi_0_aipw), ncol = 1)
+  
+  se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
+  
+  if(return_se){
+    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
+    return(out)
+  }else{
+    out <- c(efficient_growth_effect, efficient_growth_effect_log_mult)
+    names(out) <- c("additive_effect", "log_multiplicative_effect")
+    return(out)
+  }
+
 }
 
 #' Function for g-computation of short-term growth estimand
@@ -212,9 +411,8 @@ do_gcomp_short_term <- function(data,
 #' @param V_name name of vaccine treatment variable, default V
 #' @param Y_name name of infection variable, default Y
 #' @param return_se flag to return standard error, defualt FALSE
-#' @param epislon A 
 #' 
-#' @returns AIPW estimate of growth effect (+ standard error if return_se = TRUE)
+#' @returns AIPW estimate of growth effect in naturally infected strata (+ standard error if return_se = TRUE)
 do_efficient_aipw <- function(data, 
                               models,
                               G_name = "G",
@@ -281,6 +479,96 @@ do_efficient_aipw <- function(data,
   
   # Multiplicative effect (log scale)
   efficient_growth_effect_log_mult <- log(psi_1_aipw / psi_0_aipw)
+  
+  # Get SE using IF matrix same way as TMLE
+  if_matrix <- cbind(augmentation_1, augmentation_0)
+  cov_matrix <- cov(if_matrix) / dim(data)[1]
+  
+  gradient <- matrix(c(1 / psi_1_aipw, -1 / psi_0_aipw), ncol = 1)
+  
+  se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
+  
+  if(return_se){
+    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
+    return(out)
+  }else{
+    out <- c(efficient_growth_effect, efficient_growth_effect_log_mult)
+    names(out) <- c("additive_effect", "log_multiplicative_effect")
+    return(out)
+  }
+}
+
+#' Function for efficient AIPW estimator in the doomed stratum
+#' 
+#' @param data dataset to predict on
+#' @param models list of pre-fit models needed for estimation
+#' @param G_name name of growth outcome variable, default G
+#' @param V_name name of vaccine treatment variable, default V
+#' @param Y_name name of infection variable, default Y
+#' @param return_se flag to return standard error, defualt FALSE
+#' 
+#' @returns AIPW estimate of growth effect in doomed stratum (+ standard error if return_se = TRUE)
+do_efficient_aipw <- function(data, 
+                              models,
+                              G_name = "G",
+                              V_name = "V",
+                              Y_name = "Y",
+                              return_se = FALSE){
+  
+  if(inherits(models$fit_Y_V0_X, "SuperLearner")){
+    mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data)$pred
+    mu_01_X <- predict(models$fit_G_V0_Y1_X, newdata = data)$pred
+
+    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data)$pred
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data)$pred
+
+    pi_1_X <- predict(models$fit_V_X, newdata = data)$pred
+  } else{
+    mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
+    mu_01_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+
+    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+
+    pi_1_X <- models$fit_V_X$fitted.values
+  }
+  
+  pi_0_X <- 1 - pi_1_X
+  rho_bar_1 <- mean(rho_0)
+
+  eta_tilde_0 <- rho_1_X * mu_11_X / rho_bar_1
+  eta_tilde_1 <- rho_1_X * mu_01_X / rho_bar_1
+
+  eta_0_plugin <- mean( eta_tilde_0 )
+  eta_1_plugin <- mean( eta_tilde_1 )
+  
+  Z <- data[[V_name]]
+  S <- data[[Y_name]]
+  Y <- data[[G_name]]
+
+  augmentation_0 <- (
+    ( (1 - Z) / pi_0_X ) * ( rho_1_X / rho_bar_1 ) * ( S / rho_0_X ) * ( Y - mu_01_X ) + 
+      (mu_01_X - eta_0_plugin) / rho_bar_1 * ( Z / pi_1_X ) * ( S - rho_1_X ) -
+      eta_0_plugin / rho_bar_1 * ( rho_1_X - rho_bar_1 ) + eta_tilde_0 - eta_0_plugin
+  )
+  augmentation_1 <- (
+    ( Z / pi_1_X ) * ( S / rho_bar_1 ) * ( Y - mu_11_X ) + 
+    ( mu_11_X - eta_1_plugin ) / rho_bar_1 * ( Z / pi_1_X ) * ( S - rho_1_X ) - 
+    eta_1_plugin / rho_bar_1 * ( rho_1_X - rho_bar_1 ) + eta_tilde_1 - eta_1_plugin
+
+  )
+  
+  eta_0_aipw <- eta_0 + mean(augmentation_0)
+  eta_1_aipw <- eta_1 + mean(augmentation_1)
+  
+
+  # Additive effect
+  efficient_growth_effect <- eta_1_aipw - eta_0_aipw
+  se <- sqrt(var(augmentation_1 - augmentation_0) / dim(data)[1])
+  
+  # Multiplicative effect (log scale)
+  efficient_growth_effect_log_mult <- log(eta_1_aipw / eta_0_aipw)
   
   # Get SE using IF matrix same way as TMLE
   if_matrix <- cbind(augmentation_1, augmentation_0)
