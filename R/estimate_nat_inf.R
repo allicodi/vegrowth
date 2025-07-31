@@ -7,41 +7,41 @@
 #' @returns g-comp estimate of growth effect in the naturally infected strata
 do_gcomp_nat_inf <- function(data, models){
   
-  # Psi_1 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=1, X] ]
-  if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
-    E_G_V1_Y1_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")$pred
-    E_G_V1_Y0_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")$pred
-    P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")$pred
-    P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")$pred
+  # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
+  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+    E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
+    E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
+    P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")$pred
+    P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")$pred
   } else{
-    E_G_V1_Y1_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
-    E_G_V1_Y0_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
-    P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
-    P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+    E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
+    E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
+    P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
+    P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
   }
   
-  P_Y1_V0 <- mean(P_Y1_V0_X)
-  VE_X <- 1 - ( P_Y1_V1_X / P_Y1_V0_X )
-  E_G1_Y01_X <- E_G_V1_Y1_X * (1 - VE_X) + E_G_V1_Y0_X * VE_X
+  P_S1_Z0 <- mean(P_S1_Z0_X)
+  ZE_X <- 1 - ( P_S1_Z1_X / P_S1_Z0_X )
+  E_Y1_S01_X <- E_Y_Z1_S1_X * (1 - ZE_X) + E_Y_Z1_S0_X * ZE_X
   
   psi_1 <- mean(
-    ( P_Y1_V0_X / P_Y1_V0 ) * E_G1_Y01_X
+    ( P_S1_Z0_X / P_S1_Z0 ) * E_Y1_S01_X
   )
   
-  # Psi_0 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=0, Y = 1, X] ]
+  # Psi_0 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=0, Y = 1, X] ]
   
   # Option 1 for estimation:
-  # psi_0 <- mean(sub_V0_Y1$G) 
+  # psi_0 <- mean(sub_Z0_S1$Y) 
   
   # Option 2 for estimation:
-  if(inherits(models$fit_G_V0_Y1_X, "SuperLearner")){
-    E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")$pred
+  if(inherits(models$fit_Y_Z0_S1_X, "SuperLearner")){
+    E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")$pred
   } else {
-    E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+    E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
   }
   
   psi_0 <- mean(
-    ( P_Y1_V0_X / P_Y1_V0 ) * E_G_V0_Y1_X
+    ( P_S1_Z0_X / P_S1_Z0 ) * E_Y_Z0_S1_X
   )
   
   growth_effect <- psi_1 - psi_0
@@ -58,31 +58,31 @@ do_gcomp_nat_inf <- function(data, models){
 #' 
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
+#' @param S_name TODO
 #' @param Y_name TODO
-#' @param G_name TODO
-#' @param V_name TODO
+#' @param Z_name TODO
 #' 
 #' @returns IPW estimate of growth effect in the naturally infected principal stratum
 do_ipw_nat_inf <- function(
     data, models,
-    Y_name, G_name, V_name
+    S_name, Y_name, Z_name
 ){
   
-  # Psi_1 = E[P(Y=1 | V = 0, X) / P(Y = 1 | V = 0) * E[G | V=1, X] ]
-  if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
-    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data)$pred
-    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data)$pred
-    pi_1_X <- predict(models$fit_V_X, newdata = data)$pred
+  # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
+  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
+    rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
+    pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
   } else{
-    rho_1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
-    rho_0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
-    pi_1_X <- predict(models$fit_V_X, newdata = data, type = "response")
+    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
+    rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+    pi_1_X <- predict(models$fit_Z_X, newdata = data, type = "response")
   }
   pi_0_X <- 1 - pi_1_X
   rho_bar_0 <- mean(rho_0_X)
-  S <- data[[Y_name]]
-  Y <- data[[G_name]]
-  Z <- data[[V_name]]
+  S <- data[[S_name]]
+  Y <- data[[Y_name]]
+  Z <- data[[Z_name]]
   
   psi_1 <- mean(
     ( S / rho_bar_0 ) * ( Z / pi_1_X + ( 1 - Z ) / pi_0_X * (1 - rho_1_X / rho_0_X) ) * Y
@@ -105,67 +105,67 @@ do_ipw_nat_inf <- function(
 #' 
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
-#' @param G_name name of growth outcome variable, default G
-#' @param V_name name of vaccine treatment variable, default V
-#' @param Y_name name of infection variable, default Y
+#' @param Y_name name of growth outcome variable, default Y
+#' @param Z_name name of vaccine treatment variable, default Z
+#' @param S_name name of infection variable, default Y
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
 #' @returns AIPW estimate of growth effect in naturally infected strata (+ standard error if return_se = TRUE)
 do_efficient_aipw_nat_inf <- function(data, 
                               models,
-                              G_name = "G",
-                              V_name = "V",
                               Y_name = "Y",
+                              Z_name = "Z",
+                              S_name = "S",
                               return_se = FALSE){
   
-  if(inherits(models$fit_Y_V0_X, "SuperLearner")){
-    rho_0 <- predict(models$fit_Y_V0_X, newdata = data)$pred
-    mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data)$pred
-    pi_1 <- predict(models$fit_V_X, newdata = data)$pred
+  if(inherits(models$fit_S_Z0_X, "SuperLearner")){
+    rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
+    mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
+    pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
   } else{
-    rho_0 <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
-    mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
-    pi_1 <- models$fit_V_X$fitted.values
+    rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+    mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
+    pi_1 <- models$fit_Z_X$fitted.values
   }
   pi_0 <- 1 - pi_1
   rho_bar_0 <- mean(rho_0)
   
   
-  # psi_0 = Weight * E[E[G | V = 0, Y = 1, X]]
+  # psi_0 = Weight * E[E[Y | Z = 0, Y = 1, X]]
   
   psi_tilde_0 <- rho_0 / rho_bar_0 * mu_01
   
   psi_0 <- mean( psi_tilde_0 )
   
   augmentation_0 <- (
-    (1 - data[[V_name]]) / pi_0 * ( data[[Y_name]] / rho_bar_0 ) * (data[[G_name]] - mu_01) + 
-      (1 - data[[V_name]]) / pi_0 * ( mu_01 - psi_0 ) / rho_bar_0 * ( data[[Y_name]] - rho_0 ) + 
+    (1 - data[[Z_name]]) / pi_0 * ( data[[S_name]] / rho_bar_0 ) * (data[[Y_name]] - mu_01) + 
+      (1 - data[[Z_name]]) / pi_0 * ( mu_01 - psi_0 ) / rho_bar_0 * ( data[[S_name]] - rho_0 ) + 
       ( psi_0 / rho_bar_0 ) * ( rho_0 - rho_bar_0 ) + 
       psi_tilde_0 - psi_0
   )
   
   psi_0_aipw <- psi_0 + mean(augmentation_0)
   
-  # psi_1 = Weight * E[E[G | V = 1, X]]
+  # psi_1 = Weight * E[E[Y | Z = 1, X]]
   
-  if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
-    mu_11 <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")$pred
-    mu_10 <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")$pred
-    rho_1 <- predict(models$fit_Y_V1_X, newdata = data, type = "response")$pred
+  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+    mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
+    mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
+    rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")$pred
   } else{
-    mu_11 <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
-    mu_10 <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
-    rho_1 <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+    mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
+    mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
+    rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
   }
   
   psi_tilde_1 <- rho_1 / rho_bar_0 * mu_11 + ( rho_0 - rho_1 ) / rho_bar_0 * mu_10
   psi_1 <- mean( psi_tilde_1 )
   
   augmentation_1 <- (
-    (data[[V_name]] / pi_1) * (data[[Y_name]] / rho_bar_0) * (data[[G_name]] - mu_11) +
-      (data[[V_name]] / pi_1) * ((1 - data[[Y_name]]) / (1 - rho_1)) * (rho_0 - rho_1) / rho_bar_0 * (data[[G_name]] - mu_10) + 
-      (data[[V_name]] / pi_1) * (mu_11 - mu_10) / rho_bar_0 * (data[[Y_name]] - rho_1) + 
-      ((1 - data[[V_name]]) / pi_0) * (mu_10 - psi_1) / rho_bar_0 * (data[[Y_name]] - rho_0) - 
+    (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_11) +
+      (data[[Z_name]] / pi_1) * ((1 - data[[S_name]]) / (1 - rho_1)) * (rho_0 - rho_1) / rho_bar_0 * (data[[Y_name]] - mu_10) + 
+      (data[[Z_name]] / pi_1) * (mu_11 - mu_10) / rho_bar_0 * (data[[S_name]] - rho_1) + 
+      ((1 - data[[Z_name]]) / pi_0) * (mu_10 - psi_1) / rho_bar_0 * (data[[S_name]] - rho_0) - 
       psi_1 / rho_bar_0 * (rho_0 - rho_bar_0) + psi_tilde_1 - psi_1
   )
   
@@ -178,7 +178,7 @@ do_efficient_aipw_nat_inf <- function(data,
   # Multiplicative effect (log scale)
   efficient_growth_effect_log_mult <- log(psi_1_aipw / psi_0_aipw)
   
-  # Get SE using IF matrix same way as TMLE
+  # Yet SE using IF matrix same way as TMLE
   if_matrix <- cbind(augmentation_1, augmentation_0)
   cov_matrix <- cov(if_matrix) / dim(data)[1]
   
@@ -201,46 +201,46 @@ do_efficient_aipw_nat_inf <- function(data,
 #' 
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
-#' @param G_name name of growth outcome variable, default G
-#' @param V_name name of vaccine treatment variable, default V
-#' @param Y_name name of infection variable, default Y
+#' @param Y_name name of growth outcome variable, default Y
+#' @param Z_name name of vaccine treatment variable, default Z
+#' @param S_name name of infection variable, default Y
 #' @param return_se flag to return standard error, defualt FALSE
 #' @param max_iter TODO 
 #' @param tol TOOD 
 #' 
 #' @returns TMLE estimate of growth effect (+ standard error if return_se = TRUE)
 do_efficient_tmle_nat_inf <- function(
-    data, models, G_name = "G", V_name = "V", Y_name = "Y",
+    data, models, Y_name = "Y", Z_name = "Z", S_name = "S",
     return_se = FALSE, max_iter = 10,
     tol = 1 / (sqrt(dim(data)[1]) * log(dim(data)[1]))
 ){
   
-  idx_V0 <- which(data[[V_name]] == 0)
-  idx_V1 <- which(data[[V_name]] == 1)
-  idx_V0_Y1 <- which(data[[V_name]] == 0 & data[[Y_name]] == 1)
-  l <- min(data[[G_name]])
-  u <- max(data[[G_name]])
+  idx_Z0 <- which(data[[Z_name]] == 0)
+  idx_Z1 <- which(data[[Z_name]] == 1)
+  idx_Z0_S1 <- which(data[[Z_name]] == 0 & data[[S_name]] == 1)
+  l <- min(data[[Y_name]])
+  u <- max(data[[Y_name]])
   
   
-  if(inherits(models$fit_Y_V0_X, "SuperLearner")){
-    pi_1 <- predict(models$fit_V_X, newdata = data)$pred
+  if(inherits(models$fit_S_Z0_X, "SuperLearner")){
+    pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
     
-    rho_0 <- predict(models$fit_Y_V0_X, newdata = data)$pred
-    rho_1 <- predict(models$fit_Y_V1_X, newdata = data)$pred
+    rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
+    rho_1 <- predict(models$fit_S_Z1_X, newdata = data)$pred
     
-    mu_11 <- predict(models$fit_G_V1_Y1_X, newdata = data)$pred
-    mu_10 <- predict(models$fit_G_V1_Y0_X, newdata = data)$pred
-    mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data)$pred
+    mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data)$pred
+    mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data)$pred
+    mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
     
   } else{
-    pi_1 <- models$fit_V_X$fitted.values
+    pi_1 <- models$fit_Z_X$fitted.values
     
-    rho_0 <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
-    rho_1 <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+    rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+    rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
     
-    mu_11 <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
-    mu_10 <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
-    mu_01 <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+    mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
+    mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
+    mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
   }
   
   pi_0 <- 1 - pi_1
@@ -252,21 +252,21 @@ do_efficient_tmle_nat_inf <- function(
   psi_tilde_1 <- rho_1 / rho_bar_0 * mu_11 + ( rho_0 - rho_1 ) / rho_bar_0 * mu_10
   psi_1 <- mean( psi_tilde_1 )
   
-  phi_0 <- function(data, V_name, Y_name, G_name, pi_0, rho_0, rho_bar_0, mu_01, psi_tilde_0, psi_0) {
+  phi_0 <- function(data, Z_name, S_name, Y_name, pi_0, rho_0, rho_bar_0, mu_01, psi_tilde_0, psi_0) {
     (
-      (1 - data[[V_name]]) / pi_0 * (data[[Y_name]] / rho_bar_0) * (data[[G_name]] - mu_01) +
-        (1 - data[[V_name]]) / pi_0 * (mu_01 - psi_0) / rho_bar_0 * (data[[Y_name]] - rho_0) +
+      (1 - data[[Z_name]]) / pi_0 * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_01) +
+        (1 - data[[Z_name]]) / pi_0 * (mu_01 - psi_0) / rho_bar_0 * (data[[S_name]] - rho_0) +
         (psi_0 / rho_bar_0) * (rho_0 - rho_bar_0) +
         psi_tilde_0 - psi_0
     )
   }
   
-  phi_1 <- function(data, V_name, Y_name, G_name, pi_1, pi_0, rho_0, rho_bar_0, rho_1, mu_11, mu_10, psi_tilde_1, psi_1) {
+  phi_1 <- function(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0, rho_bar_0, rho_1, mu_11, mu_10, psi_tilde_1, psi_1) {
     (
-      (data[[V_name]] / pi_1) * (data[[Y_name]] / rho_bar_0) * (data[[G_name]] - mu_11) +
-        (data[[V_name]] / pi_1) * ((1 - data[[Y_name]]) / (1 - rho_1)) * (rho_0 - rho_1) / rho_bar_0 * (data[[G_name]] - mu_10) +
-        (data[[V_name]] / pi_1) * (mu_11 - mu_10) / rho_bar_0 * (data[[Y_name]] - rho_1) +
-        ((1 - data[[V_name]]) / pi_0) * (mu_10 - psi_1) / rho_bar_0 * (data[[Y_name]] - rho_0) -
+      (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_11) +
+        (data[[Z_name]] / pi_1) * ((1 - data[[S_name]]) / (1 - rho_1)) * (rho_0 - rho_1) / rho_bar_0 * (data[[Y_name]] - mu_10) +
+        (data[[Z_name]] / pi_1) * (mu_11 - mu_10) / rho_bar_0 * (data[[S_name]] - rho_1) +
+        ((1 - data[[Z_name]]) / pi_0) * (mu_10 - psi_1) / rho_bar_0 * (data[[S_name]] - rho_0) -
         psi_1 / rho_bar_0 * (rho_0 - rho_bar_0) +
         psi_tilde_1 - psi_1
     )
@@ -286,8 +286,8 @@ do_efficient_tmle_nat_inf <- function(
     x * (u - l) + l
   }
   
-  phi_0_data <- phi_0(data, V_name, Y_name, G_name, pi_0, rho_0, rho_bar_0, mu_01, psi_tilde_0, psi_0)
-  phi_1_data <- phi_1(data, V_name, Y_name, G_name, pi_1, pi_0, rho_0, rho_bar_0, rho_1, mu_11, mu_10, psi_tilde_1, psi_1)
+  phi_0_data <- phi_0(data, Z_name, S_name, Y_name, pi_0, rho_0, rho_bar_0, mu_01, psi_tilde_0, psi_0)
+  phi_1_data <- phi_1(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0, rho_bar_0, rho_1, mu_11, mu_10, psi_tilde_1, psi_1)
   phi_ge_data <- phi_1_data - phi_0_data
   
   mean_phi_0 <- mean(phi_0_data)
@@ -312,22 +312,22 @@ do_efficient_tmle_nat_inf <- function(
     # cat("mean_eif", mean_phi_ge_data, "\n")
     
     # target mu's
-    G_scale <- scale_01(data[[G_name]], l, u)
+    Y_scale <- scale_01(data[[Y_name]], l, u)
     
     # target mu_11
     mu_11_star_scale <- scale_01(mu_11_star, l, u)
     logit_mu_11_star_scale <- trim_logit(mu_11_star_scale)
     target_wt <- (
-      (data[[V_name]] / pi_1) * (data[[Y_name]] / rho_bar_0_star)
+      (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0_star)
     )
     
     target_data <- data.frame(
-      G_scale = G_scale,
+      Y_scale = Y_scale,
       target_wt = target_wt,
       logit_mu_11_star_scale = logit_mu_11_star_scale
     )
     target_fit <- suppressWarnings(glm(
-      G_scale ~ offset(logit_mu_11_star_scale), 
+      Y_scale ~ offset(logit_mu_11_star_scale), 
       weight = target_wt,
       family = binomial(),
       data = target_data,
@@ -339,16 +339,16 @@ do_efficient_tmle_nat_inf <- function(
     mu_01_star_scale <- scale_01(mu_01_star, l, u)
     logit_mu_01_star_scale <- trim_logit(mu_01_star_scale)
     target_wt <- (
-      ((1 - data[[V_name]]) / (1 - pi_1)) * (data[[Y_name]] / rho_bar_0_star)
+      ((1 - data[[Z_name]]) / (1 - pi_1)) * (data[[S_name]] / rho_bar_0_star)
     )
     
     target_data <- data.frame(
-      G_scale = G_scale,
+      Y_scale = Y_scale,
       target_wt = target_wt,
       logit_mu_01_star_scale = logit_mu_01_star_scale
     )
     target_fit <- suppressWarnings(glm(
-      G_scale ~ offset(logit_mu_01_star_scale), 
+      Y_scale ~ offset(logit_mu_01_star_scale), 
       weight = target_wt,
       family = binomial(),
       data = target_data,
@@ -360,17 +360,17 @@ do_efficient_tmle_nat_inf <- function(
     mu_10_star_scale <- scale_01(mu_10_star, l, u)
     logit_mu_10_star_scale <- trim_logit(mu_10_star_scale)
     target_wt <- with(data, 
-                      ( data[[V_name]] / pi_1 ) * ( (1 - data[[Y_name]]) / rho_bar_0_star ) 
+                      ( data[[Z_name]] / pi_1 ) * ( (1 - data[[S_name]]) / rho_bar_0_star ) 
     )
     H1 <- ( rho_0_star - rho_1_star ) / ( 1 - rho_1_star )
     target_data <- data.frame(
-      G_scale = G_scale,
+      Y_scale = Y_scale,
       target_wt = target_wt,
       H1 = H1,
       logit_mu_10_star_scale = logit_mu_10_star_scale
     )
     target_fit <- suppressWarnings(glm(
-      G_scale ~ -1 + offset(logit_mu_10_star_scale) + H1, 
+      Y_scale ~ -1 + offset(logit_mu_10_star_scale) + H1, 
       weight = target_wt,
       family = binomial(),
       data = target_data,
@@ -388,7 +388,7 @@ do_efficient_tmle_nat_inf <- function(
     H1 <- mu_10_star - psi_1_star
     H0 <- mu_01_star - psi_0_star
     logit_rho_0_star <- trim_logit(rho_0_star)
-    target_wt <- (1 - data[[V_name]]) / pi_0
+    target_wt <- (1 - data[[Z_name]]) / pi_0
     
     # with linear models, these may be perfectly correlated, but numerically
     # R thinks they are not and tries to fit a glm, which blows up. setting 
@@ -399,17 +399,17 @@ do_efficient_tmle_nat_inf <- function(
     }
     
     target_data <- data.frame(
-      Y_inf = data[[Y_name]],
+      S_inf = data[[S_name]],
       target_wt = target_wt,
       H1 = H1,
       H0 = H0,
       logit_rho_0_star = logit_rho_0_star
     )
-    target_data <- setNames(target_data, c(Y_name, names(target_data[-1])))
+    target_data <- setNames(target_data, c(S_name, names(target_data[-1])))
     
-    # include intercept so rho_bar_0_star is still mean(Y[V == 0])
+    # include intercept so rho_bar_0_star is still mean(Y[Z == 0])
     target_fit <- glm(
-      as.formula(paste0(Y_name," ~ offset(logit_rho_0_star) + H1 + H0")), 
+      as.formula(paste0(S_name," ~ offset(logit_rho_0_star) + H1 + H0")), 
       family = binomial(),
       weight = target_wt,
       data = target_data,
@@ -422,29 +422,29 @@ do_efficient_tmle_nat_inf <- function(
     
     ## sanity check
     # tmp <- with(data, 
-    # ( (1 - V) / pi_0 ) * ( mu_01_star - psi_0_star ) / rho_bar_0_star * ( Y_inf - rho_0_star )
+    # ( (1 - Z) / pi_0 ) * ( mu_01_star - psi_0_star ) / rho_bar_0_star * ( S_inf - rho_0_star )
     # )
     # mean(tmp) # should be small
     # tmp <- with(data, 
-    #     ( (1 - V) / pi_0 ) * ( (mu_10_star - psi_1_star) / rho_bar_0_star ) * (Y_inf - rho_0_star) 
+    #     ( (1 - Z) / pi_0 ) * ( (mu_10_star - psi_1_star) / rho_bar_0_star ) * (S_inf - rho_0_star) 
     # )
     # mean(tmp) # should be small
     
     # target rho_1
     H1 <- mu_11_star - mu_10_star
     logit_rho_1_star <- trim_logit(rho_1_star)
-    target_wt <- data[[V_name]] / pi_1
+    target_wt <- data[[Z_name]] / pi_1
     target_data <- data.frame(
-      Y_name = data[[Y_name]],
+      S_name = data[[S_name]],
       target_wt = target_wt,
       H1 = H1,
       logit_rho_1_star = logit_rho_1_star
     )
-    target_data <- setNames(target_data, c(Y_name, names(target_data[-1])))
+    target_data <- setNames(target_data, c(S_name, names(target_data[-1])))
     
-    # include intercept so rho_bar_0_star is still mean(Y[V == 0])
+    # include intercept so rho_bar_0_star is still mean(Y[Z == 0])
     target_fit <- glm(
-      as.formula(paste0(Y_name, " ~ -1 + offset(logit_rho_1_star) + H1")), 
+      as.formula(paste0(S_name, " ~ -1 + offset(logit_rho_1_star) + H1")), 
       family = binomial(),
       weight = target_wt,
       data = target_data,
@@ -458,8 +458,8 @@ do_efficient_tmle_nat_inf <- function(
     psi_tilde_0_star <- rho_0_star / rho_bar_0_star * mu_01_star
     psi_0_star <- mean( psi_tilde_0_star )
     
-    phi_0_data <- phi_0(data, V_name, Y_name, G_name, pi_0, rho_0_star, rho_bar_0_star, mu_01_star, psi_tilde_0_star, psi_0_star)
-    phi_1_data <- phi_1(data, V_name, Y_name, G_name, pi_1, pi_0, rho_0_star, rho_bar_0_star, rho_1_star, mu_11_star, mu_10_star, psi_tilde_1_star, psi_1_star)
+    phi_0_data <- phi_0(data, Z_name, S_name, Y_name, pi_0, rho_0_star, rho_bar_0_star, mu_01_star, psi_tilde_0_star, psi_0_star)
+    phi_1_data <- phi_1(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0_star, rho_bar_0_star, rho_1_star, mu_11_star, mu_10_star, psi_tilde_1_star, psi_1_star)
     phi_ge_data <- phi_1_data - phi_0_data
     
     mean_phi_0 <- mean(phi_0_data)
@@ -499,9 +499,9 @@ do_efficient_tmle_nat_inf <- function(
 #' 
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
-#' @param G_name name of growth outcome variable, default G
-#' @param V_name name of vaccine treatment variable, default V
-#' @param Y_name name of infection variable, default Y
+#' @param Y_name name of growth outcome variable, default Y
+#' @param Z_name name of vaccine treatment variable, default Z
+#' @param S_name name of infection variable, default Y
 #' @param epislon a vector of values for the sensitivity parameter
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
@@ -512,19 +512,19 @@ do_efficient_tmle_nat_inf <- function(
 #' data(provide)
 #' models <- fit_models(
 #'   data,
-#'   G_name = "any_abx_wk52",
-#'   V_name = "rotaarm",
+#'   Y_name = "anS_abx_wk52",
+#'   Z_name = "rotaarm",
 #'   X_name = c("wk10_haz", "gender", "num_hh_sleep"),
-#'   Y_name = "rotaepi",
+#'   S_name = "rotaepi",
 #'   est = "efficient_aipw"
 #' )
 #' 
 #' # debug(do_sens_aipw)
 #' out <- do_sens_aipw(
 #'   provide, models, 
-#'   G_name = "any_abx_wk52",
-#'   V_name = "rotaarm",
-#'   Y_name = "rotaepi",
+#'   Y_name = "anS_abx_wk52",
+#'   Z_name = "rotaarm",
+#'   S_name = "rotaepi",
 #'   return_se = TRUE
 #' )
 #' 
@@ -532,30 +532,30 @@ do_efficient_tmle_nat_inf <- function(
 #' plot(out, se = TRUE, effect_type = "multiplicative")
 do_sens_aipw_nat_inf <- function(data,
                          models,
-                         G_name = "G",
-                         V_name = "V",
                          Y_name = "Y",
+                         Z_name = "Z",
+                         S_name = "S",
                          epsilon = exp(seq(log(0.5), log(2), length = 50)),
                          return_se = FALSE){
   
   # vaccine probabilities
-  pi_1 <- models$fit_V_X$fitted.values
+  pi_1 <- models$fit_Z_X$fitted.values
   pi_0 <- 1 - pi_1
   
-  # Get weight
-  sub_V0 <- data[data[[V_name]] == 0,]
+  # Yet weight
+  sub_Z0 <- data[data[[Z_name]] == 0,]
   
-  # rho_bar_0 <- mean(sub_V0[[Y_name]])
+  # rho_bar_0 <- mean(sub_Z0[[S_name]])
   
-  data_0 <- data; data[[V_name]] <- 0
-  data_1 <- data; data[[V_name]] <- 1
+  data_0 <- data; data[[Z_name]] <- 0
+  data_1 <- data; data[[Z_name]] <- 1
   
-  if(inherits(models$fit_Y_V0_X, "SuperLearner")){
-    rho_0_X <- predict(models$fit_Y_V_X, newdata = data_0, type = "response")$pred
-    mu_01_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")$pred
+  if(inherits(models$fit_S_Z0_X, "SuperLearner")){
+    rho_0_X <- predict(models$fit_S_Z_X, newdata = data_0, type = "response")$pred
+    mu_01_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")$pred
   } else{
-    rho_0_X <- predict(models$fit_Y_V_X, newdata = data_0, type = "response")
-    mu_01_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+    rho_0_X <- predict(models$fit_S_Z_X, newdata = data_0, type = "response")
+    mu_01_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
   }
   
   rho_bar_0 <- mean(rho_0_X)
@@ -564,12 +564,12 @@ do_sens_aipw_nat_inf <- function(data,
   
   psi_0 <- mean( psi_tilde_0_X )
   
-  Z_i <- data[[V_name]]
+  Z_i <- data[[Z_name]]
+  S_i <- data[[S_name]]
   S_i <- data[[Y_name]]
-  Y_i <- data[[G_name]]
   
   augmentation_0 <- (
-    (1 - Z_i) / pi_0 * ( S_i / rho_bar_0 ) * (Y_i - mu_01_X) + 
+    (1 - Z_i) / pi_0 * ( S_i / rho_bar_0 ) * (S_i - mu_01_X) + 
       (1 - Z_i) / pi_0 * ( mu_01_X - psi_0 ) / rho_bar_0 * ( S_i - rho_0_X ) + 
       ( psi_0 / rho_bar_0 ) * ( rho_0_X - rho_bar_0 ) + 
       psi_tilde_0_X - psi_0
@@ -577,14 +577,14 @@ do_sens_aipw_nat_inf <- function(data,
   
   psi_0_aipw <- psi_0 + mean(augmentation_0)
   
-  if(inherits(models$fit_G_V1_Y1_X, "SuperLearner")){
-    mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")$pred
-    mu_10_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")$pred
-    rho_1_X <- predict(models$fit_Y_V_X, newdata = data_1, type = "response")$pred
+  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+    mu_11_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
+    mu_10_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
+    rho_1_X <- predict(models$fit_S_Z_X, newdata = data_1, type = "response")$pred
   } else{
-    mu_11_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
-    mu_10_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
-    rho_1_X <- predict(models$fit_Y_V_X, newdata = data_1, type = "response")
+    mu_11_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
+    mu_10_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
+    rho_1_X <- predict(models$fit_S_Z_X, newdata = data_1, type = "response")
   }
   
   psi_11_epsilon_X <- rho_1_X / rho_bar_0 * mu_11_X 
@@ -601,11 +601,11 @@ do_sens_aipw_nat_inf <- function(data,
   augmentation_1_epsilon <- mapply(
     eps = epsilon, psi_10_eps_X = psi_10_epsilon_X, psi_10_eps = psi_10_epsilon,
     function(eps, psi_10_eps_X, psi_10_eps){
-      ( Z_i / pi_1) * ( S_i / rho_bar_0 ) * ( Y_i - mu_11_X ) + 
+      ( Z_i / pi_1) * ( S_i / rho_bar_0 ) * ( S_i - mu_11_X ) + 
         Z_i / pi_1 * ( mu_11_X / rho_bar_0 ) * ( S_i - rho_1_X ) - 
         mean(psi_11_epsilon) / rho_bar_0 * ( 1 - Z_i ) / pi_0 * (S_i - rho_bar_0) + 
         psi_11_epsilon_X - psi_11_epsilon + 
-        Z_i / pi_1 * (1 - S_i) / (rho_bar_0) * (rho_0_X - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( Y_i - mu_10_X ) + 
+        Z_i / pi_1 * (1 - S_i) / (rho_bar_0) * (rho_0_X - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( S_i - mu_10_X ) + 
         ( 1 - Z_i ) / pi_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_0_X ) -
         Z_i / pi_1 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_1_X ) - 
         psi_10_eps / rho_bar_0 * (1 - Z_i) / pi_0 * ( S_i - rho_bar_0 ) -
@@ -639,7 +639,7 @@ do_sens_aipw_nat_inf <- function(data,
     log(psi_1_eps / psi_0_aipw)
   })
   
-  # Get SE using IF matrix same way as TMLE
+  # Yet SE using IF matrix same way as TMLE
   se_log_mult_eff <- mapply(
     augmentation_1_eps = augmentation_1_epsilon, 
     psi_1_eps_aipw = psi_1_epsilon_aipw,
@@ -676,56 +676,56 @@ do_sens_aipw_nat_inf <- function(data,
 #' Function for bounds on naturally infected estimate without use of cross-world assumption
 #' 
 #' @param data dataframe containing dataset to use for analysis
-#' @param G_name growth outcome variable name
-#' @param V_name vaccination variable name
-#' @param Y_name infection variable name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
+#' @param S_name infection variable name
 #' @param family gaussian for continuous outcome, binomial for binary outcome
 #' 
-#' @returns list containing estimate of E[G(0) | Y(0) = 1], bounds on E[G(1) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
+#' @returns list containing estimate of E[Y(0) | Y(0) = 1], bounds on E[Y(1) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
 get_bound_nat_inf <- function(
     data, 
-    G_name = "G",
-    V_name = "V",
     Y_name = "Y",
+    Z_name = "Z",
+    S_name = "S",
     family = "gaussian"
 ){
   
   # Step 1: rhobar_z_n
   
   # 1.1 rhobar_0_n (or mean in subset)
-  rhobar_0_n <- mean(data[[Y_name]][data[[V_name]] == 0])
+  rhobar_0_n <- mean(data[[S_name]][data[[Z_name]] == 0])
   
   # 1.2 rhobar_1_n
-  rhobar_1_n <- mean(data[[Y_name]][data[[V_name]] == 1])
+  rhobar_1_n <- mean(data[[S_name]][data[[Z_name]] == 1])
   
   if(rhobar_0_n > rhobar_1_n){
     # Step 2: mubar_11_n 
-    mubar_11_n <- sum(data[[G_name]]*data[[Y_name]]*data[[V_name]]) / sum(data[[Y_name]]*data[[V_name]])
+    mubar_11_n <- sum(data[[Y_name]]*data[[S_name]]*data[[Z_name]]) / sum(data[[S_name]]*data[[Z_name]])
     
     # Step 3: q_n (relative size of protected? in (immune + protected) in vax)
     q_n = 1 - (1 - rhobar_0_n) / (1 - rhobar_1_n)
     
-    # Step 4: q_n^th quintiles of Y__Z1_S0 (aka G__V1_Y0, need to rename everything at some point)
-    G__V1_Y0 <- data[[G_name]][which(data[[V_name]] == 1 & data[[Y_name]] == 0)]
-    q_nth_quintile <- quantile(G__V1_Y0, probs = q_n)
-    one_minus_q_nth_quintile <- quantile(G__V1_Y0, probs = 1 - q_n)
+    # Step 4: q_n^th quintiles of S__Z1_S0 (aka Y__Z1_S0, need to rename everything at some point)
+    Y__Z1_S0 <- data[[Y_name]][which(data[[Z_name]] == 1 & data[[S_name]] == 0)]
+    q_nth_quintile <- quantile(Y__Z1_S0, probs = q_n)
+    one_minus_q_nth_quintile <- quantile(Y__Z1_S0, probs = 1 - q_n)
     
     # Step 5: mubar_10_l,u_n 
     if(family == "gaussian"){
-      mubar_10_l_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] < q_nth_quintile )) / 
-        sum(as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] < q_nth_quintile ))
+      mubar_10_l_n <- sum(data[[Y_name]] * as.numeric(data[[S_name]] == 0 & data[[Z_name]] == 1 & data[[Y_name]] < q_nth_quintile )) / 
+        sum(as.numeric(data[[S_name]] == 0 & data[[Z_name]] == 1 & data[[Y_name]] < q_nth_quintile ))
       
-      mubar_10_u_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] > one_minus_q_nth_quintile )) / 
-        sum(as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] > one_minus_q_nth_quintile ))
+      mubar_10_u_n <- sum(data[[Y_name]] * as.numeric(data[[S_name]] == 0 & data[[Z_name]] == 1 & data[[Y_name]] > one_minus_q_nth_quintile )) / 
+        sum(as.numeric(data[[S_name]] == 0 & data[[Z_name]] == 1 & data[[Y_name]] > one_minus_q_nth_quintile ))
     } else{
       # Binary outcome
       
-      # Vaccinated, Uninfected
-      data__V1_Y0 <- data[which(data[[V_name]] == 1 & data[[Y_name]] == 0),]
+      # Zaccinated, Uninfected
+      data__Z1_S0 <- data[which(data[[Z_name]] == 1 & data[[S_name]] == 0),]
       
-      target_num <- ceiling(q_n * nrow(data__V1_Y0))
-      num_0s <- length(which(data__V1_Y0[[G_name]] == 0))
-      num_1s <- length(which(data__V1_Y0[[G_name]] == 1))
+      target_num <- ceiling(q_n * nrow(data__Z1_S0))
+      num_0s <- length(which(data__Z1_S0[[Y_name]] == 0))
+      num_1s <- length(which(data__Z1_S0[[Y_name]] == 1))
       
       ## Lower Bound:
       
@@ -735,7 +735,7 @@ get_bound_nat_inf <- function(
         mubar_10_l_n <- 0
       } else{
         # Else, mubar_10_l = (q_n - prop zeros in vax uninf) / q_n
-        mubar_10_l_n <- (q_n - (num_0s / nrow(data__V1_Y0)) ) /
+        mubar_10_l_n <- (q_n - (num_0s / nrow(data__Z1_S0)) ) /
           q_n
       }
       
@@ -748,7 +748,7 @@ get_bound_nat_inf <- function(
       } else{
         # Else, mubar_10_u = (q_n - prop ones in vax uninf) / q_n
         
-        mubar_10_u_n <- 1 - ((q_n - (num_1s / nrow(data__V1_Y0)) ) /
+        mubar_10_u_n <- 1 - ((q_n - (num_1s / nrow(data__Z1_S0)) ) /
                                q_n)
       }
       
@@ -764,15 +764,15 @@ get_bound_nat_inf <- function(
   }
   
   #mean in unvaccinated infecteds for comparison
-  E_G0__Y0_1 <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 0])
+  E_Y0__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 0])
   
-  out <- list(E_G0__Y0_1 = E_G0__Y0_1,
-              E_G1__Y0_1_lower = l_n,
-              E_G1__Y0_1_upper = u_n,
-              additive_effect_lower = l_n - E_G0__Y0_1,
-              additive_effect_upper = u_n - E_G0__Y0_1,
-              mult_effect_lower = l_n / E_G0__Y0_1,
-              mult_effect_upper = u_n / E_G0__Y0_1)
+  out <- list(E_Y0__S0_1 = E_Y0__S0_1,
+              E_Y1__S0_1_lower = l_n,
+              E_Y1__S0_1_upper = u_n,
+              additive_effect_lower = l_n - E_Y0__S0_1,
+              additive_effect_upper = u_n - E_Y0__S0_1,
+              mult_effect_lower = l_n / E_Y0__S0_1,
+              mult_effect_upper = u_n / E_Y0__S0_1)
   
   class(out) <- "bound_nat_inf"
   
@@ -786,12 +786,12 @@ get_bound_nat_inf <- function(
 
 #' Function for Hudgens-style bounds on effect that incorporate covariates
 #' 
-#' Currently assumes that the conditional mean of G follows a linear model
+#' Currently assumes that the conditional mean of Y follows a linear model
 #' with Normal errors.
 #' 
 #' @param data dataframe containing dataset to use for analysis
 #' @param models list of pre-fit models needed for estimation
-#' @param family gaussian for continuous outcome G, binomial for binary outcome
+#' @param family gaussian for continuous outcome Y, binomial for binary outcome
 #' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
 #'    to the infected vaccines thereby yielding a lower
 #'    bound on the effect of interest. If FALSE, then adds the largest
@@ -815,18 +815,18 @@ get_bound_nat_inf <- function(
 #'   }
 #' )
 #' 
-#' V <- rbinom(n, 1, 0.5)
+#' Z <- rbinom(n, 1, 0.5)
 #' Y0 <- ifelse(ps == "immune", 0, 1)
 #' Y1 <- ifelse(ps == "doomed", 1, 0)
-#' Y <- ifelse(V == 1, Y1, Y0)
-#' G1 <- 1*X - 0.5 * Y1 + rnorm(n, 0, 0.5)
-#' G0 <- 1*X - 0.5 * Y0 + rnorm(n, 0, 0.5)
-#' G <- ifelse(V == 1, G1, G0)
+#' Y <- ifelse(Z == 1, Y1, Y0)
+#' Y1 <- 1*X - 0.5 * Y1 + rnorm(n, 0, 0.5)
+#' Y0 <- 1*X - 0.5 * Y0 + rnorm(n, 0, 0.5)
+#' Y <- ifelse(Z == 1, Y1, Y0)
 #' 
-#' marginal_effect <- mean(G1 - G0)
-#' ps_effect <- mean(G1[Y0 == 1] - G0[Y0 == 1])
+#' marginal_effect <- mean(Y1 - Y0)
+#' ps_effect <- mean(Y1[Y0 == 1] - Y0[Y0 == 1])
 #' 
-#' data <- data.frame(X, V, Y, G)
+#' data <- data.frame(X, Z, Y, Y)
 #' models <- fit_models(data)
 #' 
 #' get_adjusted_hudgens_stat(data, models, lower_bound = TRUE)
@@ -838,8 +838,8 @@ get_bound_nat_inf <- function(
 #' get_hudgens_stat(data, lower_bound = FALSE)
 #' 
 #' # binary outcome
-#' G_binary <- as.numeric(G > 1)
-#' data <- data.frame(X, V, Y, G = G_binary)
+#' Y_binary <- as.numeric(Y > 1)
+#' data <- data.frame(X, Z, Y, Y = Y_binary)
 #' models <- fit_models(data, family = binomial())
 #' get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = TRUE)
 #' get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = FALSE)
@@ -854,59 +854,59 @@ get_bound_nat_inf <- function(
 #     lower_bound = TRUE
 # ){
 #   
-#   E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+#   E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
 #   
-#   E_G_V1_Y1_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
-#   E_G_V1_Y0_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
+#   E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
+#   E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
 #   
-#   P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
-#   P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
-#   P_Y0_V1_X <- 1 - P_Y1_V1_X
-#   P_Y0_V0_X <- 1 - P_Y1_V0_X
+#   P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
+#   P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+#   P_S0_Z1_X <- 1 - P_S1_Z1_X
+#   P_S0_Z0_X <- 1 - P_S1_Z0_X
 #   
-#   P_Y1_V0 <- mean(P_Y1_V0_X)
+#   P_S1_Z0 <- mean(P_S1_Z0_X)
 #   
-#   VE_X <- 1 - ( P_Y1_V1_X / P_Y1_V0_X )
-#   if(any(VE_X < 0)){
-#     warning("Some condtional VE estimates < 0 -- truncating these estimates at 0.")
+#   ZE_X <- 1 - ( P_S1_Z1_X / P_S1_Z0_X )
+#   if(any(ZE_X < 0)){
+#     warning("Some condtional ZE estimates < 0 -- truncating these estimates at 0.")
 #   }
-#   VE_X[VE_X < 0] <- 0
-#   VE_is_zero <- (VE_X == 0)
-#   VE_is_nonzero <- (VE_X > 0)
+#   ZE_X[ZE_X < 0] <- 0
+#   ZE_is_zero <- (ZE_X == 0)
+#   ZE_is_nonzero <- (ZE_X > 0)
 #   
-#   q_X_low <- 1 - P_Y0_V0_X / P_Y0_V1_X
+#   q_X_low <- 1 - P_S0_Z0_X / P_S0_Z1_X
 #   q_X_high <- 1 - q_X_low
 #   
 #   if(family == "gaussian"){
-#     sd_G <- (mean(models$fit_G_V1_Y0_X$residuals^2))^(1/2)
+#     sd_Y <- (mean(models$fit_Y_Z1_S0_X$residuals^2))^(1/2)
 #   }
 #   
-#   E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X
+#   E_Y_Z1_S0_truncY_X <- E_Y_Z1_S0_X
 #   
 #   if(lower_bound){
 #     
 #     if(family == "gaussian"){
 #       # calculate mean of Normal given less than q_X_low
-#       beta_X <- (q_X_low - E_G_V1_Y0_X) / sd_G
-#       E_G_V1_Y0_truncG_X[VE_is_nonzero] <- E_G_V1_Y0_X[VE_is_nonzero] - sd_G * dnorm(beta_X[VE_is_nonzero]) / pnorm(beta_X[VE_is_nonzero])
+#       beta_X <- (q_X_low - E_Y_Z1_S0_X) / sd_Y
+#       E_Y_Z1_S0_truncY_X[ZE_is_nonzero] <- E_Y_Z1_S0_X[ZE_is_nonzero] - sd_Y * dnorm(beta_X[ZE_is_nonzero]) / pnorm(beta_X[ZE_is_nonzero])
 #     }else{
-#       E_G_V1_Y0_truncG_X[VE_is_nonzero] <- as.numeric(E_G_V1_Y0_X[VE_is_nonzero] > q_X_low)
+#       E_Y_Z1_S0_truncY_X[ZE_is_nonzero] <- as.numeric(E_Y_Z1_S0_X[ZE_is_nonzero] > q_X_low)
 #     }
 #   }else{
 #     
 #     if(family == "gaussian"){
 #       # calculate mean of Normal given greater than q_X_high
-#       alpha_X <- (q_X_high - E_G_V1_Y0_X) / sd_G
-#       E_G_V1_Y0_truncG_X[VE_is_nonzero] <- E_G_V1_Y0_X[VE_is_nonzero] + sd_G * dnorm(alpha_X[VE_is_nonzero]) / pnorm(alpha_X[VE_is_nonzero], lower.tail = FALSE)
+#       alpha_X <- (q_X_high - E_Y_Z1_S0_X) / sd_Y
+#       E_Y_Z1_S0_truncY_X[ZE_is_nonzero] <- E_Y_Z1_S0_X[ZE_is_nonzero] + sd_Y * dnorm(alpha_X[ZE_is_nonzero]) / pnorm(alpha_X[ZE_is_nonzero], lower.tail = FALSE)
 #     }else{
-#       E_G_V1_Y0_truncG_X[VE_is_nonzero] <- as.numeric(E_G_V1_Y0_X[VE_is_nonzero] > q_X_high)
+#       E_Y_Z1_S0_truncY_X[ZE_is_nonzero] <- as.numeric(E_Y_Z1_S0_X[ZE_is_nonzero] > q_X_high)
 #     }
 #   }
 #   
-#   E_G_V1_Y0_X_bound <- E_G_V1_Y1_X * (1 - VE_X) + E_G_V1_Y0_truncG_X * VE_X
+#   E_Y_Z1_S0_X_bound <- E_Y_Z1_S1_X * (1 - ZE_X) + E_Y_Z1_S0_truncY_X * ZE_X
 #   
 #   effect <- mean(
-#     P_Y1_V0_X / P_Y1_V0 * (E_G_V1_Y0_X_bound - E_G_V0_Y1_X)
+#     P_S1_Z0_X / P_S1_Z0 * (E_Y_Z1_S0_X_bound - E_Y_Z0_S1_X)
 #   )
 #   
 #   return(effect)
@@ -916,22 +916,22 @@ get_bound_nat_inf <- function(
 #' Function to get chop-lump style test-statistic
 #' 
 #' @param data dataframe containing dataset to use for analysis
-#' @param G_name growth outcome variable name
-#' @param V_name vaccination variable name
-#' @param Y_name infection variable name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
+#' @param S_name infection variable name
 #' 
 #' @returns dataframe with chop-lump style test statistics for mean in vax, mean in placebo
 #' 
 # get_chop_lump_statistic <- function(data,
-#                                     G_name = "G",
-#                                     V_name = "V",
-#                                     Y_name = "Y"){
+#                                     Y_name = "Y",
+#                                     Z_name = "Z",
+#                                     S_name = "S"){
 #   
-#   # 1. Get number of people in relevant groups
-#   n_no_inf_plc <- sum(data[[Y_name]] == 0 & data[[V_name]] == 0)
-#   n_no_inf_vax <- sum(data[[Y_name]] == 0 & data[[V_name]] == 1)
-#   n_plc <- sum(data[[V_name]] == 0)
-#   n_vax <- sum(data[[V_name]] == 1)
+#   # 1. Yet number of people in relevant groups
+#   n_no_inf_plc <- sum(data[[S_name]] == 0 & data[[Z_name]] == 0)
+#   n_no_inf_vax <- sum(data[[S_name]] == 0 & data[[Z_name]] == 1)
+#   n_plc <- sum(data[[Z_name]] == 0)
+#   n_vax <- sum(data[[Z_name]] == 1)
 #   n_inf_plc <- n_plc - n_no_inf_plc
 #   n_inf_vax <- n_vax - n_no_inf_vax
 #   
@@ -939,77 +939,77 @@ get_bound_nat_inf <- function(
 #   if(n_inf_plc > n_inf_vax){
 #     
 #     # placebo - everyone is infected, simple mean
-#     mean_G_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
+#     mean_Y_plc <- mean(data[[Y_name]][data[[Z_name]] == 0 & data[[S_name]] == 1])
 #     
 #     # vaccinated - weighted mean
-#     mean_G_noinf_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 0])
-#     mean_G_inf_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1])
+#     mean_Y_noinf_vax <- mean(data[[Y_name]][data[[Z_name]] == 1 & data[[S_name]] == 0])
+#     mean_Y_inf_vax <- mean(data[[Y_name]][data[[Z_name]] == 1 & data[[S_name]] == 1])
 #     
-#     mean_G_vax  <- mean_G_noinf_vax * ((n_inf_plc - n_inf_vax) / n_inf_plc) +
-#       mean_G_inf_vax * (n_inf_vax / n_inf_plc)
+#     mean_Y_vax  <- mean_Y_noinf_vax * ((n_inf_plc - n_inf_vax) / n_inf_plc) +
+#       mean_Y_inf_vax * (n_inf_vax / n_inf_plc)
 #     
 #   } else if (n_inf_plc < n_inf_vax){
 #     
 #     # vaccinated - everyone is infected, simple mean
-#     mean_G_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1])
+#     mean_Y_vax <- mean(data[[Y_name]][data[[Z_name]] == 1 & data[[S_name]] == 1])
 #     
 #     # placebo - weighted mean
-#     mean_G_noinf_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 0])
-#     mean_G_inf_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
+#     mean_Y_noinf_plc <- mean(data[[Y_name]][data[[Z_name]] == 0 & data[[S_name]] == 0])
+#     mean_Y_inf_plc <- mean(data[[Y_name]][data[[Z_name]] == 0 & data[[S_name]] == 1])
 #     
-#     mean_G_plc  <- mean_G_noinf_plc * ((n_inf_vax - n_inf_plc) / n_inf_vax) +
-#       mean_G_inf_plc * (n_inf_plc / n_inf_vax)
+#     mean_Y_plc  <- mean_Y_noinf_plc * ((n_inf_vax - n_inf_plc) / n_inf_vax) +
+#       mean_Y_inf_plc * (n_inf_plc / n_inf_vax)
 #     
 #   } else{
 #     
 #     # vaccinated - everyone is infected, simple mean
-#     mean_G_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1])
+#     mean_Y_vax <- mean(data[[Y_name]][data[[Z_name]] == 1 & data[[S_name]] == 1])
 #     
 #     # placebo - everyone is infected, simple mean
-#     mean_G_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
+#     mean_Y_plc <- mean(data[[Y_name]][data[[Z_name]] == 0 & data[[S_name]] == 1])
 #     
 #   }
 #   
-#   return(data.frame(mean_G_plc = mean_G_plc,
-#                     mean_G_vax = mean_G_vax))
+#   return(data.frame(mean_Y_plc = mean_Y_plc,
+#                     mean_Y_vax = mean_Y_vax))
 # }
 
 #' Function to do permutation test for chop-lump style test-statistics
 #' 
 #' @param data dataframe containing dataset to use for analysis
-#' @param G_name growth outcome variable name
-#' @param V_name vaccination variable name
-#' @param Y_name infection variable name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
+#' @param S_name infection variable name
 #' @param n_permutations number of permutations to complete
 #' 
 #' @returns chop lump test statistic
 # do_chop_lump_test <- function(data, 
-#                               G_name = "G",
-#                               V_name = "V",
 #                               Y_name = "Y",
+#                               Z_name = "Z",
+#                               S_name = "S",
 #                               n_permutations = 1e4){
 #   
 #   original_means <- get_chop_lump_statistic(data, 
-#                                             G_name = G_name,
-#                                             V_name = V_name,
-#                                             Y_name = Y_name)
+#                                             Y_name = Y_name,
+#                                             Z_name = Z_name,
+#                                             S_name = S_name)
 #   ## Permutation approach
 #   null_means <- vector("list", length = n_permutations)
 #   for(i in 1:n_permutations){
 #     data_shuffle <- data
-#     data_shuffle[[V_name]] <- sample(data_shuffle[[V_name]])
+#     data_shuffle[[Z_name]] <- sample(data_shuffle[[Z_name]])
 #     
 #     null_means[[i]] <- get_chop_lump_statistic(data_shuffle,
-#                                                G_name = G_name,
-#                                                V_name = V_name,
-#                                                Y_name = Y_name)
+#                                                Y_name = Y_name,
+#                                                Z_name = Z_name,
+#                                                S_name = S_name)
 #   }
 #   
 #   null_df <- do.call(rbind, null_means)
 #   
 #   ## Hypothesis test
-#   observed_diff <- original_means$mean_G_vax - original_means$mean_G_plc
-#   null_df$mean_diff <- null_df$mean_G_vax - null_df$mean_G_plc
+#   observed_diff <- original_means$mean_Y_vax - original_means$mean_Y_plc
+#   null_df$mean_diff <- null_df$mean_Y_vax - null_df$mean_Y_plc
 #   
 #   out <- list(
 #     obs_diff = observed_diff,

@@ -1,17 +1,17 @@
 #' Function for one bootstrap sample
 #'
 #' @param data original data to bootstrap
-#' @param G_name growth outcome variable name
-#' @param V_name vaccination variable name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
 #' @param X_name covariate name(s)
-#' @param Y_name infection variable name
+#' @param S_name infection variable name
 #' @param est character vector of names of estimators to use for growth effect
 #' @param ml boolean to use SuperLearner models, default FALSE
-#' @param G_X_Y1_model optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates
-#' @param G_X_Y0_model optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates
-#' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
-#' @param G_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
-#' @param Y_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
+#' @param Y_X_S1_model optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates
+#' @param Y_X_S0_model optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates
+#' @param S_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
+#' @param Y_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
+#' @param S_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
 #' @param family family for outcome model, defaults to gaussian for growth
 #' @param v_folds number of cross validation folds for SuperLearner, default 3
 #' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
@@ -19,19 +19,19 @@
 #' @returns list containing results for specified estimators on single bootstrap sample
 one_boot <- function(
     data,
-    G_name = "G",
-    V_name = "V",
+    Y_name = "Y",
+    Z_name = "Z",
     X_name = "X",
-    Y_name = "Y", 
+    S_name = "S", 
     est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_upper", "hudgens_adj_lower"),
     ml = FALSE, 
-    G_V_X_model = NULL,
-    G_X_Y1_model = NULL,
-    G_X_Y0_model = NULL,
-    Y_X_model = NULL,
-    G_V_X_library = c("SL.glm"),
-    G_X_library = c("SL.glm"),
+    Y_Z_X_model = NULL,
+    Y_X_S1_model = NULL,
+    Y_X_S0_model = NULL,
+    S_X_model = NULL,
+    Y_Z_X_library = c("SL.glm"),
     Y_X_library = c("SL.glm"),
+    S_X_library = c("SL.glm"),
     family = "gaussian",
     v_folds = 3,
     effect_dir = "positive"
@@ -46,13 +46,13 @@ one_boot <- function(
     if(any(est %in% c("efficient_aipw", "efficient_tmle"))){
       boot_ml_models <- vegrowth::fit_ml_models(data = boot_data, 
                                            est = est, 
-                                           G_name = G_name,
-                                           V_name = V_name,
                                            Y_name = Y_name,
+                                           Z_name = Z_name,
+                                           S_name = S_name,
                                            X_name = X_name,
-                                           G_V_X_library = G_V_X_library,
-                                           G_X_library = G_X_library,
+                                           Y_Z_X_library = Y_Z_X_library,
                                            Y_X_library = Y_X_library,
+                                           S_X_library = S_X_library,
                                            family = family,
                                            v_folds = v_folds)
     } 
@@ -63,28 +63,28 @@ one_boot <- function(
                       "hudgens_upper_doomed", "hudgens_lower_doomed"))){
       boot_models <- vegrowth::fit_models(data = boot_data, 
                                      est = est, 
-                                     G_name = G_name,
-                                     V_name = V_name,
                                      Y_name = Y_name,
+                                     Z_name = Z_name,
+                                     S_name = S_name,
                                      X_name = X_name,
-                                     G_V_X_model = G_V_X_model,
-                                     G_X_Y1_model = G_X_Y1_model,
-                                     G_X_Y0_model = G_X_Y0_model,
-                                     Y_X_model = Y_X_model,
+                                     Y_Z_X_model = Y_Z_X_model,
+                                     Y_X_S1_model = Y_X_S1_model,
+                                     Y_X_S0_model = Y_X_S0_model,
+                                     S_X_model = S_X_model,
                                      family = family)
     }
     
   } else{
     boot_models <- vegrowth::fit_models(data = boot_data, 
                                    est = est, 
-                                   G_name = G_name,
-                                   V_name = V_name,
                                    Y_name = Y_name,
+                                   Z_name = Z_name,
+                                   S_name = S_name,
                                    X_name = X_name,
-                                   G_V_X_model = G_V_X_model,
-                                   G_X_Y1_model = G_X_Y1_model,
-                                   G_X_Y0_model = G_X_Y0_model,
-                                   Y_X_model = Y_X_model,
+                                   Y_Z_X_model = Y_Z_X_model,
+                                   Y_X_S1_model = Y_X_S1_model,
+                                   Y_X_S0_model = Y_X_S0_model,
+                                   S_X_model = S_X_model,
                                    family = family)
   } 
   
@@ -96,37 +96,37 @@ one_boot <- function(
   if("gcomp_pop_estimand" %in% est){
     out$growth_effect_pop <- do_gcomp_pop_estimand(boot_data, 
                                                    boot_models, 
-                                                   V_name = V_name,
+                                                   Z_name = Z_name,
                                                    X_name = X_name)
   }
   if("efficient_aipw" %in% est){
     if(ml){
       out$growth_effect_aipw <- do_efficient_aipw(boot_data, 
                                                   boot_ml_models,
-                                                  G_name = G_name,
-                                                  V_name = V_name,
-                                                  Y_name = Y_name)
+                                                  Y_name = Y_name,
+                                                  Z_name = Z_name,
+                                                  S_name = S_name)
     } else{
       out$growth_effect_aipw <- do_efficient_aipw(boot_data, 
                                                   boot_models,
-                                                  G_name = G_name,
-                                                  V_name = V_name,
-                                                  Y_name = Y_name)
+                                                  Y_name = Y_name,
+                                                  Z_name = Z_name,
+                                                  S_name = S_name)
     }
   }
   if("efficient_tmle" %in% est){
     if(ml){
       out$growth_effect_tmle <- do_efficient_tmle(boot_data, 
                                                   boot_ml_models,
-                                                  G_name = G_name,
-                                                  V_name = V_name,
-                                                  Y_name = Y_name)
+                                                  Y_name = Y_name,
+                                                  Z_name = Z_name,
+                                                  S_name = S_name)
     } else{
       out$growth_effect_tmle <- do_efficient_tmle(boot_data, 
                                                   boot_models,
-                                                  G_name = G_name,
-                                                  V_name = V_name,
-                                                  Y_name = Y_name)
+                                                  Y_name = Y_name,
+                                                  Z_name = Z_name,
+                                                  S_name = S_name)
     }
   } 
   if("hudgens_adj_upper" %in% est){
@@ -142,16 +142,16 @@ one_boot <- function(
                                                                      lower_bound = TRUE)
   } 
   if("hudgens_lower" %in% est){
-    out$growth_effect_hudgens_lower <- get_hudgens_stat(boot_data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
+    out$growth_effect_hudgens_lower <- get_hudgens_stat(boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = TRUE)
   }
   if("hudgens_upper" %in% est){
-    out$growth_effect_hudgens_upper <- get_hudgens_stat(boot_data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
+    out$growth_effect_hudgens_upper <- get_hudgens_stat(boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = FALSE)
   }
   if("hudgens_lower_doomed" %in% est){
-    out$growth_effect_hudgens_lower_doomed <- get_hudgens_stat_doomed(boot_data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE)
+    out$growth_effect_hudgens_lower_doomed <- get_hudgens_stat_doomed(boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = TRUE)
   }
   if("hudgens_upper_doomed" %in% est){
-    out$growth_effect_hudgens_upper_doomed <- get_hudgens_stat_doomed(boot_data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE)
+    out$growth_effect_hudgens_upper_doomed <- get_hudgens_stat_doomed(boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = FALSE)
   }
   
   return(out)
@@ -160,20 +160,20 @@ one_boot <- function(
 #' Function to replicate n_boot bootstrap samples and get bootstrap standard error
 #' 
 #' @param data original data to bootstrap
-#' @param G_name growth outcome variable name
-#' @param V_name vaccination variable name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
 #' @param X_name covariate name(s)
-#' @param Y_name infection variable name
+#' @param S_name infection variable name
 #' @param n_boot number of bootstrap replicates
 #' @param est character vector of names of estimators to use for growth effect
 #' @param ml boolean to use SuperLearner models, default FALSE
-#' @param G_V_X_model optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates
-#' @param G_X_Y1_model optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates
-#' @param G_X_Y0_model optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates
-#' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
-#' @param G_V_X_library optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm
-#' @param G_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
-#' @param Y_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
+#' @param Y_Z_X_model optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates
+#' @param Y_X_S1_model optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates
+#' @param Y_X_S0_model optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates
+#' @param S_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
+#' @param Y_Z_X_library optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm
+#' @param Y_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
+#' @param S_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
 #' @param family family for outcome model, defaults to gaussian for growth
 #' @param v_folds number of cross validation folds for SuperLearner, default 3
 #' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
@@ -181,39 +181,39 @@ one_boot <- function(
 #' @returns list containing bootstrap se and 95% CI bounds for estimators specified in est
 bootstrap_estimates <- function(
     data, 
-    G_name = "G",
-    V_name = "V",
+    Y_name = "Y",
+    Z_name = "Z",
     X_name = "X",
-    Y_name = "Y", 
+    S_name = "S", 
     n_boot = 1000, 
     est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_upper", "hudgens_adj_lower"),
     ml = ml,
-    G_V_X_model = NULL,
-    G_X_Y1_model = NULL, 
-    G_X_Y0_model = NULL, 
-    Y_X_model = NULL,
-    G_V_X_library = c("SL.glm"),
-    G_X_library = c("SL.glm"),
+    Y_Z_X_model = NULL,
+    Y_X_S1_model = NULL, 
+    Y_X_S0_model = NULL, 
+    S_X_model = NULL,
+    Y_Z_X_library = c("SL.glm"),
     Y_X_library = c("SL.glm"),
+    S_X_library = c("SL.glm"),
     family = "gaussian",
     v_folds = 3,
     effect_dir = "positive"
 ){
   
   boot_estimates <- replicate(n_boot, one_boot(data, 
-                                               G_name = G_name,
-                                               V_name = V_name,
                                                Y_name = Y_name,
+                                               Z_name = Z_name,
+                                               S_name = S_name,
                                                X_name = X_name,
                                                est = est,
                                                ml = ml,
-                                               G_V_X_model = G_V_X_model,
-                                               G_X_Y1_model = G_X_Y1_model,
-                                               G_X_Y0_model = G_X_Y0_model,
-                                               Y_X_model = Y_X_model,
-                                               G_V_X_library = G_V_X_library,
-                                               G_X_library = G_X_library,
+                                               Y_Z_X_model = Y_Z_X_model,
+                                               Y_X_S1_model = Y_X_S1_model,
+                                               Y_X_S0_model = Y_X_S0_model,
+                                               S_X_model = S_X_model,
+                                               Y_Z_X_library = Y_Z_X_library,
                                                Y_X_library = Y_X_library,
+                                               S_X_library = S_X_library,
                                                v_folds = v_folds,
                                                family = family))
   
@@ -421,9 +421,9 @@ bootstrap_estimates <- function(
 #' Function for bootstrap CI for bounds in naturally infected
 #' 
 #' @param data dataframe containing dataset to use for analysis
-#' @param G_name growth outcome variable name
-#' @param V_name vaccination variable name
-#' @param Y_name infection variable name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
+#' @param S_name infection variable name
 #' @param family gaussian for continuous outcome, binomial for binary
 #' @param n_boot number of bootstrap replicates
 #' @param n_boot_try max number of attempts for bootstrap resampling
@@ -432,9 +432,9 @@ bootstrap_estimates <- function(
 #' @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
 bootstrap_bound_nat_inf <- function(
     data, 
-    G_name = "G",
-    V_name = "V",
     Y_name = "Y",
+    Z_name = "Z",
+    S_name = "S",
     family = "gaussian",
     n_boot = 1e3, 
     n_boot_try = n_boot*10,
@@ -444,13 +444,13 @@ bootstrap_bound_nat_inf <- function(
   n <- nrow(data)
   
   # Step 1: rhobar_z_n
-  rhobar_0_n <- mean(data[[Y_name]][data[[V_name]] == 0])
-  rhobar_1_n <- mean(data[[Y_name]][data[[V_name]] == 1])
+  rhobar_0_n <- mean(data[[S_name]][data[[Z_name]] == 0])
+  rhobar_1_n <- mean(data[[S_name]][data[[Z_name]] == 1])
   
   if(rhobar_0_n > rhobar_1_n){
     
     out <- get_bound_nat_inf(
-      data = data, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
+      data = data, S_name = S_name, Y_name = Y_name, Z_name = Z_name, family = family
     )
     
     boot_diff <- vector(mode = "list", length = n_boot)
@@ -461,13 +461,13 @@ bootstrap_bound_nat_inf <- function(
       boot_idx <- sample(seq_len(n), replace = TRUE)
       boot_data <- data[boot_idx, , drop = FALSE]
       
-      rhobar_0_n_boot <- mean(boot_data[[Y_name]][boot_data[[V_name]] == 0])
-      rhobar_1_n_boot <- mean(boot_data[[Y_name]][boot_data[[V_name]] == 1])
+      rhobar_0_n_boot <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 0])
+      rhobar_1_n_boot <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 1])
       
       if(rhobar_0_n_boot > rhobar_1_n_boot){
         success_ct <- success_ct + 1
         boot_diff[[success_ct]] <- get_bound_nat_inf(
-          data = boot_data, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
+          data = boot_data, S_name = S_name, Y_name = Y_name, Z_name = Z_name, family = family
         )
       }
     }
@@ -511,9 +511,9 @@ bootstrap_bound_nat_inf <- function(
 #' Function for bootstrap CI for bounds in doomed
 #' 
 #' @param data dataframe containing dataset to use for analysis
-#' @param G_name growth outcome variable name
-#' @param V_name vaccination variable name
-#' @param Y_name infection variable name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
+#' @param S_name infection variable name
 #' @param family gaussian for continuous outcome, binomial for binary
 #' @param n_boot number of bootstrap replicates
 #' @param n_boot_try max number of attempts for bootstrap resampling
@@ -522,9 +522,9 @@ bootstrap_bound_nat_inf <- function(
 #' @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
 bootstrap_bound_doomed <- function(
     data, 
-    G_name = "G",
-    V_name = "V",
     Y_name = "Y",
+    Z_name = "Z",
+    S_name = "S",
     family = "gaussian",
     n_boot = 1e3, 
     n_boot_try = n_boot*10,
@@ -534,13 +534,13 @@ bootstrap_bound_doomed <- function(
   n <- nrow(data)
   
   # Step 1: rhobar_z_n
-  rhobar_0_n <- mean(data[[Y_name]][data[[V_name]] == 0])
-  rhobar_1_n <- mean(data[[Y_name]][data[[V_name]] == 1])
+  rhobar_0_n <- mean(data[[S_name]][data[[Z_name]] == 0])
+  rhobar_1_n <- mean(data[[S_name]][data[[Z_name]] == 1])
   
   if(rhobar_0_n > rhobar_1_n){
     
     out <- get_hudgens_stat_doomed_new(
-      data = data, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
+      data = data, S_name = S_name, Y_name = Y_name, Z_name = Z_name, family = family
     )
     
     boot_diff <- vector(mode = "list", length = n_boot)
@@ -551,13 +551,13 @@ bootstrap_bound_doomed <- function(
       boot_idx <- sample(seq_len(n), replace = TRUE)
       boot_data <- data[boot_idx, , drop = FALSE]
       
-      rhobar_0_n_boot <- mean(boot_data[[Y_name]][boot_data[[V_name]] == 0])
-      rhobar_1_n_boot <- mean(boot_data[[Y_name]][boot_data[[V_name]] == 1])
+      rhobar_0_n_boot <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 0])
+      rhobar_1_n_boot <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 1])
       
       if(rhobar_0_n_boot > rhobar_1_n_boot){
         success_ct <- success_ct + 1
         boot_diff[[success_ct]] <- get_hudgens_stat_doomed_new(
-          data = boot_data, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
+          data = boot_data, S_name = S_name, Y_name = Y_name, Z_name = Z_name, family = family
         )
       }
     }

@@ -1,23 +1,23 @@
 #' Main function to get growth effect point estimate and standard error
 #' 
 #' @param data dataframe containing dataset to use for analysis
-#' @param G_name growth outcome variable name
-#' @param V_name vaccination variable name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
 #' @param X_name covariate name(s)
-#' @param Y_name infection variable name
+#' @param S_name infection variable name
 #' @param est character vector of names of estimators to use for growth effect
 #' @param n_boot number of bootstrap replicates
 #' @param seed seet to set for replicability of bootstrap
 #' @param return_se indicator to return closed form standard error for efficient_aipw or efficient_tmle, default FALSE
 #' @param ml boolean to use SuperLearner models, default FALSE
-#' @param G_V_X_model optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates
-#' @param G_X_Y1_model optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates
-#' @param G_X_Y0_model optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates
-#' @param Y_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
-#' @param G_V_X_library optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm
-#' @param G_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
-#' @param Y_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
-#' @param null_hypothesis_value null value for hypothesis test effect for VE and population estimand g-comp, default 0
+#' @param Y_Z_X_model optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates
+#' @param Y_X_S1_model optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates
+#' @param Y_X_S0_model optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates
+#' @param S_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
+#' @param Y_Z_X_library optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm
+#' @param Y_X_library optional specify SuperLearner libraries for model fitting growth on covariates, default glm
+#' @param S_X_library optional specify SuperLearner libraries for model fitting infection on covariates, default glm
+#' @param null_hypothesis_value null value for hypothesis test effect for ZE and population estimand g-comp, default 0
 #' @param alpha_level alpha level for hypothesis testing, default 0.025
 #' @param return_models boolean return models, default TRUE
 #' @param family family for outcome variable 'G', defaults to gaussian for growth
@@ -28,23 +28,23 @@
 #' 
 #' @returns List of class `vegrowth`
 vegrowth <- function(data,
-                     G_name = "G",
-                     V_name = "V",
+                     Y_name = "G",
+                     Z_name = "Z",
                      X_name = "X",
-                     Y_name = "Y",
+                     S_name = "Y",
                      est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle",
                              "choplump", "hudgens_lower", "hudgens_upper", "hudgens_adj_lower", "hudgens_adj_upper"),
                      n_boot = 1000, 
                      seed = 12345,
                      return_se = FALSE,
                      ml = FALSE,
-                     G_V_X_model = NULL,
-                     G_X_Y1_model = NULL,
-                     G_X_Y0_model = NULL,
-                     Y_X_model = NULL,
-                     G_V_X_library = c("SL.glm"),
-                     G_X_library = c("SL.glm"),
+                     Y_Z_X_model = NULL,
+                     Y_X_S1_model = NULL,
+                     Y_X_S0_model = NULL,
+                     S_X_model = NULL,
+                     Y_Z_X_library = c("SL.glm"),
                      Y_X_library = c("SL.glm"),
+                     S_X_library = c("SL.glm"),
                      null_hypothesis_value = 0,
                      alpha_level = 0.025,
                      return_models = TRUE,
@@ -66,13 +66,13 @@ vegrowth <- function(data,
       if(any(est %in% c("efficient_aipw", "efficient_tmle"))){
         ml_models <- vegrowth::fit_ml_models(data = data, 
                                              est = est, 
-                                             G_name = G_name,
-                                             V_name = V_name,
                                              Y_name = Y_name,
+                                             Z_name = Z_name,
+                                             S_name = S_name,
                                              X_name = X_name,
-                                             G_V_X_library = G_V_X_library,
-                                             G_X_library = G_X_library,
+                                             Y_Z_X_library = Y_Z_X_library,
                                              Y_X_library = Y_X_library,
+                                             S_X_library = S_X_library,
                                              family = family,
                                              v_folds = v_folds)
         
@@ -82,14 +82,14 @@ vegrowth <- function(data,
       if(any(est %in% c("gcomp_pop_estimand", "gcomp","hudgens_adj_lower", "hudgens_adj_upper"))){
         models <- vegrowth::fit_models(data = data, 
                                        est = est, 
-                                       G_name = G_name,
-                                       V_name = V_name,
                                        Y_name = Y_name,
+                                       Z_name = Z_name,
+                                       S_name = S_name,
                                        X_name = X_name,
-                                       G_V_X_model = G_V_X_model,
-                                       G_X_Y1_model = G_X_Y1_model,
-                                       G_X_Y0_model = G_X_Y0_model,
-                                       Y_X_model = Y_X_model,
+                                       Y_Z_X_model = Y_Z_X_model,
+                                       Y_X_S1_model = Y_X_S1_model,
+                                       Y_X_S0_model = Y_X_S0_model,
+                                       S_X_model = S_X_model,
                                        family = family)
         
         model_list$models <- models
@@ -97,14 +97,14 @@ vegrowth <- function(data,
     } else{
       models <- vegrowth::fit_models(data = data, 
                                      est = est, 
-                                     G_name = G_name,
-                                     V_name = V_name,
                                      Y_name = Y_name,
+                                     Z_name = Z_name,
+                                     S_name = S_name,
                                      X_name = X_name,
-                                     G_V_X_model = G_V_X_model,
-                                     G_X_Y1_model = G_X_Y1_model,
-                                     G_X_Y0_model = G_X_Y0_model,
-                                     Y_X_model = Y_X_model,
+                                     Y_Z_X_model = Y_Z_X_model,
+                                     Y_X_S1_model = Y_X_S1_model,
+                                     Y_X_S0_model = Y_X_S0_model,
+                                     S_X_model = S_X_model,
                                      family = family)
       model_list$models <- models
     } }
@@ -112,39 +112,39 @@ vegrowth <- function(data,
     # If using return_se is true, do not use bootstrap se for AIPW and TMLE (remove from est for boot, used closed form SE for AIPW/TMLE)
     if(return_se == TRUE){
       bootstrap_results <- bootstrap_estimates(data = data, 
-                                               G_name = G_name,
-                                               V_name = V_name,
                                                Y_name = Y_name,
+                                               Z_name = Z_name,
+                                               S_name = S_name,
                                                X_name = X_name,
                                                n_boot = n_boot, 
                                                family = family,
                                                ml = ml,
-                                               G_V_X_model = G_V_X_model,
-                                               G_X_Y1_model = G_X_Y1_model,
-                                               G_X_Y0_model = G_X_Y0_model,
-                                               Y_X_model = Y_X_model,
-                                               G_V_X_library = G_V_X_library,
-                                               G_X_library = G_X_library,
+                                               Y_Z_X_model = Y_Z_X_model,
+                                               Y_X_S1_model = Y_X_S1_model,
+                                               Y_X_S0_model = Y_X_S0_model,
+                                               S_X_model = S_X_model,
+                                               Y_Z_X_library = Y_Z_X_library,
                                                Y_X_library = Y_X_library,
+                                               S_X_library = S_X_library,
                                                v_folds = v_folds,
                                                est = setdiff(est, c("efficient_aipw", "efficient_tmle")),
                                                effect_dir = effect_dir)
     } else{
       bootstrap_results <- bootstrap_estimates(data = data, 
-                                               G_name = G_name,
-                                               V_name = V_name,
                                                Y_name = Y_name,
+                                               Z_name = Z_name,
+                                               S_name = S_name,
                                                X_name = X_name,
                                                n_boot = n_boot, 
                                                family = family,
                                                ml = ml,
-                                               G_V_X_model = G_V_X_model,
-                                               G_X_Y1_model = G_X_Y1_model,
-                                               G_X_Y0_model = G_X_Y0_model,
-                                               Y_X_model = Y_X_model,
-                                               G_V_X_library = G_V_X_library,
-                                               G_X_library = G_X_library,
+                                               Y_Z_X_model = Y_Z_X_model,
+                                               Y_X_S1_model = Y_X_S1_model,
+                                               Y_X_S0_model = Y_X_S0_model,
+                                               S_X_model = S_X_model,
+                                               Y_Z_X_library = Y_Z_X_library,
                                                Y_X_library = Y_X_library,
+                                               S_X_library = S_X_library,
                                                v_folds = v_folds,
                                                est = est,
                                                effect_dir = effect_dir)
@@ -185,7 +185,7 @@ vegrowth <- function(data,
     
     pop_gcomp_res <- list() 
     
-    pt_est <- do_gcomp_pop_estimand(data, models, V_name = V_name, X_name = X_name)
+    pt_est <- do_gcomp_pop_estimand(data, models, Z_name = Z_name, X_name = X_name)
     pop_gcomp_res$pt_est_additive <- pt_est['additive_effect']
     pop_gcomp_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
     
@@ -213,9 +213,9 @@ vegrowth <- function(data,
       # Point est + bootstrap SE
       
       if(ml){
-        pt_est <- do_efficient_aipw(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        pt_est <- do_efficient_aipw(data, ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       } else{
-        pt_est <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        pt_est <- do_efficient_aipw(data, models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       }
       
       aipw_res$pt_est_additive <- pt_est['additive_effect']
@@ -237,9 +237,9 @@ vegrowth <- function(data,
       # Point est + closed form SE
       
       if(ml){
-        aipw_result <- do_efficient_aipw(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        aipw_result <- do_efficient_aipw(data, ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       } else{
-        aipw_result <- do_efficient_aipw(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        aipw_result <- do_efficient_aipw(data, models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       }
       
       aipw_res$pt_est_additive <- aipw_result['additive_effect']
@@ -270,9 +270,9 @@ vegrowth <- function(data,
       # Point est + bootstrap SE
       
       if(ml){
-        pt_est <- do_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        pt_est <- do_efficient_tmle(data, ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       } else{
-        pt_est <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        pt_est <- do_efficient_tmle(data, models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       }
       
       tmle_res$pt_est_additive <- pt_est['additive_effect']
@@ -294,9 +294,9 @@ vegrowth <- function(data,
       # Point est + closed form SE
       
       if(ml){
-        tmle_result <- do_efficient_tmle(data, ml_models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        tmle_result <- do_efficient_tmle(data, ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       } else{
-        tmle_result <- do_efficient_tmle(data, models, G_name = G_name, V_name = V_name, Y_name = Y_name, return_se = return_se)
+        tmle_result <- do_efficient_tmle(data, models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       }
       
       tmle_res$pt_est_additive <- tmle_result['additive_effect']
@@ -320,14 +320,14 @@ vegrowth <- function(data,
     
   }
   if("choplump" %in% est){
-    choplump_rslt <- do_chop_lump_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name)
+    choplump_rslt <- do_chop_lump_test(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name)
     choplump_rslt$reject <- choplump_rslt$pval < 0.05
     
     class(choplump_rslt) <- "choplump_res"
     out$chop_lump_res <- choplump_rslt
   }
   if("hudgens_lower" %in% est){
-    hudgens_rslt_lower <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE, effect_dir = effect_dir)
+    hudgens_rslt_lower <- hudgens_test(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = TRUE, effect_dir = effect_dir)
     hudgens_rslt_lower$reject <- hudgens_rslt_lower$pval < 0.05
     
     hudgens_rslt_lower$se <- bootstrap_results$se_hudgens_lower
@@ -338,7 +338,7 @@ vegrowth <- function(data,
     out$hudgens_rslt_lower <- hudgens_rslt_lower
   }
   if("hudgens_upper" %in% est){
-    hudgens_rslt_upper <- hudgens_test(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE, effect_dir = effect_dir)
+    hudgens_rslt_upper <- hudgens_test(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = FALSE, effect_dir = effect_dir)
     hudgens_rslt_upper$reject <- hudgens_rslt_upper$pval < 0.05
     
     hudgens_rslt_upper$se <- bootstrap_results$se_hudgens_lower
@@ -349,7 +349,7 @@ vegrowth <- function(data,
     out$hudgens_rslt_upper <- hudgens_rslt_upper
   }
   if("hudgens_lower_doomed" %in% est){
-    hudgens_rslt_lower_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = TRUE, effect_dir = effect_dir)
+    hudgens_rslt_lower_doomed <- hudgens_test_doomed(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = TRUE, effect_dir = effect_dir)
     hudgens_rslt_lower_doomed$reject <- hudgens_rslt_lower_doomed$pval < 0.05
     
     hudgens_rslt_lower_doomed$se <- bootstrap_results$se_hudgens_lower_doomed
@@ -360,7 +360,7 @@ vegrowth <- function(data,
     out$hudgens_rslt_lower_doomed <- hudgens_rslt_lower_doomed
   }
   if("hudgens_upper_doomed" %in% est){
-    hudgens_rslt_upper_doomed <- hudgens_test_doomed(data, G_name = G_name, V_name = V_name, Y_name = Y_name, lower_bound = FALSE, effect_dir = effect_dir)
+    hudgens_rslt_upper_doomed <- hudgens_test_doomed(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = FALSE, effect_dir = effect_dir)
     hudgens_rslt_upper_doomed$reject <- hudgens_rslt_upper_doomed$pval < 0.05
     
     hudgens_rslt_upper_doomed$se <- bootstrap_results$se_hudgens_upper_doomed
