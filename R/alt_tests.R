@@ -259,15 +259,17 @@ hudgens_test <- function(
     
     if(sum(!is.na(boot_diff)) > 2){
       sd_boot_diff <- sd(boot_diff, na.rm = TRUE)
-      test_stat <- obs_diff / sd_boot_diff
-      # test_stat <- abs(obs_diff / sd_boot_diff)
-      # just look at lower.tail = FALSE then * 2 for two-sided test then with test stat can figure out what side it is?? 
+      #test_stat <- obs_diff / sd_boot_diff
       
-      if(effect_dir == "positive"){
-        pval <- pnorm(test_stat, lower.tail = FALSE)
-      } else{
-        pval <- pnorm(test_stat, lower.tail = TRUE)
-      }
+      test_stat <- abs(obs_diff / sd_boot_diff)
+      # just look at lower.tail = FALSE then * 2 for two-sided test then with test stat can figure out what side it is?? 
+      pval <- pnorm(test_stat, lower.tail = FALSE)
+      
+      # if(effect_dir == "positive"){
+      #   pval <- pnorm(test_stat, lower.tail = FALSE)
+      # } else{
+      #   pval <- pnorm(test_stat, lower.tail = TRUE)
+      # }
       
       # one-sided p-value
       # pval <- pnorm(test_stat, lower.tail = FALSE)
@@ -287,6 +289,48 @@ hudgens_test <- function(
   }else{
     stop("Method not applicable unless evidence of vaccine protection.")
   }
+}
+
+hudgens_permutation_test <- function(
+    data, 
+    G_name = "G",
+    V_name = "V",
+    Y_name = "Y",
+    lower_bound = TRUE,
+    n_permutations = 1e3, 
+    n_boot_try = n_boot*10,
+    effect_dir = "positive"
+){
+  
+  # original_means <- get_chop_lump_statistic(data, 
+  #                                           G_name = G_name,
+  #                                           V_name = V_name,
+  #                                           Y_name = Y_name)
+  
+  original_diff <- get_hudgens_stat(
+    data = data, lower_bound = lower_bound, Y_name = Y_name, G_name = G_name, V_name = V_name
+  )
+  
+  ## Permutation approach
+  null_diff <- vector("numeric", length = n_permutations)
+  for(i in 1:n_permutations){
+    data_shuffle <- data
+    data_shuffle[[V_name]] <- sample(data_shuffle[[V_name]])
+    
+    null_diff[i] <- get_hudgens_stat(
+      data = data_shuffle, lower_bound = lower_bound, Y_name = Y_name, G_name = G_name, V_name = V_name
+    )
+  }
+  
+  out <- list(
+    obs_diff = observed_diff,
+    null_diffs = null_diff,
+    pval = ifelse(effect_dir == "negative", mean(null_diff < observed_diff), mean(null_diff > observed_diff) #???
+  )
+  
+  class(out) <- "hudgens_permutation_test"
+  return(out)
+  
 }
 
 #' Function for hudgens-style test statistic - match description in the paper
