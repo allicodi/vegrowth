@@ -1,5 +1,5 @@
 
-#' Function for hudgens-style test statistic - match description in the paper
+#' Function for bounds on naturally infected estimate without use of cross-world assumption
 #' 
 #' @param data dataframe containing dataset to use for analysis
 #' @param G_name growth outcome variable name
@@ -7,8 +7,8 @@
 #' @param Y_name infection variable name
 #' @param family gaussian for continuous outcome, binomial for binary outcome
 #' 
-#' @returns Hudgens-style test statistic
-get_hudgens_stat_new <- function(
+#' @returns list containing estimate of E[G(0) | Y(0) = 1], bounds on E[G(1) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
+get_bound_nat_inf <- function(
     data, 
     G_name = "G",
     V_name = "V",
@@ -100,11 +100,13 @@ get_hudgens_stat_new <- function(
               mult_effect_lower = l_n / E_G0__Y0_1,
               mult_effect_upper = u_n / E_G0__Y0_1)
   
+  class(out) <- "bound_nat_inf"
+  
   return(out)
   
 }
 
-#' Function for bootstrap test of Hudgens-style test statistic
+#' Function for bootstrap CI for bounds in naturally infected
 #' 
 #' @param data dataframe containing dataset to use for analysis
 #' @param G_name growth outcome variable name
@@ -116,7 +118,7 @@ get_hudgens_stat_new <- function(
 #' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
 #'  
 #' @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
-hudgens_test_new <- function(
+bootstrap_bound_nat_inf <- function(
     data, 
     G_name = "G",
     V_name = "V",
@@ -135,7 +137,7 @@ hudgens_test_new <- function(
   
   if(rhobar_0_n > rhobar_1_n){
     
-    out <- get_hudgens_stat_new(
+    out <- get_bound_nat_inf(
       data = data, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
     )
     
@@ -152,7 +154,7 @@ hudgens_test_new <- function(
       
       if(rhobar_0_n_boot > rhobar_1_n_boot){
         success_ct <- success_ct + 1
-        boot_diff[[success_ct]] <- get_hudgens_stat_new(
+        boot_diff[[success_ct]] <- get_bound_nat_inf(
           data = boot_data, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
         )
       }
@@ -183,7 +185,7 @@ hudgens_test_new <- function(
       )
       
       
-      class(out) <- "hudgens_res_new"
+      class(out) <- "boot_ci_bound_nat_inf"
       return(out)
     }else{
       stop("Did not achieve 2 successful bootstrap resamples. Try again with larger n_boot_try? Or give up?")
@@ -194,60 +196,67 @@ hudgens_test_new <- function(
   }
 }
 
-# TODO CHANGE TO MATCH _NEW FUNCTION
-hudgens_permutation_test <- function(
-    data, 
-    G_name = "G",
-    V_name = "V",
-    Y_name = "Y",
-    lower_bound = TRUE,
-    n_permutations = 1e3, 
-    n_boot_try = n_boot*10,
-    effect_dir = "positive"
-){
-  
-  # original_means <- get_chop_lump_statistic(data, 
-  #                                           G_name = G_name,
-  #                                           V_name = V_name,
-  #                                           Y_name = Y_name)
-  
-  original_diff <- get_hudgens_stat(
-    data = data, lower_bound = lower_bound, Y_name = Y_name, G_name = G_name, V_name = V_name
-  )
-  
-  ## Permutation approach
-  null_diff <- vector("numeric", length = n_permutations)
-  for(i in 1:n_permutations){
-    data_shuffle <- data
-    data_shuffle[[V_name]] <- sample(data_shuffle[[V_name]])
-    
-    null_diff[i] <- get_hudgens_stat(
-      data = data_shuffle, lower_bound = lower_bound, Y_name = Y_name, G_name = G_name, V_name = V_name
-    )
-  }
-  
-  out <- list(
-    obs_diff = observed_diff,
-    null_diffs = null_diff,
-    pval = ifelse(effect_dir == "negative", mean(null_diff < observed_diff), mean(null_diff > observed_diff) #???
-    )
-    
-    class(out) <- "hudgens_permutation_test"
-    return(out)
-    
-}
-
-
-#' Function for hudgens-style test statistic - match description in the paper
+#' Function for permutation test of bounds in naturally infected
 #' 
 #' @param data dataframe containing dataset to use for analysis
 #' @param G_name growth outcome variable name
 #' @param V_name vaccination variable name
 #' @param Y_name infection variable name
-#' @param family gaussian for continuous outcome, binomial for binary
+#' @param n_permutations number of permutations to run, default 1000
+#' @param family defaults to gaussian for continuous outcome
+#' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
+#'  
+#' @returns list with original estimate, null estimates for n_permutations, and p_value for one-sided test based on effect_dir
+permutation_bound_nat_inf <- function(
+    data, 
+    G_name = "G",
+    V_name = "V",
+    Y_name = "Y",
+    n_permutations = 1e3, 
+    family = "gaussian",
+    effect_dir = "positive"
+){
+  
+  original_est <- get_bound_nat_inf(
+    data = data, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
+  )
+  
+  ## Permutation approach
+  null_est <- vector("list", length = n_permutations)
+  for(i in 1:n_permutations){
+    data_shuffle <- data
+    data_shuffle[[V_name]] <- sample(data_shuffle[[V_name]])
+    
+    null_est[[i]] <- get_bound_nat_inf(
+      data = data_shuffle, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
+    )
+  }
+  
+  null_est <- do.call(rbind, null_est)
+  
+  out <- list(
+    original_est = original_est, 
+    null_est = null_est,
+    pval_bound = ifelse(effect_dir == "negative",
+                        mean(null_est$additive_effect_upper < original_est$additive_effect_upper), # negative effect means we are interested in the upper bound < 0
+                        mean(null_est$additive_effect_lower > original_est$additive_effect_lower)  # positive effect means we are interested in the lower bound > 0 
+  )
+    
+  class(out) <- "permutation_bonud_nat_inf"
+  return(out)
+    
+}
+
+#' Function for bounds on doomed estimate without use of cross-world assumption
 #' 
-#' @returns Hudgens-style test statistic
-get_hudgens_stat_doomed_new <- function(
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' @param family gaussian for continuous outcome, binomial for binary outcome
+#' 
+#' @returns list containing estimate of E[G(1) | Y(0) = 1], bounds on E[G(0) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
+get_bound_doomed <- function(
     data, 
     G_name = "G",
     V_name = "V",
@@ -350,7 +359,7 @@ get_hudgens_stat_doomed_new <- function(
   
 }
 
-#' Function for bootstrap test of Hudgens-style test statistic
+#' Function for bootstrap CI for bounds in doomed
 #' 
 #' @param data dataframe containing dataset to use for analysis
 #' @param G_name growth outcome variable name
@@ -362,7 +371,7 @@ get_hudgens_stat_doomed_new <- function(
 #' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
 #'  
 #' @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
-hudgens_test_doomed_new <- function(
+bootstrap_bound_doomed <- function(
     data, 
     G_name = "G",
     V_name = "V",
@@ -439,6 +448,60 @@ hudgens_test_doomed_new <- function(
     stop("Method not applicable unless evidence of vaccine protection.")
   }
 }
+
+#' Function for permutation test of bounds in doomed
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' @param n_permutations number of permutations to run, default 1000
+#' @param family defaults to gaussian for continuous outcome
+#' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
+#'  
+#' @returns list with original estimate, null estimates for n_permutations, and p_value for one-sided test based on effect_dir
+permutation_bound_doomed <- function(
+    data, 
+    G_name = "G",
+    V_name = "V",
+    Y_name = "Y",
+    lower_bound = TRUE,
+    n_permutations = 1e3, 
+    n_boot_try = n_boot*10,
+    effect_dir = "positive"
+){
+  
+  original_est <- get_bound_doomed(
+    data = data, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
+  )
+  
+  ## Permutation approach
+  null_est <- vector("list", length = n_permutations)
+  for(i in 1:n_permutations){
+    data_shuffle <- data
+    data_shuffle[[V_name]] <- sample(data_shuffle[[V_name]])
+    
+    null_est[[i]] <- get_bound_doomed(
+      data = data_shuffle, Y_name = Y_name, G_name = G_name, V_name = V_name, family = family
+    )
+  }
+  
+  null_est <- do.call(rbind, null_est)
+  
+  out <- list(
+    original_est = original_est, 
+    null_est = null_est,
+    pval_bound = ifelse(effect_dir == "negative",
+                        mean(null_est$additive_effect_upper < original_est$additive_effect_upper), # negative effect means we are interested in the upper bound < 0
+                        mean(null_est$additive_effect_lower > original_est$additive_effect_lower)  # positive effect means we are interested in the lower bound > 0 
+    )
+    
+    class(out) <- "permutation_bonud_doomed"
+    return(out)
+    
+}
+
+# -----------------------------------------------------------------------------------------------------------
 
 #' Function for Hudgens-style bounds on effect that incorporate covariates
 #' 
@@ -567,8 +630,6 @@ get_adjusted_hudgens_stat <- function(
   return(effect)
   
 }
-
-
 
 #' Function to get chop-lump style test-statistic
 #' 
