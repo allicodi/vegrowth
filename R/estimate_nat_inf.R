@@ -673,3 +673,370 @@ do_sens_aipw_nat_inf <- function(data,
   return(out)
 }
 
+#' Function for bounds on naturally infected estimate without use of cross-world assumption
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' @param family gaussian for continuous outcome, binomial for binary outcome
+#' 
+#' @returns list containing estimate of E[G(0) | Y(0) = 1], bounds on E[G(1) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
+get_bound_nat_inf <- function(
+    data, 
+    G_name = "G",
+    V_name = "V",
+    Y_name = "Y",
+    family = "gaussian"
+){
+  
+  # Step 1: rhobar_z_n
+  
+  # 1.1 rhobar_0_n (or mean in subset)
+  rhobar_0_n <- mean(data[[Y_name]][data[[V_name]] == 0])
+  
+  # 1.2 rhobar_1_n
+  rhobar_1_n <- mean(data[[Y_name]][data[[V_name]] == 1])
+  
+  if(rhobar_0_n > rhobar_1_n){
+    # Step 2: mubar_11_n 
+    mubar_11_n <- sum(data[[G_name]]*data[[Y_name]]*data[[V_name]]) / sum(data[[Y_name]]*data[[V_name]])
+    
+    # Step 3: q_n (relative size of protected? in (immune + protected) in vax)
+    q_n = 1 - (1 - rhobar_0_n) / (1 - rhobar_1_n)
+    
+    # Step 4: q_n^th quintiles of Y__Z1_S0 (aka G__V1_Y0, need to rename everything at some point)
+    G__V1_Y0 <- data[[G_name]][which(data[[V_name]] == 1 & data[[Y_name]] == 0)]
+    q_nth_quintile <- quantile(G__V1_Y0, probs = q_n)
+    one_minus_q_nth_quintile <- quantile(G__V1_Y0, probs = 1 - q_n)
+    
+    # Step 5: mubar_10_l,u_n 
+    if(family == "gaussian"){
+      mubar_10_l_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] < q_nth_quintile )) / 
+        sum(as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] < q_nth_quintile ))
+      
+      mubar_10_u_n <- sum(data[[G_name]] * as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] > one_minus_q_nth_quintile )) / 
+        sum(as.numeric(data[[Y_name]] == 0 & data[[V_name]] == 1 & data[[G_name]] > one_minus_q_nth_quintile ))
+    } else{
+      # Binary outcome
+      
+      # Vaccinated, Uninfected
+      data__V1_Y0 <- data[which(data[[V_name]] == 1 & data[[Y_name]] == 0),]
+      
+      target_num <- ceiling(q_n * nrow(data__V1_Y0))
+      num_0s <- length(which(data__V1_Y0[[G_name]] == 0))
+      num_1s <- length(which(data__V1_Y0[[G_name]] == 1))
+      
+      ## Lower Bound:
+      
+      # Check if at least q_n * 100 % 0s in the vax uninfected 
+      if(num_0s >= target_num){
+        # If so, muhat_10_l = 0
+        mubar_10_l_n <- 0
+      } else{
+        # Else, mubar_10_l = (q_n - prop zeros in vax uninf) / q_n
+        mubar_10_l_n <- (q_n - (num_0s / nrow(data__V1_Y0)) ) /
+          q_n
+      }
+      
+      ## Upper Bound:
+      
+      # Check if at least q_n * 100 % 1s in the vax uninfected 
+      if(num_1s >= target_num){
+        # If so, mubar_10_u = 1
+        mubar_10_u_n <- 1
+      } else{
+        # Else, mubar_10_u = (q_n - prop ones in vax uninf) / q_n
+        
+        mubar_10_u_n <- 1 - ((q_n - (num_1s / nrow(data__V1_Y0)) ) /
+                               q_n)
+      }
+      
+    }
+    
+    # Step 6: final estimates of the bounds (just doing both each time for now??)
+    
+    l_n <- mubar_11_n * (rhobar_1_n / rhobar_0_n) + mubar_10_l_n * (1 - (rhobar_1_n / rhobar_0_n))
+    u_n <- mubar_11_n * (rhobar_1_n / rhobar_0_n) + mubar_10_u_n * (1 - (rhobar_1_n / rhobar_0_n))
+    
+  } else{
+    stop("Method not applicable unless evidence of vaccine protection.")
+  }
+  
+  #mean in unvaccinated infecteds for comparison
+  E_G0__Y0_1 <- mean(data[[G_name]][data[[Y_name]] == 1 & data[[V_name]] == 0])
+  
+  out <- list(E_G0__Y0_1 = E_G0__Y0_1,
+              E_G1__Y0_1_lower = l_n,
+              E_G1__Y0_1_upper = u_n,
+              additive_effect_lower = l_n - E_G0__Y0_1,
+              additive_effect_upper = u_n - E_G0__Y0_1,
+              mult_effect_lower = l_n / E_G0__Y0_1,
+              mult_effect_upper = u_n / E_G0__Y0_1)
+  
+  class(out) <- "bound_nat_inf"
+  
+  return(out)
+  
+}
+
+# ------------------------------------------------------------------------------
+# Old or in-progress
+# ------------------------------------------------------------------------------
+
+#' Function for Hudgens-style bounds on effect that incorporate covariates
+#' 
+#' Currently assumes that the conditional mean of G follows a linear model
+#' with Normal errors.
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param models list of pre-fit models needed for estimation
+#' @param family gaussian for continuous outcome G, binomial for binary outcome
+#' @param lower_bound A boolean. If TRUE, then adds the smallest growth measures 
+#'    to the infected vaccines thereby yielding a lower
+#'    bound on the effect of interest. If FALSE, then adds the largest
+#'    growth measures to the infected vacccinees thereby yielding an upper
+#'    bound on the effect of interest.
+#' 
+#' @examples
+#' 
+#' n <- 1e4
+#' X <- sample(seq(-1,1), n, replace = TRUE)
+#' p_immune <- 0.5 + 0.25 * X
+#' p_doomed <- 0.1 + 0.05 * X
+#' p_helped <- 1 - (p_immune + p_doomed)
+#' ps <- mapply(
+#'   p_i = p_immune, p_d = p_doomed, p_h = p_helped, 
+#'   FUN = function(p_i, p_d, p_h){
+#'     sample(
+#'       c("immune", "doomed", "helped"), 
+#'       size = 1, prob = c(p_i, p_d, p_h)
+#'     )
+#'   }
+#' )
+#' 
+#' V <- rbinom(n, 1, 0.5)
+#' Y0 <- ifelse(ps == "immune", 0, 1)
+#' Y1 <- ifelse(ps == "doomed", 1, 0)
+#' Y <- ifelse(V == 1, Y1, Y0)
+#' G1 <- 1*X - 0.5 * Y1 + rnorm(n, 0, 0.5)
+#' G0 <- 1*X - 0.5 * Y0 + rnorm(n, 0, 0.5)
+#' G <- ifelse(V == 1, G1, G0)
+#' 
+#' marginal_effect <- mean(G1 - G0)
+#' ps_effect <- mean(G1[Y0 == 1] - G0[Y0 == 1])
+#' 
+#' data <- data.frame(X, V, Y, G)
+#' models <- fit_models(data)
+#' 
+#' get_adjusted_hudgens_stat(data, models, lower_bound = TRUE)
+#' # compare to unadjusted
+#' get_hudgens_stat(data, lower_bound = TRUE)
+#' 
+#' get_adjusted_hudgens_stat(data, models, lower_bound = FALSE)
+#' # compare to unadjusted
+#' get_hudgens_stat(data, lower_bound = FALSE)
+#' 
+#' # binary outcome
+#' G_binary <- as.numeric(G > 1)
+#' data <- data.frame(X, V, Y, G = G_binary)
+#' models <- fit_models(data, family = binomial())
+#' get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = TRUE)
+#' get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = FALSE)
+#' 
+#' 
+#' @returns Hudgens-style estimate of bound on effect in naturally infected
+
+# get_adjusted_hudgens_stat <- function(
+#     data, 
+#     models,
+#     family = "gaussian",
+#     lower_bound = TRUE
+# ){
+#   
+#   E_G_V0_Y1_X <- predict(models$fit_G_V0_Y1_X, newdata = data, type = "response")
+#   
+#   E_G_V1_Y1_X <- predict(models$fit_G_V1_Y1_X, newdata = data, type = "response")
+#   E_G_V1_Y0_X <- predict(models$fit_G_V1_Y0_X, newdata = data, type = "response")
+#   
+#   P_Y1_V1_X <- predict(models$fit_Y_V1_X, newdata = data, type = "response")
+#   P_Y1_V0_X <- predict(models$fit_Y_V0_X, newdata = data, type = "response")
+#   P_Y0_V1_X <- 1 - P_Y1_V1_X
+#   P_Y0_V0_X <- 1 - P_Y1_V0_X
+#   
+#   P_Y1_V0 <- mean(P_Y1_V0_X)
+#   
+#   VE_X <- 1 - ( P_Y1_V1_X / P_Y1_V0_X )
+#   if(any(VE_X < 0)){
+#     warning("Some condtional VE estimates < 0 -- truncating these estimates at 0.")
+#   }
+#   VE_X[VE_X < 0] <- 0
+#   VE_is_zero <- (VE_X == 0)
+#   VE_is_nonzero <- (VE_X > 0)
+#   
+#   q_X_low <- 1 - P_Y0_V0_X / P_Y0_V1_X
+#   q_X_high <- 1 - q_X_low
+#   
+#   if(family == "gaussian"){
+#     sd_G <- (mean(models$fit_G_V1_Y0_X$residuals^2))^(1/2)
+#   }
+#   
+#   E_G_V1_Y0_truncG_X <- E_G_V1_Y0_X
+#   
+#   if(lower_bound){
+#     
+#     if(family == "gaussian"){
+#       # calculate mean of Normal given less than q_X_low
+#       beta_X <- (q_X_low - E_G_V1_Y0_X) / sd_G
+#       E_G_V1_Y0_truncG_X[VE_is_nonzero] <- E_G_V1_Y0_X[VE_is_nonzero] - sd_G * dnorm(beta_X[VE_is_nonzero]) / pnorm(beta_X[VE_is_nonzero])
+#     }else{
+#       E_G_V1_Y0_truncG_X[VE_is_nonzero] <- as.numeric(E_G_V1_Y0_X[VE_is_nonzero] > q_X_low)
+#     }
+#   }else{
+#     
+#     if(family == "gaussian"){
+#       # calculate mean of Normal given greater than q_X_high
+#       alpha_X <- (q_X_high - E_G_V1_Y0_X) / sd_G
+#       E_G_V1_Y0_truncG_X[VE_is_nonzero] <- E_G_V1_Y0_X[VE_is_nonzero] + sd_G * dnorm(alpha_X[VE_is_nonzero]) / pnorm(alpha_X[VE_is_nonzero], lower.tail = FALSE)
+#     }else{
+#       E_G_V1_Y0_truncG_X[VE_is_nonzero] <- as.numeric(E_G_V1_Y0_X[VE_is_nonzero] > q_X_high)
+#     }
+#   }
+#   
+#   E_G_V1_Y0_X_bound <- E_G_V1_Y1_X * (1 - VE_X) + E_G_V1_Y0_truncG_X * VE_X
+#   
+#   effect <- mean(
+#     P_Y1_V0_X / P_Y1_V0 * (E_G_V1_Y0_X_bound - E_G_V0_Y1_X)
+#   )
+#   
+#   return(effect)
+#   
+# }
+
+#' Function to get chop-lump style test-statistic
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' 
+#' @returns dataframe with chop-lump style test statistics for mean in vax, mean in placebo
+#' 
+# get_chop_lump_statistic <- function(data,
+#                                     G_name = "G",
+#                                     V_name = "V",
+#                                     Y_name = "Y"){
+#   
+#   # 1. Get number of people in relevant groups
+#   n_no_inf_plc <- sum(data[[Y_name]] == 0 & data[[V_name]] == 0)
+#   n_no_inf_vax <- sum(data[[Y_name]] == 0 & data[[V_name]] == 1)
+#   n_plc <- sum(data[[V_name]] == 0)
+#   n_vax <- sum(data[[V_name]] == 1)
+#   n_inf_plc <- n_plc - n_no_inf_plc
+#   n_inf_vax <- n_vax - n_no_inf_vax
+#   
+#   # 2. Chop based on group with more infections
+#   if(n_inf_plc > n_inf_vax){
+#     
+#     # placebo - everyone is infected, simple mean
+#     mean_G_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
+#     
+#     # vaccinated - weighted mean
+#     mean_G_noinf_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 0])
+#     mean_G_inf_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1])
+#     
+#     mean_G_vax  <- mean_G_noinf_vax * ((n_inf_plc - n_inf_vax) / n_inf_plc) +
+#       mean_G_inf_vax * (n_inf_vax / n_inf_plc)
+#     
+#   } else if (n_inf_plc < n_inf_vax){
+#     
+#     # vaccinated - everyone is infected, simple mean
+#     mean_G_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1])
+#     
+#     # placebo - weighted mean
+#     mean_G_noinf_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 0])
+#     mean_G_inf_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
+#     
+#     mean_G_plc  <- mean_G_noinf_plc * ((n_inf_vax - n_inf_plc) / n_inf_vax) +
+#       mean_G_inf_plc * (n_inf_plc / n_inf_vax)
+#     
+#   } else{
+#     
+#     # vaccinated - everyone is infected, simple mean
+#     mean_G_vax <- mean(data[[G_name]][data[[V_name]] == 1 & data[[Y_name]] == 1])
+#     
+#     # placebo - everyone is infected, simple mean
+#     mean_G_plc <- mean(data[[G_name]][data[[V_name]] == 0 & data[[Y_name]] == 1])
+#     
+#   }
+#   
+#   return(data.frame(mean_G_plc = mean_G_plc,
+#                     mean_G_vax = mean_G_vax))
+# }
+
+#' Function to do permutation test for chop-lump style test-statistics
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param G_name growth outcome variable name
+#' @param V_name vaccination variable name
+#' @param Y_name infection variable name
+#' @param n_permutations number of permutations to complete
+#' 
+#' @returns chop lump test statistic
+# do_chop_lump_test <- function(data, 
+#                               G_name = "G",
+#                               V_name = "V",
+#                               Y_name = "Y",
+#                               n_permutations = 1e4){
+#   
+#   original_means <- get_chop_lump_statistic(data, 
+#                                             G_name = G_name,
+#                                             V_name = V_name,
+#                                             Y_name = Y_name)
+#   ## Permutation approach
+#   null_means <- vector("list", length = n_permutations)
+#   for(i in 1:n_permutations){
+#     data_shuffle <- data
+#     data_shuffle[[V_name]] <- sample(data_shuffle[[V_name]])
+#     
+#     null_means[[i]] <- get_chop_lump_statistic(data_shuffle,
+#                                                G_name = G_name,
+#                                                V_name = V_name,
+#                                                Y_name = Y_name)
+#   }
+#   
+#   null_df <- do.call(rbind, null_means)
+#   
+#   ## Hypothesis test
+#   observed_diff <- original_means$mean_G_vax - original_means$mean_G_plc
+#   null_df$mean_diff <- null_df$mean_G_vax - null_df$mean_G_plc
+#   
+#   out <- list(
+#     obs_diff = observed_diff,
+#     null_diffs = null_df$mean_diff,
+#     pval = mean(null_df$mean_diff > observed_diff)
+#   )
+#   
+#   class(out) <- "chop_lump_res"
+#   return(out)
+# }
+
+
+#' Helper function to plot chop-lump test results
+#' 
+#' @param out chop_lump_res object to plot
+#' 
+#' @returns A histogram plot with the distribution of test statistics under the null hypothesis,
+#' and a vertical line showing the observed test statistic.
+
+# plot.chop_lump_res <- function(out){
+#   hist(
+#     out$null_diffs,
+#     xlab = "Test statistic",
+#     xlim = range(c(out$null_diffs, out$observed_diff)),
+#     main = "Distribution of test statistic under null"
+#   )
+#   abline(v = out$observed_diff, col = 2, lwd = 2)
+# }
+
+
