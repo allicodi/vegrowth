@@ -90,9 +90,6 @@ do_gcomp_doomed <- function(data, models){
   return(out)
 }
 
-
-
-
 #' Function for IPW of counterfactual post-infection outcomes in the 
 #' naturally infected principal strata
 #' 
@@ -103,7 +100,6 @@ do_gcomp_doomed <- function(data, models){
 #' @param V_name TODO
 #' 
 #' @returns IPW estimate of growth effect in the naturally infected principal stratum
-
 do_ipw <- function(
   data, models,
   Y_name, G_name, V_name
@@ -149,7 +145,6 @@ do_ipw <- function(
 #' @param models list of pre-fit models needed for estimation
 #' 
 #' @returns IPW estimate of growth effect in the doomed principal stratum
-
 do_ipw_doomed <- function(
   data, models,
   Y_name, G_name, V_name
@@ -509,7 +504,7 @@ do_efficient_aipw <- function(data,
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
 #' @returns AIPW estimate of growth effect in doomed stratum (+ standard error if return_se = TRUE)
-do_efficient_aipw <- function(data, 
+do_efficient_aipw_doomed <- function(data, 
                               models,
                               G_name = "G",
                               V_name = "V",
