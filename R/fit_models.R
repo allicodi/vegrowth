@@ -134,7 +134,7 @@ fit_ml_models <- function(data,
                                                 X = data[, colnames(data) %in% c(Z_name, X_name), drop = FALSE],
                                                 family = family,
                                                 SL.library = Y_Z_X_library, 
-                                                cvControl = list(Z = v_folds))
+                                                cvControl = list(V = v_folds))
     
   } 
   
@@ -145,35 +145,35 @@ fit_ml_models <- function(data,
                                                  X = sub_Z0[, X_name, drop = FALSE],
                                                  family = stats::binomial(),
                                                  SL.library = S_X_library, 
-                                                 cvControl = list(Z = v_folds))
+                                                 cvControl = list(V = v_folds))
     
     sub_Z1 <- data[data[[Z_name]] == 1,]
     out$fit_S_Z1_X <- SuperLearner::SuperLearner(Y = sub_Z1[[S_name]],
                                                  X = sub_Z1[, X_name, drop = FALSE],
                                                  family = stats::binomial(),
                                                  SL.library = S_X_library, 
-                                                 cvControl = list(Z = v_folds))
+                                                 cvControl = list(V = v_folds))
     
     sub_Z1_S1 <- data[data[[Z_name]] == 1 & data[[S_name]] == 1,]
     out$fit_Y_Z1_S1_X <- SuperLearner::SuperLearner(Y = sub_Z1_S1[[Y_name]],
                                                     X = sub_Z1_S1[, X_name, drop = FALSE],
                                                     family = family,
                                                     SL.library = Y_X_library, 
-                                                    cvControl = list(Z = v_folds))
+                                                    cvControl = list(V = v_folds))
     
     sub_Z1_S0 <- data[data[[Z_name]] == 1 & data[[S_name]] == 0,]
     out$fit_Y_Z1_S0_X <- SuperLearner::SuperLearner(Y = sub_Z1_S0[[Y_name]],
                                                     X = sub_Z1_S0[, X_name, drop = FALSE],
                                                     family = family,
                                                     SL.library = Y_X_library, 
-                                                    cvControl = list(Z = v_folds))
+                                                    cvControl = list(V = v_folds))
     
     sub_Z0_S1 <- data[data[[Z_name]] == 0 & data[[S_name]] == 1,]
     out$fit_Y_Z0_S1_X <- SuperLearner::SuperLearner(Y = sub_Z0_S1[[Y_name]],
                                                     X = sub_Z0_S1[, X_name, drop = FALSE],
                                                     family = family,
                                                     SL.library = Y_X_library, 
-                                                    cvControl = list(Z = v_folds))
+                                                    cvControl = list(V = v_folds))
     
   }
   
@@ -193,7 +193,7 @@ fit_ml_models <- function(data,
                                               X = data[, X_name, drop = FALSE],
                                               family = binomial(),
                                               SL.library = Z_X_library, 
-                                              cvControl = list(Z = v_folds))
+                                              cvControl = list(V = v_folds))
   }
   
   return(out)

@@ -11,7 +11,6 @@ bootstrap_estimates(
   X_name = "X",
   S_name = "S",
   n_boot = 1000,
-  n_boot_try = 10000,
   estimand = c("nat_inf", "doomed", "pop"),
   method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
   ml = ml,
@@ -25,7 +24,8 @@ bootstrap_estimates(
   family = "gaussian",
   v_folds = 3,
   effect_dir = "positive",
-  epsilon = exp(seq(log(0.5), log(2), length = 50))
+  epsilon = exp(seq(log(0.5), log(2), length = 50)),
+  return_se = TRUE
 )
 }
 \arguments{

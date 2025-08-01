@@ -4,7 +4,7 @@
 \alias{do_ipw_pop}
 \title{Function for IPW of average counterfactual post-infection outcome marginally}
 \usage{
-do_ipw_pop(data, models, Z_name = "Z", X_name = "Y")
+do_ipw_pop(data, models, Z_name = "Z", Y_name = "Y")
 }
 \arguments{
 \item{data}{dataset to predict on}

@@ -36,7 +36,7 @@ vegrowth <- function(data,
                      S_name = "S",
                      estimand = c("nat_inf", "doomed", "pop"),
                      method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
-                     n_boot = 1000, 
+                     n_boot = 1000,
                      n_perm = 1000,
                      seed = 12345,
                      return_se = TRUE,
@@ -91,7 +91,8 @@ vegrowth <- function(data,
       # still force gcomp & ipw to be glm only
       if(any(method %in% c("gcomp", "ipw"))){
         models <- vegrowth::fit_models(data = data, 
-                                       est = est, 
+                                       estimand = estimand,
+                                       method = method,
                                        Y_name = Y_name,
                                        Z_name = Z_name,
                                        S_name = S_name,
@@ -108,7 +109,8 @@ vegrowth <- function(data,
       # ML not specified; use glms for all 
       
       models <- vegrowth::fit_models(data = data, 
-                                     est = est, 
+                                     estimand = estimand,
+                                     method = method,
                                      Y_name = Y_name,
                                      Z_name = Z_name,
                                      S_name = S_name,
@@ -141,9 +143,11 @@ vegrowth <- function(data,
                              Y_X_library = Y_X_library,
                              S_X_library = S_X_library,
                              v_folds = v_folds,
-                             est = est,
+                             estimand = estimand, 
+                             method = method, 
                              effect_dir = effect_dir,
-                             epsilon = epsilon)
+                             epsilon = epsilon,
+                            return_se = return_se)
  
  # ----------------------------------------------------------------------------
  # 3. Point estimates for effects of interest & tests
@@ -156,72 +160,72 @@ vegrowth <- function(data,
     if("gcomp" %in% method){
       out$nat_inf$gcomp$pt_est <- do_gcomp_nat_inf(data = data, models = models)
       
-      out$nat_inf$gcomp$reject_additive <- (abs(out$nat_inf$gcomp$pt_est$additive_effect - null_hypothesis_value) / 
+      out$nat_inf$gcomp$reject_additive <- (abs(out$nat_inf$gcomp$pt_est['additive_effect'] - null_hypothesis_value) / 
                                               out$nat_inf$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
-      out$nat_inf$gcomp$reject_mult <- (abs(out$nat_inf$gcomp$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+      out$nat_inf$gcomp$reject_mult <- (abs(out$nat_inf$gcomp$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                               out$nat_inf$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
     }
     
     if("ipw" %in% method){
-      out$nat_inf$ipw$pt_est <- do_ipw_nat_inf(data = data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
+      out$nat_inf$ipw$pt_est <- do_ipw_nat_inf(data = data, models = models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
       
-      out$nat_inf$ipw$reject_additive <- (abs(out$nat_inf$ipw$pt_est$additive_effect - null_hypothesis_value) / 
+      out$nat_inf$ipw$reject_additive <- (abs(out$nat_inf$ipw$pt_est['additive_effect'] - null_hypothesis_value) / 
                                               out$nat_inf$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
-      out$nat_inf$ipw$reject_mult <- (abs(out$nat_inf$ipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+      out$nat_inf$ipw$reject_mult <- (abs(out$nat_inf$ipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                           out$nat_inf$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
     }
     
     if("aipw" %in% method){
       if(ml){
-        out$nat_inf$aipw$pt_est <- do_aipw_nat_inf(data = data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+        out$nat_inf$aipw$pt_est <- do_aipw_nat_inf(data = data, models = ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       } else{
-        out$nat_inf$aipw$pt_est <- do_aipw_nat_inf(data = data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+        out$nat_inf$aipw$pt_est <- do_aipw_nat_inf(data = data, models = models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       }
       
       if(is.null(out$nat_inf$aipw$boot_se)){
         # closed form SE
-        out$nat_inf$aipw$reject_additive <- (abs(out$nat_inf$aipw$pt_est$additive_effect - null_hypothesis_value) / 
-                                               out$nat_inf$aipw$pt_est$additive_se) > qnorm(1 - alpha_level / 2)
-        out$nat_inf$aipw$reject_mult <- (abs(out$nat_inf$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
-                                              out$nat_inf$aipw$pt_res$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$aipw$reject_additive <- (abs(out$nat_inf$aipw$pt_est['additive_effect'] - null_hypothesis_value) / 
+                                               out$nat_inf$aipw$pt_est['additive_se']) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$aipw$reject_mult <- (abs(out$nat_inf$aipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                              out$nat_inf$aipw$pt_res['log_multiplicative_se']) > qnorm(1 - alpha_level / 2)
       } else{
         # bootstrap se
-        out$nat_inf$aipw$reject_additive <- (abs(out$nat_inf$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+        out$nat_inf$aipw$reject_additive <- (abs(out$nat_inf$aipw$pt_est['additive_effect'] - null_hypothesis_value) / 
                                                out$nat_inf$aipw$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
-        out$nat_inf$aipw$reject_mult <- (abs(out$nat_inf$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
-                                           out$nat_inf$aipw$boot_se$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$aipw$reject_mult <- (abs(out$nat_inf$aipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                           out$nat_inf$aipw$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
         
       }
     }
     
     if("tmle" %in% method){
       if(ml){
-        out$nat_inf$tmle$pt_est <- do_tmle_nat_inf(data = data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+        out$nat_inf$tmle$pt_est <- do_tmle_nat_inf(data = data, models = ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       } else{
-        out$nat_inf$tmle$pt_est <- do_tmle_nat_inf(data = data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+        out$nat_inf$tmle$pt_est <- do_tmle_nat_inf(data = data, models = models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       }
       
       if(is.null(out$nat_inf$tmle$boot_se)){
         # closed form SE
-        out$nat_inf$tmle$reject_additive <- (abs(out$nat_inf$tmle$pt_est$additive_effect - null_hypothesis_value) / 
-                                               out$nat_inf$tmle$pt_est$additive_se) > qnorm(1 - alpha_level / 2)
-        out$nat_inf$tmle$reject_mult <- (abs(out$nat_inf$tmle$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
-                                           out$nat_inf$tmle$pt_res$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$tmle$reject_additive <- (abs(out$nat_inf$tmle$pt_est['additive_effect'] - null_hypothesis_value) / 
+                                               out$nat_inf$tmle$pt_est['additive_se']) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$tmle$reject_mult <- (abs(out$nat_inf$tmle$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                           out$nat_inf$tmle$pt_res['log_multiplicative_se']) > qnorm(1 - alpha_level / 2)
       } else{
         # bootstrap se
-        out$nat_inf$tmle$reject_additive <- (abs(out$nat_inf$tmle$pt_est$additive_effect - null_hypothesis_value) / 
+        out$nat_inf$tmle$reject_additive <- (abs(out$nat_inf$tmle$pt_est['additive_effect'] - null_hypothesis_value) / 
                                                out$nat_inf$tmle$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
-        out$nat_inf$tmle$reject_mult <- (abs(out$nat_inf$tmle$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
-                                               out$nat_inf$tmle$boot_se$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$tmle$reject_mult <- (abs(out$nat_inf$tmle$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                               out$nat_inf$tmle$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
       }
 
     }
     
     if("sens" %in% method){
       if(ml){
-        out$nat_inf$sens$pt_est <- do_sens_aipw_nat_inf(data = data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
+        out$nat_inf$sens$pt_est <- do_sens_aipw_nat_inf(data = data, models = ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
       } else{
-        out$nat_inf$sens$pt_est <- do_sens_aipw_nat_inf(data = data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
+        out$nat_inf$sens$pt_est <- do_sens_aipw_nat_inf(data = data, models = models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
       }
       
       # Not adding test to reject for epsilon
@@ -230,22 +234,18 @@ vegrowth <- function(data,
     
     if("bound" %in% method){
       out$nat_inf$bound$pt_est <- get_bound_nat_inf(data = data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
-      out$nat_inf$bound
       
       # Bounds test - one sided
       # If effect direction < 0, test upper bound; Else, test lower bound 
       if(effect_dir == "negative"){
-        out$nat_inf$bound$test_stat <- abs(out$nat_inf$bound$pt_est$additive_effect_upper / se_additive_upper)
-        out$nat_inf$bound$pval <- pnorm(out$nat_inf$bound$test_stat, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
+        out$nat_inf$bound$test_stat_additive <- abs(out$nat_inf$bound$pt_est['additive_effect_upper'] / out$nat_inf$bound$boot_se$se_additive_upper)
+        out$nat_inf$bound$pval_additive <- pnorm(out$nat_inf$bound$test_stat, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
         
-        # just do for additive??
+        # Just do for additive, not multiplicative??
         
       } else{
-        out$nat_inf$bound$test_stat <- abs(out$nat_inf$bound$pt_est$additive_effect_lower / se_additive_lower)
+        out$nat_inf$bound$test_stat <- abs(out$nat_inf$bound$pt_est['additive_effect_lower'] / out$nat_inf$bound$boot_se$se_additive_lower)
         out$nat_inf$bound$pval <- pnorm(out$nat_inf$bound$test_stat, lower.tail = FALSE)
-        
-        # same questions as above
-        
       }
       
     }
@@ -257,42 +257,42 @@ vegrowth <- function(data,
   if("doomed" %in% estimand){
     
     if("gcomp" %in% method){
-      out$doomed$gcomp$pt_est <- do_gcomp_doomed(data = data, models = boot_models)
+      out$doomed$gcomp$pt_est <- do_gcomp_doomed(data = data, models = models)
       
-      out$doomed$gcomp$reject_additive <- (abs(out$doomed$gcomp$pt_est$additive_effect - null_hypothesis_value) / 
+      out$doomed$gcomp$reject_additive <- (abs(out$doomed$gcomp$pt_est['additive_effect'] - null_hypothesis_value) / 
                                               out$doomed$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
-      out$doomed$gcomp$reject_mult <- (abs(out$doomed$gcomp$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+      out$doomed$gcomp$reject_mult <- (abs(out$doomed$gcomp$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                           out$doomed$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
     }
     
     if("ipw" %in% method){
-      out$doomed$ipw$pt_est <- do_ipw_doomed(data = data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
+      out$doomed$ipw$pt_est <- do_ipw_doomed(data = data, models = models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
       
-      out$doomed$ipw$reject_additive <- (abs(out$doomed$ipw$pt_est$additive_effect - null_hypothesis_value) / 
+      out$doomed$ipw$reject_additive <- (abs(out$doomed$ipw$pt_est['additive_effect'] - null_hypothesis_value) / 
                                             out$doomed$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
-      out$doomed$ipw$reject_mult <- (abs(out$doomed$ipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+      out$doomed$ipw$reject_mult <- (abs(out$doomed$ipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                         out$doomed$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
     }
     
     if("aipw" %in% method){
       if(ml){
-        out$doomed$aipw$pt_est <- do_aipw_doomed(data = data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+        out$doomed$aipw$pt_est <- do_aipw_doomed(data = data, models = ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       } else{
-        out$doomed$aipw <- do_aipw_doomed(data = data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+        out$doomed$aipw$pt_est <- do_aipw_doomed(data = data, models = models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
       }
       
       if(is.null(out$doomed$aipw$boot_se)){
         # closed form SE
-        out$doomed$aipw$reject_additive <- (abs(out$doomed$aipw$pt_est$additive_effect - null_hypothesis_value) / 
-                                               out$doomed$aipw$pt_est$additive_se) > qnorm(1 - alpha_level / 2)
-        out$doomed$aipw$reject_mult <- (abs(out$doomed$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
-                                           out$doomed$aipw$pt_res$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        out$doomed$aipw$reject_additive <- (abs(out$doomed$aipw$pt_est['additive_effect'] - null_hypothesis_value) / 
+                                               out$doomed$aipw$pt_est['additive_se']) > qnorm(1 - alpha_level / 2)
+        out$doomed$aipw$reject_mult <- (abs(out$doomed$aipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                           out$doomed$aipw$pt_res['log_multiplicative_se']) > qnorm(1 - alpha_level / 2)
       } else{
         # bootstrap se
-        out$doomed$aipw$reject_additive <- (abs(out$doomed$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+        out$doomed$aipw$reject_additive <- (abs(out$doomed$aipw$pt_est['additive_effect'] - null_hypothesis_value) / 
                                                out$doomed$aipw$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
-        out$doomed$aipw$reject_mult <- (abs(out$doomed$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
-                                               out$doomed$aipw$boot_se$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        out$doomed$aipw$reject_mult <- (abs(out$doomed$aipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                               out$doomed$aipw$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
                                          
       }
       
@@ -304,13 +304,13 @@ vegrowth <- function(data,
       # Bounds test - one sided
       # If effect direction < 0, test upper bound; Else, test lower bound 
       if(effect_dir == "negative"){
-        out$doomed$bound$test_stat <- abs(out$doomed$bound$pt_est$additive_effect_upper / se_additive_upper)
+        out$doomed$bound$test_stat <- abs(out$doomed$bound$pt_est['additive_effect_upper'] / out$doomed$bound$boot_se$se_additive_upper)
         out$doomed$bound$pval <- pnorm(out$doomed$bound$test_stat, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
         
         # just do for additive??
         
       } else{
-        out$doomed$bound$test_stat <- abs(out$doomed$bound$pt_est$additive_effect_lower / se_additive_lower)
+        out$doomed$bound$test_stat <- abs(out$doomed$bound$pt_est['additive_effect_lower'] / out$doomed$bound$boot_se$se_additive_lower)
         out$doomed$bound$pval <- pnorm(out$doomed$bound$test_stat, lower.tail = FALSE)
         
         # same questions as above
@@ -325,42 +325,42 @@ vegrowth <- function(data,
   if("pop" %in% estimand){
     
     if("gcomp" %in% method){
-      out$pop$gcomp$pt_est <- do_gcomp_pop(data = data, models = boot_models, Z_name = Z_name, X_name = X_name)
+      out$pop$gcomp$pt_est <- do_gcomp_pop(data = data, models = models, Z_name = Z_name, X_name = X_name)
       
-      out$doomed$gcomp$reject_additive <- (abs(out$pop$gcomp$pt_est$additive_effect - null_hypothesis_value) / 
+      out$doomed$gcomp$reject_additive <- (abs(out$pop$gcomp$pt_est['additive_effect'] - null_hypothesis_value) / 
                                              out$pop$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
-      out$pop$gcomp$reject_mult <- (abs(out$pop$gcomp$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+      out$pop$gcomp$reject_mult <- (abs(out$pop$gcomp$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                          out$pop$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
     }
     
     if("ipw" %in% method){
-      out$pop$ipw$pt_est <- do_ipw_pop(data = data, models = boot_models, Z_name = Z_name, X_name = X_name)
+      out$pop$ipw$pt_est <- do_ipw_pop(data = data, models = models, Z_name = Z_name, Y_name = Y_name)
       
-      out$pop$ipw$reject_additive <- (abs(out$pop$ipw$pt_est$additive_effect - null_hypothesis_value) / 
+      out$pop$ipw$reject_additive <- (abs(out$pop$ipw$pt_est['additive_effect'] - null_hypothesis_value) / 
                                             out$pop$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
-      out$pop$ipw$reject_mult <- (abs(out$pop$ipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+      out$pop$ipw$reject_mult <- (abs(out$pop$ipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                         out$pop$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
     }
     
     if("aipw" %in% method){
       if(ml){
-        out$pop$aipw$pt_est <- do_aipw_pop(data = data, models = boot_ml_models, Z_name = Z_name, Y_name = Y_name, X_name = Z_name, return_se = return_se)
+        out$pop$aipw$pt_est <- do_aipw_pop(data = data, models = ml_models, Z_name = Z_name, Y_name = Y_name, X_name = X_name, return_se = return_se)
       } else{
-        out$pop$aipw <- do_aipw_pop(data = data, models = boot_models, Z_name = Z_name, Y_name = Y_name, X_name = Z_name, return_se = return_se)
+        out$pop$aipw$pt_est <- do_aipw_pop(data = data, models = models, Z_name = Z_name, Y_name = Y_name, X_name = X_name, return_se = return_se)
       }
       
       if(is.null(out$pop$aipw$boot_se)){
         # closed form SE
-        out$pop$aipw$reject_additive <- (abs(out$pop$aipw$pt_est$additive_effect - null_hypothesis_value) / 
-                                               out$pop$aipw$pt_est$additive_se) > qnorm(1 - alpha_level / 2)
-        out$pop$aipw$reject_mult <- (abs(out$pop$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
-                                           out$pop$aipw$pt_res$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        out$pop$aipw$reject_additive <- (abs(out$pop$aipw$pt_est['additive_effect'] - null_hypothesis_value) / 
+                                               out$pop$aipw$pt_est['additive_se']) > qnorm(1 - alpha_level / 2)
+        out$pop$aipw$reject_mult <- (abs(out$pop$aipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                           out$pop$aipw$pt_est['log_multiplicative_se']) > qnorm(1 - alpha_level / 2)
       } else{
         # bootstrap se
-        out$pop$aipw$reject_additive <- (abs(out$pop$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+        out$pop$aipw$reject_additive <- (abs(out$pop$aipw$pt_est['additive_effect'] - null_hypothesis_value) / 
                                                out$pop$aipw$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
-        out$pop$aipw$reject_mult <- (abs(out$pop$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
-                                               out$pop$aipw$boot_se$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        out$pop$aipw$reject_mult <- (abs(out$pop$aipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                               out$pop$aipw$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
                                          
       }
     }

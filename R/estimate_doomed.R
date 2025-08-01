@@ -23,7 +23,7 @@ do_gcomp_doomed <- function(data, models){
     rho_1_X / rho_bar_1 * mu_11_X
   )
   psi_0 <- mean(
-    rho_1_X / rho_bar_1 * mu_01_X
+    rho_1_X / rho_bar_1 * mu_10_X
   )
   
   growth_effect <- psi_1 - psi_0
@@ -117,7 +117,7 @@ do_aipw_doomed <- function(data,
   }
   
   pi_0_X <- 1 - pi_1_X
-  rho_bar_1 <- mean(rho_0)
+  rho_bar_1 <- mean(rho_0_X)
   
   eta_tilde_0 <- rho_1_X * mu_11_X / rho_bar_1
   eta_tilde_1 <- rho_1_X * mu_01_X / rho_bar_1
@@ -141,8 +141,8 @@ do_aipw_doomed <- function(data,
     
   )
   
-  eta_0_aipw <- eta_0 + mean(augmentation_0)
-  eta_1_aipw <- eta_1 + mean(augmentation_1)
+  eta_0_aipw <- eta_0_plugin + mean(augmentation_0)
+  eta_1_aipw <- eta_1_plugin + mean(augmentation_1)
   
   
   # Additive effect
@@ -156,7 +156,7 @@ do_aipw_doomed <- function(data,
   if_matrix <- cbind(augmentation_1, augmentation_0)
   cov_matrix <- cov(if_matrix) / dim(data)[1]
   
-  gradient <- matrix(c(1 / psi_1_aipw, -1 / psi_0_aipw), ncol = 1)
+  gradient <- matrix(c(1 / eta_1_aipw, -1 / eta_0_aipw), ncol = 1)
   
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
@@ -267,33 +267,28 @@ get_bound_doomed <- function(
     #mean in vaccinated infecteds for comparison
     E_Y1__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 1])
     
-    out <- list(E_Y1__S0_1 = E_Y1__S0_1,
-                E_Y0__S0_1_lower = l_n,
-                E_Y0__S0_1_upper = u_n,
-                additive_effect_lower = E_Y1__S0_1 - l_n,
-                additive_effect_upper = E_Y1__S0_1 - u_n,
-                mult_effect_lower = E_Y1__S0_1 / l_n,
-                mult_effect_upper = E_Y1__S0_1 / u_n,
-                success = 1)
+    out <- c(
+      E_Y1__S0_1,
+      l_n,
+      u_n,
+      E_Y1__S0_1 - l_n,
+      E_Y1__S0_1 - u_n,
+      E_Y1__S0_1 / l_n,
+      E_Y1__S0_1 / u_n
+    )
+    
+    names(out) <- c("E_Y1__S0_1",
+                    "E_Y0__S0_1_lower",
+                    "E_Y0__S0_1_upper",
+                    "additive_effect_lower",
+                    "additive_effect_upper",
+                    "mult_effect_lower",
+                    "mult_effect_upper")
     
   } else{
-    print("Method not applicable unless evidence of vaccine protection.")
-    
-    #mean in vaccinated infecteds for comparison
-    E_Y1__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 1])
-    
-    out <- list(E_Y1__S0_1 = NA,
-                E_Y0__S0_1_lower = NA,
-                E_Y0__S0_1_upper = NA,
-                additive_effect_lower = NA,
-                additive_effect_upper = NA,
-                mult_effect_lower = NA,
-                mult_effect_upper = NA,
-                success = 0)
+    stop("Method not applicable unless evidence of vaccine protection.")
   }
-  
-  class(out) <- "bound_doomed"
-  
+
   return(out)
   
 }

@@ -38,7 +38,8 @@ one_boot <- function(
     v_folds = 3,
     effect_dir = "positive",
     epsilon = exp(seq(log(0.5), log(2), length = 50)),
-    max_resample = 10
+    max_resample = 10,
+    return_se = TRUE
 ){
   
   n <- dim(data)[1]
@@ -46,7 +47,10 @@ one_boot <- function(
   boot_data <- data[boot_row_idx,]
   
   # If there are more infections in vaccine arm than placebo arm, resample up to max_resample 
+  rhobar_0_n <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 0])
+  rhobar_1_n <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 1])
   resample <- 0
+  
   while(rhobar_0_n <= rhobar_1_n & resample <= max_resample){
     boot_row_idx <- sample(1:n, replace=TRUE)
     boot_data <- data[boot_row_idx,]
@@ -78,7 +82,7 @@ one_boot <- function(
                                                  v_folds = v_folds)
     } 
     
-    if(any(est %in% c("gcomp", "ipw"))){
+    if(any(method %in% c("gcomp", "ipw"))){
       boot_models <- vegrowth::fit_models(data = boot_data, 
                                           estimand = estimand,
                                           method = method, 
@@ -190,7 +194,7 @@ one_boot <- function(
     }
     
     if("ipw" %in% method){
-      out$pop$ipw <- do_ipw_pop(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name)
+      out$pop$ipw <- do_ipw_pop(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name)
     }
     
     if("aipw" %in% method & return_se == FALSE){
@@ -237,7 +241,6 @@ bootstrap_estimates <- function(
     X_name = "X",
     S_name = "S", 
     n_boot = 1000, 
-    n_boot_try = 10000,
     estimand = c("nat_inf", "doomed", "pop"),
     method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
     ml = ml,
@@ -251,7 +254,8 @@ bootstrap_estimates <- function(
     family = "gaussian",
     v_folds = 3,
     effect_dir = "positive",
-    epsilon = exp(seq(log(0.5), log(2), length = 50))
+    epsilon = exp(seq(log(0.5), log(2), length = 50)),
+    return_se = TRUE
 ){
   
   # Initial boot_estimates for all viable estimand & method combinations
@@ -272,10 +276,11 @@ bootstrap_estimates <- function(
                                                S_X_library = S_X_library,
                                                v_folds = v_folds,
                                                family = family,
-                                               epsilon = epsilon))
+                                               epsilon = epsilon,
+                                               return_se = return_se), simplify = FALSE)
     # List to store results
-    out <- vector("list", length = length(estimates))
-    names(out) <- estimates
+    out <- vector("list", length = length(estimand))
+    names(out) <- estimand
   
     # Naturally infected --------------------------------------------------------
     
@@ -303,7 +308,7 @@ bootstrap_estimates <- function(
       }
       
       if("bound" %in% method){
-        out$nat_inf$bound$boot_se <- get_boot_se_bound(boot_estimates = boot_estimates, estimatnd = "nat_inf", method = "bound")
+        out$nat_inf$bound$boot_se <- get_boot_se_bound(boot_estimates = boot_estimates, estimand = "nat_inf", method = "bound")
       }
       
     }
@@ -326,7 +331,7 @@ bootstrap_estimates <- function(
       }
       
       if("bound" %in% method){
-        out$nat_inf$bound$boot_se <- get_boot_se_bound(boot_estimates = boot_estimates, estimatnd = "doomed", method = "bound")
+        out$doomed$bound$boot_se <- get_boot_se_bound(boot_estimates = boot_estimates, estimand = "doomed", method = "bound")
       }
       
     }

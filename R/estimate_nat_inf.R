@@ -762,29 +762,27 @@ get_bound_nat_inf <- function(
     #mean in unvaccinated infecteds for comparison
     E_Y0__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 0])
     
-    out <- list(E_Y0__S0_1 = E_Y0__S0_1,
-                E_Y1__S0_1_lower = l_n,
-                E_Y1__S0_1_upper = u_n,
-                additive_effect_lower = l_n - E_Y0__S0_1,
-                additive_effect_upper = u_n - E_Y0__S0_1,
-                mult_effect_lower = l_n / E_Y0__S0_1,
-                mult_effect_upper = u_n / E_Y0__S0_1,
-                success = 1)
+    out <- c(
+      E_Y0__S0_1,
+      l_n,
+      u_n,
+      l_n - E_Y0__S0_1,
+      u_n - E_Y0__S0_1,
+      l_n / E_Y0__S0_1,
+      u_n / E_Y0__S0_1
+    )
+    
+    names(out) <- c("E_Y0__S0_1",
+                    "E_Y1__S0_1_lower",
+                    "E_Y1__S0_1_upper",
+                    "additive_effect_lower",
+                    "additive_effect_upper",
+                    "mult_effect_lower",
+                    "mult_effect_upper")
     
   } else{
-    print("Method not applicable unless evidence of vaccine protection.")
-    
-    out <- list(E_Y0__S0_1 = NA,
-                E_Y1__S0_1_lower = NA,
-                E_Y1__S0_1_upper = NA,
-                additive_effect_lower = NA,
-                additive_effect_upper = NA,
-                mult_effect_lower = NA,
-                mult_effect_upper = NA,
-                success = 0)
+    stop("Method not applicable unless evidence of vaccine protection.")
   }
-  
-  class(out) <- "bound_nat_inf"
   
   return(out)
   

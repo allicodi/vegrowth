@@ -7,8 +7,8 @@
 #' 
 #' @returns data frame with bootstrap results for point estimates & bounds
 make_boot_df <- function(boot_estimates, estimand = "nat_inf", method = "gcomp") {
-  res_list <- lapply(seq_along(bootstrap_results), function(i) {
-    boot_res <- bootstrap_results[[i]]
+  res_list <- lapply(seq_along(boot_estimates), function(i) {
+    boot_res <- boot_estimates[[i]]
     
     # Check if the desired estimand/method exists in this iteration
     if (!is.null(boot_res[[estimand]]) && !is.null(boot_res[[estimand]][[method]])) {
@@ -46,10 +46,10 @@ get_boot_se <- function(boot_estimates, estimand = "nat_inf", method = "gcomp"){
   
   data.frame(se_additive = sd(boot_df$additive_effect),
              lower_ci_additive = quantile(boot_df$additive_effect, 0.025),
-             upper_ci_additive = quantile(boot_df$additive_effect, 0.025),
-             se_mult = sd(boot_df$log_multiplicative_effect),
-             lower_ci_mult = exp(quantile(boot_res$log_multiplicative_effect, 0.025)),
-             upper_ci_mult = exp(quantile(boot_res$log_multiplicative_effect, 0.975)))
+             upper_ci_additive = quantile(boot_df$additive_effect, 0.975),
+             se_log_mult = sd(boot_df$log_multiplicative_effect),
+             lower_ci_mult = exp(quantile(boot_df$log_multiplicative_effect, 0.025)),
+             upper_ci_mult = exp(quantile(boot_df$log_multiplicative_effect, 0.975)))
 }
 
 #' Helper function to get SE and 95% CI for additive and multiplicative effects - bounds

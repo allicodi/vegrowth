@@ -52,7 +52,7 @@ do_gcomp_pop <- function(data,
 #' @param Y_name character vector containing name(s) of post-infection outcome, default Y
 #' 
 #' @returns g-comp estimate of growth effect for population estimand
-do_ipw_pop <- function(data, models, Z_name = "Z", X_name = "Y"){
+do_ipw_pop <- function(data, models, Z_name = "Z", Y_name = "Y"){
   
   
   if(inherits(models$fit_Z_X, "SuperLearner")){
@@ -114,8 +114,8 @@ do_aipw_pop <- function(
   Z <- data[[Z_name]]
   
   psi_1_plugin <- mean(Qbar_Z1)
-  augmentation_1 <- Z / pi_1_X * ( Y - Qbar_Z1 ) + Qbar_Z1 - psi_1
-  psi_1_aipw <- psi_1_plugin + mean(eif_psi_1)
+  augmentation_1 <- Z / pi_1_X * ( Y - Qbar_Z1 ) + Qbar_Z1 - psi_1_plugin
+  psi_1_aipw <- psi_1_plugin + mean(augmentation_1)
   
   
   df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
@@ -128,8 +128,8 @@ do_aipw_pop <- function(
   }
   
   psi_0_plugin <- mean(Qbar_Z0)
-  augmentation_0 <- (1 - Z) / pi_0_X * ( Y - Qbar_Z0 ) + Qbar_Z0 - psi_0
-  psi_0_aipw <- psi_0_plugin + mean(eif_psi_0)
+  augmentation_0 <- (1 - Z) / pi_0_X * ( Y - Qbar_Z0 ) + Qbar_Z0 - psi_0_plugin
+  psi_0_aipw <- psi_0_plugin + mean(augmentation_0)
   
   # Additive effect
   n <- dim(data)[1]
