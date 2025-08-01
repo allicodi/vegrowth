@@ -1,3 +1,112 @@
+
+#' Helper function to make dataframe from bootstrap results
+#'
+#' @param boot_estimates list of n_boot bootstrap estimates from one_boot
+#' @param estimand estimand of interest
+#' @param method method of interest
+#' 
+#' @returns data frame with bootstrap results for point estimates & bounds
+make_boot_df <- function(boot_estimates, estimand = "nat_inf", method = "gcomp") {
+  res_list <- lapply(seq_along(bootstrap_results), function(i) {
+    boot_res <- bootstrap_results[[i]]
+    
+    # Check if the desired estimand/method exists in this iteration
+    if (!is.null(boot_res[[estimand]]) && !is.null(boot_res[[estimand]][[method]])) {
+      row <- boot_res[[estimand]][[method]]
+      
+      # If it's just a single number, convert to named data frame
+      if (is.atomic(row) && length(row) == 1) {
+        row <- data.frame(estimate = row)
+      } else if (is.null(dim(row))) {
+        row <- as.data.frame(t(row))
+      }
+      
+      row$boot_id <- i
+      row$estimand <- estimand
+      row$method <- method
+      return(row)
+    } else {
+      return(NULL)  # Skip missing or failed bootstraps
+    }
+  })
+  # Combine all into one data frame
+  data.frame(do.call(rbind, res_list))
+}
+
+#' Helper function to get SE and 95% CI for additive and multiplicative effects - point estimates
+#'
+#' @param estimand estimand of interest
+#' @param method method of interest
+#' 
+#' @returns dataframe with bootstrap standard error and confidence intervals on additive and multiplicative scales for point estimates
+get_boot_se <- function(boot_estimates, estimand = "nat_inf", method = "gcomp"){
+  boot_df <- make_boot_df(boot_estimates = boot_estimates,
+                          estimand = estimand,
+                          method = method)
+  
+  data.frame(se_additive = sd(boot_df$additive_effect),
+             lower_ci_additive = quantile(boot_df$additive_effect, 0.025),
+             upper_ci_additive = quantile(boot_df$additive_effect, 0.025),
+             se_mult = sd(boot_df$log_multiplicative_effect),
+             lower_ci_mult = exp(quantile(boot_res$log_multiplicative_effect, 0.025)),
+             upper_ci_mult = exp(quantile(boot_res$log_multiplicative_effect, 0.975)))
+}
+
+#' Helper function to get SE and 95% CI for additive and multiplicative effects - bounds
+#'
+#' @param estimand estimand of interest
+#' @param method method of interest
+#' 
+#' @returns dataframe with bootstrap standard error and confidence intervals on additive and multiplicative scales for bounds
+get_boot_se_bound <- function(boot_estimates, estimand = "nat_inf", method = "bound"){
+  boot_df <- make_boot_df(boot_estimates = boot_estimates,
+                          estimand = estimand,
+                          method = method)
+  
+  data.frame(se_additive_lower = sd(boot_df$additive_effect_lower),
+             lower_ci_additive_lower = quantile(boot_df$additive_effect_lower, 0.025),
+             upper_ci_additive_lower = quantile(boot_df$additive_effect_lower, 0.975),
+             se_additive_upper = sd(boot_df$additive_effect_upper),
+             lower_ci_additive_upper = quantile(boot_df$additive_effect_upper, 0.025),
+             upper_ci_additive_upper = quantile(boot_df$additive_effect_upper, 0.975),
+             # CHECK IF THIS NEEDS TO BE EXPONENTIATED-- I THINK NO?
+             se_mult_lower = sd(boot_df$mult_effect_lower),
+             lower_ci_mult_lower = quantile(boot_df$mult_effect_lower, 0.025),
+             upper_ci_mult_lower = quantile(boot_df$mult_effect_lower, 0.975),
+             se_mult_upper = sd(boot_df$mult_effect_upper),
+             lower_ci_mult_upper = quantile(boot_df$mult_effect_upper, 0.025),
+             upper_ci_mult_upper = quantile(boot_df$mult_effect_upper, 0.975))
+}
+
+#' Helper function to get SE and 95% CI for additive and multiplicative effects - bounds
+#'
+#' @param estimand estimand of interest
+#' @param method method of interest
+#' 
+#' @returns dataframe with bootstrap standard error and confidence intervals on additive and multiplicative scales for each epsilon
+get_boot_se_sens <- function(boot_estimates, estimand = "nat_inf", method = "sens"){
+  boot_df <- make_boot_df(boot_estimates = boot_estimates,
+                          estimand = estimand,
+                          method = method)
+  
+  epsilon <- unique(boot_df$epsilon)
+  boot_res_list <- vector(list, length = length(epsilon))
+  names(boot_res_list) <- paste0("epsilon_", epsilon)
+  
+  for(e in 1:length(epsilon)){
+    boot_res_list[[e]] <- data.frame(epsilon = epsilon[e],
+                                     se_additive = sd(boot_df$additive_effect[boot_df$epsilon == epsilon[e]]),
+                                     lower_ci_additive = quantile(boot_df$additive_effect[boot_df$epsilon == epsilon[e]], 0.025),
+                                     upper_ci_additive = quantile(boot_df$additive_effect[boot_df$epsilon == epsilon[e]], 0.975),
+                                     se_mult = sd(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]]),
+                                     lower_ci_mult = exp(quantile(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]], 0.025)),
+                                     upper_ci_mult = exp(quantile(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]], 0.975)))
+  }
+  
+  return(do.call(rbind, boot_res_list))
+  
+}
+
 #' Example simulated dataset based on the PROVIDE study
 #' 
 #' @format A data frame with X rows and Y variables:

@@ -44,6 +44,7 @@ permutation_bound_nat_inf <- function(
                         mean(null_est$additive_effect_upper < original_est$additive_effect_upper), # negative effect means we are interested in the upper bound < 0
                         mean(null_est$additive_effect_lower > original_est$additive_effect_lower)  # positive effect means we are interested in the lower bound > 0 
     )
+  )
     
     class(out) <- "permutation_bonud_nat_inf"
     return(out)
@@ -96,6 +97,7 @@ permutation_bound_doomed <- function(
                         mean(null_est$additive_effect_upper < original_est$additive_effect_upper), # negative effect means we are interested in the upper bound < 0
                         mean(null_est$additive_effect_lower > original_est$additive_effect_lower)  # positive effect means we are interested in the lower bound > 0 
     )
+  )
     
     class(out) <- "permutation_bonud_doomed"
     return(out)

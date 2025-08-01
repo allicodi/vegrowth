@@ -55,7 +55,7 @@ do_gcomp_pop <- function(data,
 do_ipw_pop <- function(data, models, Z_name = "Z", X_name = "Y"){
   
   
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
+  if(inherits(models$fit_Z_X, "SuperLearner")){
     pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
   } else{
     pi_1_X <- models$fit_Z_X$fitted.values
@@ -89,7 +89,7 @@ do_ipw_pop <- function(data, models, Z_name = "Z", X_name = "Y"){
 #' @param S_name character vector containing name(s) of covariates, default Y
 #' 
 #' @returns g-comp estimate of growth effect for population estimand
-do_efficient_aipw_pop <- function(
+do_aipw_pop <- function(
     data, 
     models,
     Z_name = "Z",
@@ -133,11 +133,11 @@ do_efficient_aipw_pop <- function(
   
   # Additive effect
   n <- dim(data)[1]
-  efficient_growth_effect <- psi_1_aipw - psi_0_aipw
+  growth_effect <- psi_1_aipw - psi_0_aipw
   se <- sqrt(var(augmentation_1 - augmentation_0) / n)
   
   # Multiplicative effect (log scale)
-  efficient_growth_effect_log_mult <- log(psi_1_aipw / psi_0_aipw)
+  growth_effect_log_mult <- log(psi_1_aipw / psi_0_aipw)
   
   # Yet SE using IF matrix same way as TMLE
   if_matrix <- cbind(augmentation_1, augmentation_0)
@@ -148,11 +148,11 @@ do_efficient_aipw_pop <- function(
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff)
+    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff)
     names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
     return(out)
   }else{
-    out <- c(efficient_growth_effect, efficient_growth_effect_log_mult)
+    out <- c(growth_effect, growth_effect_log_mult)
     names(out) <- c("additive_effect", "log_multiplicative_effect")
     return(out)
   }

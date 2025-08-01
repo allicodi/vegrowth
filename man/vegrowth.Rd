@@ -6,67 +6,71 @@
 \usage{
 vegrowth(
   data,
-  G_name = "G",
-  V_name = "V",
+  Y_name = "G",
+  Z_name = "Z",
   X_name = "X",
-  Y_name = "Y",
-  est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "choplump",
-    "hudgens_lower", "hudgens_upper", "hudgens_adj_lower", "hudgens_adj_upper"),
+  S_name = "S",
+  estimand = c("nat_inf", "doomed", "pop"),
+  method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
   n_boot = 1000,
+  n_perm = 1000,
   seed = 12345,
-  return_se = FALSE,
-  ml = FALSE,
-  G_V_X_model = NULL,
-  G_X_Y1_model = NULL,
-  G_X_Y0_model = NULL,
-  Y_X_model = NULL,
-  G_V_X_library = c("SL.glm"),
-  G_X_library = c("SL.glm"),
+  return_se = TRUE,
+  ml = TRUE,
+  Y_Z_X_model = NULL,
+  Y_X_S1_model = NULL,
+  Y_X_S0_model = NULL,
+  S_X_model = NULL,
+  Y_Z_X_library = c("SL.glm"),
   Y_X_library = c("SL.glm"),
+  S_X_library = c("SL.glm"),
   null_hypothesis_value = 0,
   alpha_level = 0.025,
   return_models = TRUE,
   family = "gaussian",
   v_folds = 3,
-  effect_dir = "positive"
+  effect_dir = "positive",
+  epsilon = exp(seq(log(0.5), log(2), length = 50))
 )
 }
 \arguments{
 \item{data}{dataframe containing dataset to use for analysis}
 
-\item{G_name}{growth outcome variable name}
+\item{Y_name}{growth outcome variable name}
 
-\item{V_name}{vaccination variable name}
+\item{Z_name}{vaccination variable name}
 
 \item{X_name}{covariate name(s)}
 
-\item{Y_name}{infection variable name}
+\item{S_name}{infection variable name}
 
-\item{est}{character vector of names of estimators to use for growth effect}
+\item{estimand}{character vector with name(s) of estimands of interest; "nat_inf" = naturally infected, "doomed" = doomed, "pop" = marginal/population-level}
+
+\item{method}{character vector with name(s) of methods to use for estimation; "gcomp" = g-computation, "ipw" = inverese probability weighting, "aipw" = augmented inverse probability weighting, "tmle" = targeted maximum likelihood estimation (nat_inf only), "bound" = bounds without cross-world assumptions (nat_inf and doomed only), "sens" = sensitivity analysis (nat_inf only)}
 
 \item{n_boot}{number of bootstrap replicates}
 
 \item{seed}{seet to set for replicability of bootstrap}
 
-\item{return_se}{indicator to return closed form standard error for efficient_aipw or efficient_tmle, default FALSE}
+\item{return_se}{indicator to return closed form standard error for efficient_aipw or efficient_tmle, default TRUE}
 
-\item{ml}{boolean to use SuperLearner models, default FALSE}
+\item{ml}{boolean to use SuperLearner models for AIPW & TMLE, default TRUE}
 
-\item{G_V_X_model}{optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates}
+\item{Y_Z_X_model}{optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates}
 
-\item{G_X_Y1_model}{optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates}
+\item{Y_X_S1_model}{optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates}
 
-\item{G_X_Y0_model}{optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates}
+\item{Y_X_S0_model}{optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates}
 
-\item{Y_X_model}{optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates}
+\item{S_X_model}{optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates}
 
-\item{G_V_X_library}{optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm}
+\item{Y_Z_X_library}{optional specify SuperLearner libraries for model fitting growth on covariates + vaccine, default glm}
 
-\item{G_X_library}{optional specify SuperLearner libraries for model fitting growth on covariates, default glm}
+\item{Y_X_library}{optional specify SuperLearner libraries for model fitting growth on covariates, default glm}
 
-\item{Y_X_library}{optional specify SuperLearner libraries for model fitting infection on covariates, default glm}
+\item{S_X_library}{optional specify SuperLearner libraries for model fitting infection on covariates, default glm}
 
-\item{null_hypothesis_value}{null value for hypothesis test effect for VE and population estimand g-comp, default 0}
+\item{null_hypothesis_value}{null value for hypothesis test effect for ZE and population estimand g-comp, default 0}
 
 \item{alpha_level}{alpha level for hypothesis testing, default 0.025}
 
@@ -77,6 +81,8 @@ vegrowth(
 \item{v_folds}{number of cross validation folds for SuperLearner, default 3}
 
 \item{effect_dir}{direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.}
+
+\item{epsilon}{a vector of values for the sensitivity parameter (only applicable for method = "sens")}
 }
 \value{
 List of class \code{vegrowth}

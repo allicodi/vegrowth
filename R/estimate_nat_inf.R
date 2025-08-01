@@ -111,7 +111,7 @@ do_ipw_nat_inf <- function(
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
 #' @returns AIPW estimate of growth effect in naturally infected strata (+ standard error if return_se = TRUE)
-do_efficient_aipw_nat_inf <- function(data, 
+do_aipw_nat_inf <- function(data, 
                               models,
                               Y_name = "Y",
                               Z_name = "Z",
@@ -209,7 +209,7 @@ do_efficient_aipw_nat_inf <- function(data,
 #' @param tol TOOD 
 #' 
 #' @returns TMLE estimate of growth effect (+ standard error if return_se = TRUE)
-do_efficient_tmle_nat_inf <- function(
+do_tmle_nat_inf <- function(
     data, models, Y_name = "Y", Z_name = "Z", S_name = "S",
     return_se = FALSE, max_iter = 10,
     tol = 1 / (sqrt(dim(data)[1]) * log(dim(data)[1]))
@@ -542,7 +542,7 @@ do_sens_aipw_nat_inf <- function(data,
   pi_1 <- models$fit_Z_X$fitted.values
   pi_0 <- 1 - pi_1
   
-  # Yet weight
+  # Get weight
   sub_Z0 <- data[data[[Z_name]] == 0,]
   
   # rho_bar_0 <- mean(sub_Z0[[S_name]])
@@ -639,7 +639,7 @@ do_sens_aipw_nat_inf <- function(data,
     log(psi_1_eps / psi_0_aipw)
   })
   
-  # Yet SE using IF matrix same way as TMLE
+  # Get SE using IF matrix same way as TMLE
   se_log_mult_eff <- mapply(
     augmentation_1_eps = augmentation_1_epsilon, 
     psi_1_eps_aipw = psi_1_epsilon_aipw,
@@ -720,7 +720,7 @@ get_bound_nat_inf <- function(
     } else{
       # Binary outcome
       
-      # Zaccinated, Uninfected
+      # Vaccinated, Uninfected
       data__Z1_S0 <- data[which(data[[Z_name]] == 1 & data[[S_name]] == 0),]
       
       target_num <- ceiling(q_n * nrow(data__Z1_S0))
@@ -759,20 +759,30 @@ get_bound_nat_inf <- function(
     l_n <- mubar_11_n * (rhobar_1_n / rhobar_0_n) + mubar_10_l_n * (1 - (rhobar_1_n / rhobar_0_n))
     u_n <- mubar_11_n * (rhobar_1_n / rhobar_0_n) + mubar_10_u_n * (1 - (rhobar_1_n / rhobar_0_n))
     
+    #mean in unvaccinated infecteds for comparison
+    E_Y0__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 0])
+    
+    out <- list(E_Y0__S0_1 = E_Y0__S0_1,
+                E_Y1__S0_1_lower = l_n,
+                E_Y1__S0_1_upper = u_n,
+                additive_effect_lower = l_n - E_Y0__S0_1,
+                additive_effect_upper = u_n - E_Y0__S0_1,
+                mult_effect_lower = l_n / E_Y0__S0_1,
+                mult_effect_upper = u_n / E_Y0__S0_1,
+                success = 1)
+    
   } else{
-    stop("Method not applicable unless evidence of vaccine protection.")
+    print("Method not applicable unless evidence of vaccine protection.")
+    
+    out <- list(E_Y0__S0_1 = NA,
+                E_Y1__S0_1_lower = NA,
+                E_Y1__S0_1_upper = NA,
+                additive_effect_lower = NA,
+                additive_effect_upper = NA,
+                mult_effect_lower = NA,
+                mult_effect_upper = NA,
+                success = 0)
   }
-  
-  #mean in unvaccinated infecteds for comparison
-  E_Y0__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 0])
-  
-  out <- list(E_Y0__S0_1 = E_Y0__S0_1,
-              E_Y1__S0_1_lower = l_n,
-              E_Y1__S0_1_upper = u_n,
-              additive_effect_lower = l_n - E_Y0__S0_1,
-              additive_effect_upper = u_n - E_Y0__S0_1,
-              mult_effect_lower = l_n / E_Y0__S0_1,
-              mult_effect_upper = u_n / E_Y0__S0_1)
   
   class(out) <- "bound_nat_inf"
   

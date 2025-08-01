@@ -5,7 +5,7 @@
 #' @param Z_name name of vaccine treatment variable, default Z
 #' @param X_name character vector containing name(s) of covariates, default X
 #' @param S_name name of infection variable, default Y
-#' @param est character vector of names of estimators to use for growth effect
+#' @param estimand character vector with name(s) of estimands of interest; "nat_inf" = naturally infected, "doomed" = doomed, "pop" = marginal/population-level
 #' @param Y_X_model optional specify model to be used for fitting growth on covariates, otherwise growth on all covariates
 #' @param S_X_model optional specify model to be used for fitting infection on covariates, otherwise infection on all covariates
 #' @param family family for outcome model, defaults to gaussian for growth
@@ -18,12 +18,8 @@ fit_models <- function(data,
                        Z_name = "Z",
                        X_name = c("X"),
                        S_name = "S",
-                       est = c("gcomp_pop_estimand", 
-                               "gcomp",
-                               "ipw",
-                               "efficient_aipw",
-                               "efficient_aipw_sens",
-                               "efficient_tmle"),
+                       estimand = c("nat_inf", "doomed", "pop"),
+                       method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
                        Y_Z_X_model = NULL,
                        Y_X_S1_model = NULL,
                        Y_X_S0_model = NULL,
@@ -55,13 +51,13 @@ fit_models <- function(data,
   
   out <- list()
   
-  # only needed for population estimator
-  if("gcomp_pop_estimand" %in% est){
+  # only needed for population estimaton
+  if("pop" %in% estimand){
     out$fit_Y_Z_X <- glm(Y_Z_X_model, data = data, family = family)
   } 
   
-  # needed for any weight-based estimator
-  if(any(c("gcomp", "efficient_aipw", "efficient_tmle", "efficient_aipw_sens") %in% est)){
+  # needed for any weight-based estimator 
+  if(any(c("nat_inf", "doomed") %in% estimand)){
     sub_Z0 <- data[data[[Z_name]] == 0,]
     out$fit_S_Z0_X <- glm(S_X_model, sub_Z0, family = "binomial")
     
@@ -79,7 +75,8 @@ fit_models <- function(data,
     
   }
   
-  if(any(c("efficient_aipw_sens") %in% est)){
+  # only needed for AIPW sensitivity analysis
+  if(any(c("sens") %in% method)){
     out$fit_S_Z_X <- glm(
       paste0(S_name, "~", Z_name, "+", paste0(X_name, collapse = "+")),
       family = "binomial",
@@ -87,11 +84,13 @@ fit_models <- function(data,
     )
   }
   
-  if(any(c("efficient_aipw_sens", "efficient_aipw", "ipw", "efficient_tmle") %in% est)){
+  # not needed for gcomp
+  if(any(c("aipw", "sens", "ipw", "tmle") %in% method)){
     out$fit_Z_X <- glm(
       Z_X_model, family = "binomial", data = data
     )
   }
+  
   return(out)
   
 }
@@ -118,11 +117,8 @@ fit_ml_models <- function(data,
                           Z_name = "Z",
                           X_name = c("X"),
                           S_name = "S",
-                          est = c("gcomp_pop_estimand", 
-                                  "gcomp",
-                                  "ipw",
-                                  "efficient_aipw", 
-                                  "efficient_tmle"),
+                          estimand = c("nat_inf", "doomed", "pop"),
+                          method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
                           Y_Z_X_library = c("SL.glm"),
                           Y_X_library = c("SL.glm"),
                           S_X_library = c("SL.glm"),
@@ -133,7 +129,7 @@ fit_ml_models <- function(data,
   out <- list()
   
   # only needed for population estimator
-  if("gcomp_pop_estimand" %in% est){
+  if("pop" %in% estimand){
     out$fit_Y_Z_X <- SuperLearner::SuperLearner(Y = data[[Y_name]],
                                                 X = data[, colnames(data) %in% c(Z_name, X_name), drop = FALSE],
                                                 family = family,
@@ -143,7 +139,7 @@ fit_ml_models <- function(data,
   } 
   
   # needed for any weight-based estimator
-  if(any(c("gcomp", "efficient_aipw", "efficient_tmle") %in% est)){
+  if(any(c("nat_inf", "doomed") %in% estimand)){
     sub_Z0 <- data[data[[Z_name]] == 0,]
     out$fit_S_Z0_X <- SuperLearner::SuperLearner(Y = sub_Z0[[S_name]],
                                                  X = sub_Z0[, X_name, drop = FALSE],
@@ -181,7 +177,18 @@ fit_ml_models <- function(data,
     
   }
   
-  if(any(c("ipw", "efficient_aipw", "efficient_tmle") %in% est)){
+  # only needed for AIPW sensitivity analysis
+  if(any(c("sens") %in% method)){
+    out$fit_S_Z_X <- SuperLearner::SuperLearner(
+      Y = data[[S_name]],
+      X = data[, c(Z_name, X_name)],
+      family = "binomial",
+      data = data
+    )
+  }
+  
+  # needed for all but gcomp
+  if(any(c("aipw", "sens", "tmle") %in% method)){
     out$fit_Z_X <- SuperLearner::SuperLearner(Y = data[[Z_name]],
                                               X = data[, X_name, drop = FALSE],
                                               family = binomial(),

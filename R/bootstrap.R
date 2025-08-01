@@ -15,6 +15,7 @@
 #' @param family family for outcome model, defaults to gaussian for growth
 #' @param v_folds number of cross validation folds for SuperLearner, default 3
 #' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
+#' @param epsilon a vector of values for the sensitivity parameter
 #' 
 #' @returns list containing results for specified estimators on single bootstrap sample
 one_boot <- function(
@@ -23,7 +24,8 @@ one_boot <- function(
     Z_name = "Z",
     X_name = "X",
     S_name = "S", 
-    est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_upper", "hudgens_adj_lower"),
+    estimand = c("nat_inf", "doomed", "pop"),
+    method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
     ml = FALSE, 
     Y_Z_X_model = NULL,
     Y_X_S1_model = NULL,
@@ -34,127 +36,175 @@ one_boot <- function(
     S_X_library = c("SL.glm"),
     family = "gaussian",
     v_folds = 3,
-    effect_dir = "positive"
+    effect_dir = "positive",
+    epsilon = exp(seq(log(0.5), log(2), length = 50)),
+    max_resample = 10
 ){
+  
   n <- dim(data)[1]
   boot_row_idx <- sample(1:n, replace=TRUE)
   boot_data <- data[boot_row_idx,]
   
+  # If there are more infections in vaccine arm than placebo arm, resample up to max_resample 
+  resample <- 0
+  while(rhobar_0_n <= rhobar_1_n & resample <= max_resample){
+    boot_row_idx <- sample(1:n, replace=TRUE)
+    boot_data <- data[boot_row_idx,]
+    
+    rhobar_0_n <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 0])
+    rhobar_1_n <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 1])
+    resample <- resample + 1
+  }
+  
+  if(resample > max_resample){
+    stop(paste0("Exceeded max_resample of ", max_resample, "for given bootstrap replicate"))
+  }
+  
   # compute estimators using bootstrap data set
   if(ml){
     
-    if(any(est %in% c("efficient_aipw", "efficient_tmle"))){
+    if(any(method %in% c("aipw", "tmle", "sens")) & return_se == FALSE){
       boot_ml_models <- vegrowth::fit_ml_models(data = boot_data, 
-                                           est = est, 
+                                                 estimand = estimand,
+                                                 method = method, 
+                                                 Y_name = Y_name,
+                                                 Z_name = Z_name,
+                                                 S_name = S_name,
+                                                 X_name = X_name,
+                                                 Y_Z_X_library = Y_Z_X_library,
+                                                 Y_X_library = Y_X_library,
+                                                 S_X_library = S_X_library,
+                                                 family = family,
+                                                 v_folds = v_folds)
+    } 
+    
+    if(any(est %in% c("gcomp", "ipw"))){
+      boot_models <- vegrowth::fit_models(data = boot_data, 
+                                          estimand = estimand,
+                                          method = method, 
                                            Y_name = Y_name,
                                            Z_name = Z_name,
                                            S_name = S_name,
                                            X_name = X_name,
-                                           Y_Z_X_library = Y_Z_X_library,
-                                           Y_X_library = Y_X_library,
-                                           S_X_library = S_X_library,
-                                           family = family,
-                                           v_folds = v_folds)
-    } 
-    
-    if(any(est %in% c("gcomp_pop_estimand", "gcomp",
-                      "hudgens_adj_lower", "hudgens_adj_upper", 
-                      "hudgens_lower", "hudgens_upper",
-                      "hudgens_upper_doomed", "hudgens_lower_doomed"))){
-      boot_models <- vegrowth::fit_models(data = boot_data, 
-                                     est = est, 
-                                     Y_name = Y_name,
-                                     Z_name = Z_name,
-                                     S_name = S_name,
-                                     X_name = X_name,
-                                     Y_Z_X_model = Y_Z_X_model,
-                                     Y_X_S1_model = Y_X_S1_model,
-                                     Y_X_S0_model = Y_X_S0_model,
-                                     S_X_model = S_X_model,
-                                     family = family)
+                                           Y_Z_X_model = Y_Z_X_model,
+                                           Y_X_S1_model = Y_X_S1_model,
+                                           Y_X_S0_model = Y_X_S0_model,
+                                           S_X_model = S_X_model,
+                                           family = family)
     }
     
   } else{
+    # GLMS for all
     boot_models <- vegrowth::fit_models(data = boot_data, 
-                                   est = est, 
-                                   Y_name = Y_name,
-                                   Z_name = Z_name,
-                                   S_name = S_name,
-                                   X_name = X_name,
-                                   Y_Z_X_model = Y_Z_X_model,
-                                   Y_X_S1_model = Y_X_S1_model,
-                                   Y_X_S0_model = Y_X_S0_model,
-                                   S_X_model = S_X_model,
-                                   family = family)
+                                        estimand = estimand,
+                                        method = method, 
+                                        Y_name = Y_name,
+                                         Z_name = Z_name,
+                                         S_name = S_name,
+                                         X_name = X_name,
+                                         Y_Z_X_model = Y_Z_X_model,
+                                         Y_X_S1_model = Y_X_S1_model,
+                                         Y_X_S0_model = Y_X_S0_model,
+                                         S_X_model = S_X_model,
+                                         family = family)
   } 
   
-  out <- list()
+  out <- vector("list", length = length(estimand))
+  names(out) <- estimand
   
-  if("gcomp" %in% est){
-    out$growth_effect <- do_gcomp(boot_data, boot_models)
-  }
-  if("gcomp_pop_estimand" %in% est){
-    out$growth_effect_pop <- do_gcomp_pop_estimand(boot_data, 
-                                                   boot_models, 
-                                                   Z_name = Z_name,
-                                                   X_name = X_name)
-  }
-  if("efficient_aipw" %in% est){
-    if(ml){
-      out$growth_effect_aipw <- do_efficient_aipw(boot_data, 
-                                                  boot_ml_models,
-                                                  Y_name = Y_name,
-                                                  Z_name = Z_name,
-                                                  S_name = S_name)
-    } else{
-      out$growth_effect_aipw <- do_efficient_aipw(boot_data, 
-                                                  boot_models,
-                                                  Y_name = Y_name,
-                                                  Z_name = Z_name,
-                                                  S_name = S_name)
+  # Naturally infected --------------------------------------------------------
+  
+  if("nat_inf" %in% estimand){
+    
+    if("gcomp" %in% method){
+      out$nat_inf$gcomp <- do_gcomp_nat_inf(data = boot_data, models = boot_models)
     }
-  }
-  if("efficient_tmle" %in% est){
-    if(ml){
-      out$growth_effect_tmle <- do_efficient_tmle(boot_data, 
-                                                  boot_ml_models,
-                                                  Y_name = Y_name,
-                                                  Z_name = Z_name,
-                                                  S_name = S_name)
-    } else{
-      out$growth_effect_tmle <- do_efficient_tmle(boot_data, 
-                                                  boot_models,
-                                                  Y_name = Y_name,
-                                                  Z_name = Z_name,
-                                                  S_name = S_name)
+    
+    if("ipw" %in% method){
+      out$nat_inf$ipw <- do_ipw_nat_inf(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
     }
-  } 
-  if("hudgens_adj_upper" %in% est){
-    out$growth_effect_hudgens_adj_upper <- get_adjusted_hudgens_stat(boot_data,
-                                                                     boot_models,
-                                                                     family = family, 
-                                                                     lower_bound = FALSE)
-  } 
-  if("hudgens_adj_lower" %in% est){
-    out$growth_effect_hudgens_adj_lower <- get_adjusted_hudgens_stat(boot_data,
-                                                                     boot_models,
-                                                                     family = family, 
-                                                                     lower_bound = TRUE)
-  } 
-  if("hudgens_lower" %in% est){
-    out$growth_effect_hudgens_lower <- get_hudgens_stat(boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = TRUE)
-  }
-  if("hudgens_upper" %in% est){
-    out$growth_effect_hudgens_upper <- get_hudgens_stat(boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = FALSE)
-  }
-  if("hudgens_lower_doomed" %in% est){
-    out$growth_effect_hudgens_lower_doomed <- get_hudgens_stat_doomed(boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = TRUE)
-  }
-  if("hudgens_upper_doomed" %in% est){
-    out$growth_effect_hudgens_upper_doomed <- get_hudgens_stat_doomed(boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = FALSE)
+    
+    # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
+    if("aipw" %in% method & return_se == FALSE){
+      if(ml){
+        out$nat_inf$aipw <- do_aipw_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      } else{
+        out$nat_inf$aipw <- do_aipw_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      }
+    }
+    
+    if("tmle" %in% method & return_se == FALSE){
+      if(ml){
+        out$nat_inf$tmle <- do_tmle_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      } else{
+        out$nat_inf$tmle <- do_tmle_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      }
+    }
+    
+    if("sens" %in% method & return_se == FALSE){
+      if(ml){
+        out$nat_inf$sens<- do_sens_aipw_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
+      } else{
+        out$nat_inf$sens <- do_sens_aipw_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
+      }
+    }
+    
+    if("bound" %in% method){
+      out$nat_inf$bound <- get_bound_nat_inf(data = boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
+    }
+    
   }
   
+  # Doomed --------------------------------------------------------------------
+  
+  if("doomed" %in% estimand){
+    
+    if("gcomp" %in% method){
+      out$doomed$gcomp <- do_gcomp_doomed(data = boot_data, models = boot_models)
+    }
+    
+    if("ipw" %in% method){
+      out$doomed$ipw <- do_ipw_doomed(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
+    }
+    
+    if("aipw" %in% method & return_se == FALSE){
+      if(ml){
+        out$doomed$aipw <- do_aipw_doomed(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      } else{
+        out$doomed$aipw <- do_aipw_doomed(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      }
+    }
+    
+    if("bound" %in% method){
+      out$doomed$bound <- get_bound_doomed(data = boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
+    }
+    
+  }
+  
+  # Population ----------------------------------------------------------------
+  
+  if("pop" %in% estimand){
+    
+    if("gcomp" %in% method){
+      out$pop$gcomp <- do_gcomp_pop(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name)
+    }
+    
+    if("ipw" %in% method){
+      out$pop$ipw <- do_ipw_pop(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name)
+    }
+    
+    if("aipw" %in% method & return_se == FALSE){
+      if(ml){
+        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_ml_models, Z_name = Z_name, Y_name = Y_name, X_name = Z_name, return_se = return_se)
+      } else{
+        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_models, Z_name = Z_name, Y_name = Y_name, X_name = Z_name, return_se = return_se)
+      }
+    }
+    
+  }
+
   return(out)
+
 }
 
 #' Function to replicate n_boot bootstrap samples and get bootstrap standard error
@@ -177,6 +227,7 @@ one_boot <- function(
 #' @param family family for outcome model, defaults to gaussian for growth
 #' @param v_folds number of cross validation folds for SuperLearner, default 3
 #' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
+#' @param epsilon a vector of values for the sensitivity parameter
 #' 
 #' @returns list containing bootstrap se and 95% CI bounds for estimators specified in est
 bootstrap_estimates <- function(
@@ -186,7 +237,9 @@ bootstrap_estimates <- function(
     X_name = "X",
     S_name = "S", 
     n_boot = 1000, 
-    est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_upper", "hudgens_adj_lower"),
+    n_boot_try = 10000,
+    estimand = c("nat_inf", "doomed", "pop"),
+    method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
     ml = ml,
     Y_Z_X_model = NULL,
     Y_X_S1_model = NULL, 
@@ -197,15 +250,18 @@ bootstrap_estimates <- function(
     S_X_library = c("SL.glm"),
     family = "gaussian",
     v_folds = 3,
-    effect_dir = "positive"
+    effect_dir = "positive",
+    epsilon = exp(seq(log(0.5), log(2), length = 50))
 ){
   
+  # Initial boot_estimates for all viable estimand & method combinations
   boot_estimates <- replicate(n_boot, one_boot(data, 
                                                Y_name = Y_name,
                                                Z_name = Z_name,
                                                S_name = S_name,
                                                X_name = X_name,
-                                               est = est,
+                                               estimand = estimand,
+                                               method = method,
                                                ml = ml,
                                                Y_Z_X_model = Y_Z_X_model,
                                                Y_X_S1_model = Y_X_S1_model,
@@ -215,385 +271,84 @@ bootstrap_estimates <- function(
                                                Y_X_library = Y_X_library,
                                                S_X_library = S_X_library,
                                                v_folds = v_folds,
-                                               family = family))
+                                               family = family,
+                                               epsilon = epsilon))
+    # List to store results
+    out <- vector("list", length = length(estimates))
+    names(out) <- estimates
   
-  out <- list()
-  
-  if("gcomp_pop_estimand" %in% est){
+    # Naturally infected --------------------------------------------------------
     
-    # if there was only one method, unlist boot_est as is
-    if(length(boot_estimates) == n_boot){
-      #growth_effect_pop <- unlist(boot_estimates)
-      growth_effect_pop <- data.frame(do.call(rbind, boot_estimates))
-    } else{
-      #growth_effect_pop <- unlist(boot_estimates["growth_effect_pop",])
-      growth_effect_pop <- data.frame(do.call(rbind, boot_estimates["growth_effect_pop",]))
+    if("nat_inf" %in% estimand){
+      
+      if("gcomp" %in% method){
+        out$nat_inf$gcomp$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = "gcomp")
+      }
+      
+      if("ipw" %in% method){
+        out$nat_inf$ipw$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = "ipw")
+      }
+      
+      # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
+      if("aipw" %in% method & return_se == FALSE){
+        out$nat_inf$aipw$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = "aipw")
+      }
+      
+      if("tmle" %in% method & return_se == FALSE){
+        out$nat_inf$tmle$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = "tmle")
+      }
+      
+      if("sens" %in% method & return_se == FALSE){
+        out$nat_inf$sens$boot_se <- get_boot_se_sens(boot_estimates = boot_estimates, estimand = "nat_inf", method = "sens")
+      }
+      
+      if("bound" %in% method){
+        out$nat_inf$bound$boot_se <- get_boot_se_bound(boot_estimates = boot_estimates, estimatnd = "nat_inf", method = "bound")
+      }
+      
     }
     
-    # Additive
-    ci_gcomp_pop_estimand_additive <- quantile(growth_effect_pop$additive_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_gcomp_pop_estimand_additive <- sd(growth_effect_pop$additive_effect, na.rm = TRUE)
-    out$lower_ci_gcomp_pop_estimand_additive <- ci_gcomp_pop_estimand_additive[1]
-    out$upper_ci_gcomp_pop_estimand_additive <- ci_gcomp_pop_estimand_additive[2]
     
-    # Multiplicative 
-    ci_gcomp_pop_log_mult <- quantile(growth_effect_pop$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_gcomp_pop_estimand_log_mult <- sd(growth_effect_pop$log_multiplicative_effect, na.rm = TRUE)
-    out$lower_ci_gcomp_pop_estimand_mult <- exp(ci_gcomp_pop_log_mult[1])
-    out$upper_ci_gcomp_pop_estimand_mult <- exp(ci_gcomp_pop_log_mult[2])
+    # Doomed --------------------------------------------------------------------
     
-    # ci_gcomp_pop_estimand <- quantile(growth_effect_pop, p = c(0.025, 0.975), na.rm=TRUE)
-    # out$se_gcomp_pop_estimand <- sd(growth_effect_pop, na.rm = TRUE)
-    # out$lower_ci_gcomp_pop_estimand <- ci_gcomp_pop_estimand[1]
-    # out$upper_ci_gcomp_pop_estimand <- ci_gcomp_pop_estimand[2]
-  }
-  if("gcomp" %in% est){
-    
-    if(length(boot_estimates) == n_boot){
-      #growth_effect <- unlist(boot_estimates)
-      growth_effect <- data.frame(do.call(rbind, boot_estimates))
-    } else{
-      #growth_effect <- unlist(boot_estimates["growth_effect",])
-      growth_effect <- data.frame(do.call(rbind, boot_estimates["growth_effect",]))
+    if("doomed" %in% estimand){
+      
+      if("gcomp" %in% method){
+        out$doomed$gcomp$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "doomed", method = "gcomp")
+      }
+      
+      if("ipw" %in% method){
+        out$doomed$ipw$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "doomed", method = "ipw")
+      }
+      
+      if("aipw" %in% method & return_se == FALSE){
+        out$doomed$aipw$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "doomed", method = "aipw")
+      }
+      
+      if("bound" %in% method){
+        out$nat_inf$bound$boot_se <- get_boot_se_bound(boot_estimates = boot_estimates, estimatnd = "doomed", method = "bound")
+      }
+      
     }
     
-    # Additive
-    ci_gcomp_additive <- quantile(growth_effect$additive_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_gcomp_additive <- sd(growth_effect$additive_effect, na.rm = TRUE)
-    out$lower_ci_gcomp_additive <- ci_gcomp_additive[1]
-    out$upper_ci_gcomp_additive <- ci_gcomp_additive[2]
+    # Population ----------------------------------------------------------------
     
-    # Multiplicative 
-    ci_gcomp_log_mult <- quantile(growth_effect$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_gcomp_log_mult <- sd(growth_effect$log_multiplicative_effect, na.rm = TRUE)
-    out$lower_ci_gcomp_mult <- exp(ci_gcomp_log_mult[1])
-    out$upper_ci_gcomp_mult <- exp(ci_gcomp_log_mult[2])
-    
-  }
-  if("efficient_aipw" %in% est){
-    
-    if(length(boot_estimates) == n_boot){
-      #growth_effect_aipw <- unlist(boot_estimates)
-      growth_effect_aipw <- data.frame(do.call(rbind, boot_estimates))
-    } else{
-      #growth_effect_aipw <- unlist(boot_estimates["growth_effect_aipw",])
-      growth_effect_aipw <- data.frame(do.call(rbind, boot_estimates["growth_effect_aipw",]))
+    if("pop" %in% estimand){
+      
+      if("gcomp" %in% method){
+        out$pop$gcomp$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "pop", method = "gcomp")
+      }
+      
+      if("ipw" %in% method){
+        out$pop$ipw$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "pop", method = "ipw")
+      }
+      
+      if("aipw" %in% method & return_se == FALSE){
+        out$pop$aipw$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "pop", method = "aipw")
+      }
+      
     }
-    
-    # Additive
-    ci_efficient_aipw_additive <- quantile(growth_effect_aipw$additive_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_efficient_aipw_additive <- sd(growth_effect_aipw$additive_effect, na.rm = TRUE)
-    out$lower_ci_efficient_aipw_additive <- ci_efficient_aipw_additive[1]    
-    out$upper_ci_efficient_aipw_additive <- ci_efficient_aipw_additive[2]
-    
-    # Multiplicative
-    ci_efficient_aipw_log_mult <- quantile(growth_effect_aipw$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_efficient_aipw_log_mult <- sd(growth_effect_aipw$log_multiplicative_effect, na.rm = TRUE)
-    out$lower_ci_efficient_aipw_mult <- exp(ci_efficient_aipw_log_mult[1])
-    out$upper_ci_efficient_aipw_mult <- exp(ci_efficient_aipw_log_mult[2])
-    
-  }
-  if("efficient_tmle" %in% est){
-    
-    if(length(boot_estimates) == n_boot){
-      #growth_effect_tmle <- unlist(boot_estimates)
-      growth_effect_tmle <- data.frame(do.call(rbind, boot_estimates))
-    } else{
-      #growth_effect_tmle <- unlist(boot_estimates["growth_effect_tmle",])
-      growth_effect_tmle <- data.frame(do.call(rbind, boot_estimates["growth_effect_tmle",]))
-    }
-    
-    # Additive
-    ci_efficient_tmle_additive <- quantile(growth_effect_tmle$additive_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_efficient_tmle_additive <- sd(growth_effect_tmle$additive_effect, na.rm = TRUE)
-    out$lower_ci_efficient_tmle_additive <- ci_efficient_tmle_additive[1]    
-    out$upper_ci_efficient_tmle_additive <- ci_efficient_tmle_additive[2]
-    
-    # Multiplicative
-    ci_efficient_tmle_log_mult <- quantile(growth_effect_tmle$log_multiplicative_effect, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_efficient_tmle_log_mult <- sd(growth_effect_tmle$log_multiplicative_effect, na.rm = TRUE)
-    out$lower_ci_efficient_tmle <- exp(ci_efficient_tmle_log_mult[1])    
-    out$upper_ci_efficient_tmle <- exp(ci_efficient_tmle_log_mult[2])
-    
-  }
-  if("hudgens_adj_upper" %in% est){
-    
-    # if there was only one method, unlist boot_est as is
-    if(length(boot_estimates) == n_boot){
-      growth_effect_hudgens_adj_upper <- unlist(boot_estimates)
-    } else{
-      growth_effect_hudgens_adj_upper <- unlist(boot_estimates["growth_effect_hudgens_adj_upper",])
-    }
-    
-    ci_hudgens_adj_upper <- quantile(growth_effect_hudgens_adj_upper, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_hudgens_adj_upper <- sd(growth_effect_hudgens_adj_upper, na.rm = TRUE)
-    out$lower_ci_hudgens_adj_upper <- ci_hudgens_adj_upper[1]
-    out$upper_ci_hudgens_adj_upper <- ci_hudgens_adj_upper[2]
-    
-  } 
-  if("hudgens_adj_lower" %in% est){
-    
-    # if there was only one method, unlist boot_est as is
-    if(length(boot_estimates) == n_boot){
-      growth_effect_hudgens_adj_lower <- unlist(boot_estimates)
-    } else{
-      growth_effect_hudgens_adj_lower <- unlist(boot_estimates["growth_effect_hudgens_adj_lower",])
-    }
-    
-    ci_hudgens_adj_lower <- quantile(growth_effect_hudgens_adj_lower, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_hudgens_adj_lower <- sd(growth_effect_hudgens_adj_lower, na.rm = TRUE)
-    out$lower_ci_hudgens_adj_lower <- ci_hudgens_adj_lower[1]
-    out$upper_ci_hudgens_adj_lower <- ci_hudgens_adj_lower[2]
-    
-  }
-  if("hudgens_lower" %in% est){
-    
-    # if there was only one method, unlist boot_est as is
-    if(length(boot_estimates) == n_boot){
-      #growth_effect_hudgens_lower <- unlist(boot_estimates)
-      growth_effect_hudgens_lower <- data.frame(do.call(rbind, boot_estimates))
-    } else{
-      #growth_effect_hudgens_lower <- unlist(boot_estimates["growth_effect_hudgens_lower",])
-      growth_effect_hudgens_lower <- do.call(rbind, boot_estimates["growth_effect_hudgens_lower",])
-    }
-    
-    ci_hudgens_lower <- quantile(growth_effect_hudgens_lower, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_hudgens_lower <- sd(growth_effect_hudgens_lower, na.rm = TRUE)
-    out$lower_ci_hudgens_lower <- ci_hudgens_lower[1]
-    out$upper_ci_hudgens_lower <- ci_hudgens_lower[2]
-    
-  }
-  if("hudgens_upper" %in% est){
-    
-    # if there was only one method, unlist boot_est as is
-    if(length(boot_estimates) == n_boot){
-      #growth_effect_hudgens_upper <- unlist(boot_estimates)
-      growth_effect_hudgens_upper <- data.frame(do.call(rbind, boot_estimates))
-    } else{
-      #growth_effect_hudgens_upper <- unlist(boot_estimates["growth_effect_hudgens_upper",])
-      growth_effect_hudgens_upper <- do.call(rbind, boot_estimates["growth_effect_hudgens_upper",])
-    }
-    
-    ci_hudgens_upper <- quantile(growth_effect_hudgens_upper, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_hudgens_upper <- sd(growth_effect_hudgens_upper, na.rm = TRUE)
-    out$lower_ci_hudgens_upper <- ci_hudgens_upper[1]
-    out$upper_ci_hudgens_upper <- ci_hudgens_upper[2]
-    
-  }
-  if("hudgens_lower_doomed" %in% est){
-    
-    # if there was only one method, unlist boot_est as is
-    if(length(boot_estimates) == n_boot){
-      #growth_effect_hudgens_lower_doomed <- unlist(boot_estimates)
-      growth_effect_hudgens_lower_dooemd <- do.call(rbind, boot_estimates)
-    } else{
-      #growth_effect_hudgens_lower_doomed <- unlist(boot_estimates["growth_effect_hudgens_lower_doomed",])
-      growth_effect_hudgens_lower_doomed <- do.call(rbind, boot_estimates["growth_effect_hudgens_lower_doomed",])
-    }
-    
-    ci_hudgens_lower_doomed <- quantile(growth_effect_hudgens_lower_doomed, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_hudgens_lower_doomed <- sd(growth_effect_hudgens_lower_doomed, na.rm = TRUE)
-    out$lower_ci_hudgens_lower_doomed <- ci_hudgens_lower_doomed[1]
-    out$upper_ci_hudgens_lower_doomed <- ci_hudgens_lower_doomed[2]
-    
-  }
-  if("hudgens_upper_doomed" %in% est){
-    
-    # if there was only one method, unlist boot_est as is
-    if(length(boot_estimates) == n_boot){
-      #growth_effect_hudgens_upper_doomed <- unlist(boot_estimates)
-      growth_effect_hudgens_upper_dooemd <- do.call(rbind, boot_estimates)
-    } else{
-      #growth_effect_hudgens_upper_doomed <- unlist(boot_estimates["growth_effect_hudgens_upper_doomed",])
-      growth_effect_hudgens_upper_doomed <- do.call(rbind, boot_estimates["growth_effect_hudgens_upper_doomed",])
-    }
-    
-    ci_hudgens_upper_doomed <- quantile(growth_effect_hudgens_upper_doomed, p = c(0.025, 0.975), na.rm=TRUE)
-    out$se_hudgens_upper_doomed <- sd(growth_effect_hudgens_upper_doomed, na.rm = TRUE)
-    out$lower_ci_hudgens_upper_doomed <- ci_hudgens_upper_doomed[1]
-    out$upper_ci_hudgens_upper_doomed <- ci_hudgens_upper_doomed[2]
-    
-  }
-  
+
   return(out)
-}
-
-#' Function for bootstrap CI for bounds in naturally infected
-#' 
-#' @param data dataframe containing dataset to use for analysis
-#' @param Y_name growth outcome variable name
-#' @param Z_name vaccination variable name
-#' @param S_name infection variable name
-#' @param family gaussian for continuous outcome, binomial for binary
-#' @param n_boot number of bootstrap replicates
-#' @param n_boot_try max number of attempts for bootstrap resampling
-#' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
-#'  
-#' @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
-bootstrap_bound_nat_inf <- function(
-    data, 
-    Y_name = "Y",
-    Z_name = "Z",
-    S_name = "S",
-    family = "gaussian",
-    n_boot = 1e3, 
-    n_boot_try = n_boot*10,
-    effect_dir = "positive"
-){
-  
-  n <- nrow(data)
-  
-  # Step 1: rhobar_z_n
-  rhobar_0_n <- mean(data[[S_name]][data[[Z_name]] == 0])
-  rhobar_1_n <- mean(data[[S_name]][data[[Z_name]] == 1])
-  
-  if(rhobar_0_n > rhobar_1_n){
     
-    out <- get_bound_nat_inf(
-      data = data, S_name = S_name, Y_name = Y_name, Z_name = Z_name, family = family
-    )
-    
-    boot_diff <- vector(mode = "list", length = n_boot)
-    success_ct <- 0
-    attempt_ct <- 0
-    while(success_ct < n_boot & attempt_ct <= n_boot_try){
-      attempt_ct <- attempt_ct + 1
-      boot_idx <- sample(seq_len(n), replace = TRUE)
-      boot_data <- data[boot_idx, , drop = FALSE]
-      
-      rhobar_0_n_boot <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 0])
-      rhobar_1_n_boot <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 1])
-      
-      if(rhobar_0_n_boot > rhobar_1_n_boot){
-        success_ct <- success_ct + 1
-        boot_diff[[success_ct]] <- get_bound_nat_inf(
-          data = boot_data, S_name = S_name, Y_name = Y_name, Z_name = Z_name, family = family
-        )
-      }
-    }
-    if(sum(!is.na(boot_diff)) != n_boot){
-      warning(paste0(
-        "Only achieved ", sum(!is.na(boot_diff)), " successful resamples. Try again with larger n_boot_try? \n sample size: ", nrow(data)
-      ))
-    }
-    
-    if(sum(!is.na(boot_diff)) > 2){
-      
-      boot_diff_res <- data.frame(do.call(rbind, boot_diff))
-      
-      sd_boot_diff_additive_lower <- sd(unlist(boot_diff_res$additive_effect_lower), na.rm = TRUE)
-      sd_boot_diff_additive_upper <- sd(unlist(boot_diff_res$additive_effect_upper), na.rm = TRUE)
-      sd_boot_diff_mult_lower <- sd(unlist(boot_diff_res$mult_effect_lower), na.rm = TRUE)
-      sd_boot_diff_mult_upper <- sd(unlist(boot_diff_res$mult_effect_upper), na.rm = TRUE)
-      
-      out <- c(
-        out,
-        list(
-          sd_additive_lower = sd_boot_diff_additive_lower,
-          sd_additive_upper = sd_boot_diff_additive_upper,
-          sd_mult_lower = sd_boot_diff_mult_lower,
-          sd_mult_upper = sd_boot_diff_mult_upper
-        )
-      )
-      
-      
-      class(out) <- "boot_ci_bound_nat_inf"
-      return(out)
-    }else{
-      stop("Did not achieve 2 successful bootstrap resamples. Try again with larger n_boot_try? Or give up?")
-    }
-    
-  }else{
-    stop("Method not applicable unless evidence of vaccine protection.")
-  }
-}
-
-#' Function for bootstrap CI for bounds in doomed
-#' 
-#' @param data dataframe containing dataset to use for analysis
-#' @param Y_name growth outcome variable name
-#' @param Z_name vaccination variable name
-#' @param S_name infection variable name
-#' @param family gaussian for continuous outcome, binomial for binary
-#' @param n_boot number of bootstrap replicates
-#' @param n_boot_try max number of attempts for bootstrap resampling
-#' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
-#'  
-#' @returns list with observed difference between plc and vax, Hudgens-style test statistic, and p-value
-bootstrap_bound_doomed <- function(
-    data, 
-    Y_name = "Y",
-    Z_name = "Z",
-    S_name = "S",
-    family = "gaussian",
-    n_boot = 1e3, 
-    n_boot_try = n_boot*10,
-    effect_dir = "positive"
-){
-  
-  n <- nrow(data)
-  
-  # Step 1: rhobar_z_n
-  rhobar_0_n <- mean(data[[S_name]][data[[Z_name]] == 0])
-  rhobar_1_n <- mean(data[[S_name]][data[[Z_name]] == 1])
-  
-  if(rhobar_0_n > rhobar_1_n){
-    
-    out <- get_hudgens_stat_doomed_new(
-      data = data, S_name = S_name, Y_name = Y_name, Z_name = Z_name, family = family
-    )
-    
-    boot_diff <- vector(mode = "list", length = n_boot)
-    success_ct <- 0
-    attempt_ct <- 0
-    while(success_ct < n_boot & attempt_ct <= n_boot_try){
-      attempt_ct <- attempt_ct + 1
-      boot_idx <- sample(seq_len(n), replace = TRUE)
-      boot_data <- data[boot_idx, , drop = FALSE]
-      
-      rhobar_0_n_boot <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 0])
-      rhobar_1_n_boot <- mean(boot_data[[S_name]][boot_data[[Z_name]] == 1])
-      
-      if(rhobar_0_n_boot > rhobar_1_n_boot){
-        success_ct <- success_ct + 1
-        boot_diff[[success_ct]] <- get_hudgens_stat_doomed_new(
-          data = boot_data, S_name = S_name, Y_name = Y_name, Z_name = Z_name, family = family
-        )
-      }
-    }
-    if(sum(!is.na(boot_diff)) != n_boot){
-      warning(paste0(
-        "Only achieved ", sum(!is.na(boot_diff)), " successful resamples. Try again with larger n_boot_try? \n sample size: ", nrow(data)
-      ))
-    }
-    
-    if(sum(!is.na(boot_diff)) > 2){
-      
-      boot_diff_res <- data.frame(do.call(rbind, boot_diff))
-      
-      sd_boot_diff_additive_lower <- sd(unlist(boot_diff_res$additive_effect_lower), na.rm = TRUE)
-      sd_boot_diff_additive_upper <- sd(unlist(boot_diff_res$additive_effect_upper), na.rm = TRUE)
-      sd_boot_diff_mult_lower <- sd(unlist(boot_diff_res$mult_effect_lower), na.rm = TRUE)
-      sd_boot_diff_mult_upper <- sd(unlist(boot_diff_res$mult_effect_upper), na.rm = TRUE)
-      
-      out <- c(
-        out,
-        list(
-          sd_additive_lower = sd_boot_diff_additive_lower,
-          sd_additive_upper = sd_boot_diff_additive_upper,
-          sd_mult_lower = sd_boot_diff_mult_lower,
-          sd_mult_upper = sd_boot_diff_mult_upper
-        )
-      )
-      
-      
-      class(out) <- "hudgens_res_doomed_new"
-      return(out)
-    }else{
-      stop("Did not achieve 2 successful bootstrap resamples. Try again with larger n_boot_try? Or give up?")
-    }
-    
-  }else{
-    stop("Method not applicable unless evidence of vaccine protection.")
-  }
 }

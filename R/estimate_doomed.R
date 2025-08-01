@@ -91,12 +91,12 @@ do_ipw_doomed <- function(
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
 #' @returns AIPW estimate of growth effect in doomed stratum (+ standard error if return_se = TRUE)
-do_efficient_aipw_doomed <- function(data, 
-                                     models,
-                                     Y_name = "Y",
-                                     Z_name = "Z",
-                                     S_name = "S",
-                                     return_se = FALSE){
+do_aipw_doomed <- function(data, 
+                           models,
+                           Y_name = "Y",
+                           Z_name = "Z",
+                           S_name = "S",
+                           return_se = FALSE){
   
   if(inherits(models$fit_S_Z0_X, "SuperLearner")){
     mu_11_X <- predict(models$fit_Y_Z1_S1_X, newdata = data)$pred
@@ -146,11 +146,11 @@ do_efficient_aipw_doomed <- function(data,
   
   
   # Additive effect
-  efficient_growth_effect <- eta_1_aipw - eta_0_aipw
+  growth_effect <- eta_1_aipw - eta_0_aipw
   se <- sqrt(var(augmentation_1 - augmentation_0) / dim(data)[1])
   
   # Multiplicative effect (log scale)
-  efficient_growth_effect_log_mult <- log(eta_1_aipw / eta_0_aipw)
+  growth_effect_log_mult <- log(eta_1_aipw / eta_0_aipw)
   
   # Yet SE using IF matrix same way as TMLE
   if_matrix <- cbind(augmentation_1, augmentation_0)
@@ -161,11 +161,11 @@ do_efficient_aipw_doomed <- function(data,
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff)
+    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff)
     names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
     return(out)
   }else{
-    out <- c(efficient_growth_effect, efficient_growth_effect_log_mult)
+    out <- c(growth_effect, growth_effect_log_mult)
     names(out) <- c("additive_effect", "log_multiplicative_effect")
     return(out)
   }
@@ -264,20 +264,35 @@ get_bound_doomed <- function(
     l_n <- mubar_10_l_n
     u_n <- mubar_10_u_n
     
+    #mean in vaccinated infecteds for comparison
+    E_Y1__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 1])
+    
+    out <- list(E_Y1__S0_1 = E_Y1__S0_1,
+                E_Y0__S0_1_lower = l_n,
+                E_Y0__S0_1_upper = u_n,
+                additive_effect_lower = E_Y1__S0_1 - l_n,
+                additive_effect_upper = E_Y1__S0_1 - u_n,
+                mult_effect_lower = E_Y1__S0_1 / l_n,
+                mult_effect_upper = E_Y1__S0_1 / u_n,
+                success = 1)
+    
   } else{
-    stop("Method not applicable unless evidence of vaccine protection.")
+    print("Method not applicable unless evidence of vaccine protection.")
+    
+    #mean in vaccinated infecteds for comparison
+    E_Y1__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 1])
+    
+    out <- list(E_Y1__S0_1 = NA,
+                E_Y0__S0_1_lower = NA,
+                E_Y0__S0_1_upper = NA,
+                additive_effect_lower = NA,
+                additive_effect_upper = NA,
+                mult_effect_lower = NA,
+                mult_effect_upper = NA,
+                success = 0)
   }
   
-  #mean in vaccinated infecteds for comparison
-  E_Y1__S0_1 <- mean(data[[Y_name]][data[[S_name]] == 1 & data[[Z_name]] == 1])
-  
-  out <- list(E_Y1__S0_1 = E_Y1__S0_1,
-              E_Y0__S0_1_lower = l_n,
-              E_Y0__S0_1_upper = u_n,
-              additive_effect_lower = E_Y1__S0_1 - l_n,
-              additive_effect_upper = E_Y1__S0_1 - u_n,
-              mult_effect_lower = E_Y1__S0_1 / l_n,
-              mult_effect_upper = E_Y1__S0_1 / u_n)
+  class(out) <- "bound_doomed"
   
   return(out)
   

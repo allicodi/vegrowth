@@ -5,11 +5,12 @@
 #' @param Z_name vaccination variable name
 #' @param X_name covariate name(s)
 #' @param S_name infection variable name
-#' @param est character vector of names of estimators to use for growth effect
+#' @param estimand character vector with name(s) of estimands of interest; "nat_inf" = naturally infected, "doomed" = doomed, "pop" = marginal/population-level
+#' @param method character vector with name(s) of methods to use for estimation; "gcomp" = g-computation, "ipw" = inverese probability weighting, "aipw" = augmented inverse probability weighting, "tmle" = targeted maximum likelihood estimation (nat_inf only), "bound" = bounds without cross-world assumptions (nat_inf and doomed only), "sens" = sensitivity analysis (nat_inf only)
 #' @param n_boot number of bootstrap replicates
 #' @param seed seet to set for replicability of bootstrap
-#' @param return_se indicator to return closed form standard error for efficient_aipw or efficient_tmle, default FALSE
-#' @param ml boolean to use SuperLearner models, default FALSE
+#' @param return_se indicator to return closed form standard error for efficient_aipw or efficient_tmle, default TRUE
+#' @param ml boolean to use SuperLearner models for AIPW & TMLE, default TRUE
 #' @param Y_Z_X_model optional specify model to be used for fitting growth on vaccine + covariates, otherwise growth on all covariates
 #' @param Y_X_S1_model optional specify model to be used for fitting growth on covariates in the infected, otherwise growth on all covariates
 #' @param Y_X_S0_model optional specify model to be used for fitting growth on covariates in the uninfected, otherwise growth on all covariates
@@ -23,6 +24,7 @@
 #' @param family family for outcome variable 'G', defaults to gaussian for growth
 #' @param v_folds number of cross validation folds for SuperLearner, default 3
 #' @param effect_dir direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.  
+#' @param epsilon a vector of values for the sensitivity parameter (only applicable for method = "sens")
 #'
 #' @export
 #' 
@@ -31,13 +33,14 @@ vegrowth <- function(data,
                      Y_name = "G",
                      Z_name = "Z",
                      X_name = "X",
-                     S_name = "Y",
-                     est = c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle",
-                             "choplump", "hudgens_lower", "hudgens_upper", "hudgens_adj_lower", "hudgens_adj_upper"),
+                     S_name = "S",
+                     estimand = c("nat_inf", "doomed", "pop"),
+                     method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
                      n_boot = 1000, 
+                     n_perm = 1000,
                      seed = 12345,
-                     return_se = FALSE,
-                     ml = FALSE,
+                     return_se = TRUE,
+                     ml = TRUE,
                      Y_Z_X_model = NULL,
                      Y_X_S1_model = NULL,
                      Y_X_S0_model = NULL,
@@ -50,22 +53,28 @@ vegrowth <- function(data,
                      return_models = TRUE,
                      family = "gaussian",
                      v_folds = 3,
-                     effect_dir = "positive"){
+                     effect_dir = "positive",
+                     epsilon = exp(seq(log(0.5), log(2), length = 50))){
   
   set.seed(seed)
+  
+  # ----------------------------------------------------------------------------
+  # 1. Model Fitting -----------------------------------------------------------
+  # ----------------------------------------------------------------------------
   
   # ml_models only for AIPW and TMLE
   model_list <- list(models = NULL, 
                      ml_models = NULL)
   
-  # Estimation methods requiring model fitting & bootstrap se
-  if(any(est %in% c("gcomp_pop_estimand", "gcomp", "efficient_aipw", "efficient_tmle", "hudgens_adj_lower", "hudgens_adj_upper"))){
+  # Estimation methods requiring model fitting (everything but bounds)
+  if(any(method %in% c("gcomp", "ipw", "aipw", "tmle", "sens"))){
     
-    # If ML specified and AIPW/TMLE are in est, fit ML models; otherwise only fit GLMs
+    # If ML specified and aipw, tmle, and/or sens are in method, fit ML models; otherwise only fit GLMs
     if(ml){
-      if(any(est %in% c("efficient_aipw", "efficient_tmle"))){
+      if(any(method %in% c("aipw", "tmle", "sens"))){
         ml_models <- vegrowth::fit_ml_models(data = data, 
-                                             est = est, 
+                                             estimand = estimand,
+                                             method = method,
                                              Y_name = Y_name,
                                              Z_name = Z_name,
                                              S_name = S_name,
@@ -79,7 +88,8 @@ vegrowth <- function(data,
         model_list$ml_models <- ml_models
       } 
       
-      if(any(est %in% c("gcomp_pop_estimand", "gcomp","hudgens_adj_lower", "hudgens_adj_upper"))){
+      # still force gcomp & ipw to be glm only
+      if(any(method %in% c("gcomp", "ipw"))){
         models <- vegrowth::fit_models(data = data, 
                                        est = est, 
                                        Y_name = Y_name,
@@ -95,6 +105,8 @@ vegrowth <- function(data,
         model_list$models <- models
       }
     } else{
+      # ML not specified; use glms for all 
+      
       models <- vegrowth::fit_models(data = data, 
                                      est = est, 
                                      Y_name = Y_name,
@@ -107,296 +119,258 @@ vegrowth <- function(data,
                                      S_X_model = S_X_model,
                                      family = family)
       model_list$models <- models
-    } }
-      
-    # If using return_se is true, do not use bootstrap se for AIPW and TMLE (remove from est for boot, used closed form SE for AIPW/TMLE)
-    if(return_se == TRUE){
-      bootstrap_results <- bootstrap_estimates(data = data, 
-                                               Y_name = Y_name,
-                                               Z_name = Z_name,
-                                               S_name = S_name,
-                                               X_name = X_name,
-                                               n_boot = n_boot, 
-                                               family = family,
-                                               ml = ml,
-                                               Y_Z_X_model = Y_Z_X_model,
-                                               Y_X_S1_model = Y_X_S1_model,
-                                               Y_X_S0_model = Y_X_S0_model,
-                                               S_X_model = S_X_model,
-                                               Y_Z_X_library = Y_Z_X_library,
-                                               Y_X_library = Y_X_library,
-                                               S_X_library = S_X_library,
-                                               v_folds = v_folds,
-                                               est = setdiff(est, c("efficient_aipw", "efficient_tmle")),
-                                               effect_dir = effect_dir)
-    } else{
-      bootstrap_results <- bootstrap_estimates(data = data, 
-                                               Y_name = Y_name,
-                                               Z_name = Z_name,
-                                               S_name = S_name,
-                                               X_name = X_name,
-                                               n_boot = n_boot, 
-                                               family = family,
-                                               ml = ml,
-                                               Y_Z_X_model = Y_Z_X_model,
-                                               Y_X_S1_model = Y_X_S1_model,
-                                               Y_X_S0_model = Y_X_S0_model,
-                                               S_X_model = S_X_model,
-                                               Y_Z_X_library = Y_Z_X_library,
-                                               Y_X_library = Y_X_library,
-                                               S_X_library = S_X_library,
-                                               v_folds = v_folds,
-                                               est = est,
-                                               effect_dir = effect_dir)
-    }
+    } 
+  }
   
-  # Point estimates for effects of interest & format results
-  out <- list()
+  # ----------------------------------------------------------------------------
+  # 2. Bootstrap standard error & confidence intervals -------------------------
+  # ----------------------------------------------------------------------------
+ out <- bootstrap_estimates(data = data, 
+                             Y_name = Y_name,
+                             Z_name = Z_name,
+                             S_name = S_name,
+                             X_name = X_name,
+                             n_boot = n_boot, 
+                             family = family,
+                             ml = ml,
+                             Y_Z_X_model = Y_Z_X_model,
+                             Y_X_S1_model = Y_X_S1_model,
+                             Y_X_S0_model = Y_X_S0_model,
+                             S_X_model = S_X_model,
+                             Y_Z_X_library = Y_Z_X_library,
+                             Y_X_library = Y_X_library,
+                             S_X_library = S_X_library,
+                             v_folds = v_folds,
+                             est = est,
+                             effect_dir = effect_dir,
+                             epsilon = epsilon)
+ 
+ # ----------------------------------------------------------------------------
+ # 3. Point estimates for effects of interest & tests
+ # ----------------------------------------------------------------------------
+  
+  # Naturally infected --------------------------------------------------------
+  
+  if("nat_inf" %in% estimand){
+    
+    if("gcomp" %in% method){
+      out$nat_inf$gcomp$pt_est <- do_gcomp_nat_inf(data = data, models = models)
+      
+      out$nat_inf$gcomp$reject_additive <- (abs(out$nat_inf$gcomp$pt_est$additive_effect - null_hypothesis_value) / 
+                                              out$nat_inf$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
+      out$nat_inf$gcomp$reject_mult <- (abs(out$nat_inf$gcomp$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                              out$nat_inf$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+    }
+    
+    if("ipw" %in% method){
+      out$nat_inf$ipw$pt_est <- do_ipw_nat_inf(data = data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
+      
+      out$nat_inf$ipw$reject_additive <- (abs(out$nat_inf$ipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                              out$nat_inf$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
+      out$nat_inf$ipw$reject_mult <- (abs(out$nat_inf$ipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                          out$nat_inf$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+    }
+    
+    if("aipw" %in% method){
+      if(ml){
+        out$nat_inf$aipw$pt_est <- do_aipw_nat_inf(data = data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      } else{
+        out$nat_inf$aipw$pt_est <- do_aipw_nat_inf(data = data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      }
+      
+      if(is.null(out$nat_inf$aipw$boot_se)){
+        # closed form SE
+        out$nat_inf$aipw$reject_additive <- (abs(out$nat_inf$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                               out$nat_inf$aipw$pt_est$additive_se) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$aipw$reject_mult <- (abs(out$nat_inf$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                              out$nat_inf$aipw$pt_res$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+      } else{
+        # bootstrap se
+        out$nat_inf$aipw$reject_additive <- (abs(out$nat_inf$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                               out$nat_inf$aipw$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$aipw$reject_mult <- (abs(out$nat_inf$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                           out$nat_inf$aipw$boot_se$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+        
+      }
+    }
+    
+    if("tmle" %in% method){
+      if(ml){
+        out$nat_inf$tmle$pt_est <- do_tmle_nat_inf(data = data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      } else{
+        out$nat_inf$tmle$pt_est <- do_tmle_nat_inf(data = data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      }
+      
+      if(is.null(out$nat_inf$tmle$boot_se)){
+        # closed form SE
+        out$nat_inf$tmle$reject_additive <- (abs(out$nat_inf$tmle$pt_est$additive_effect - null_hypothesis_value) / 
+                                               out$nat_inf$tmle$pt_est$additive_se) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$tmle$reject_mult <- (abs(out$nat_inf$tmle$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                           out$nat_inf$tmle$pt_res$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+      } else{
+        # bootstrap se
+        out$nat_inf$tmle$reject_additive <- (abs(out$nat_inf$tmle$pt_est$additive_effect - null_hypothesis_value) / 
+                                               out$nat_inf$tmle$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
+        out$nat_inf$tmle$reject_mult <- (abs(out$nat_inf$tmle$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                               out$nat_inf$tmle$boot_se$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+      }
+
+    }
+    
+    if("sens" %in% method){
+      if(ml){
+        out$nat_inf$sens$pt_est <- do_sens_aipw_nat_inf(data = data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
+      } else{
+        out$nat_inf$sens$pt_est <- do_sens_aipw_nat_inf(data = data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
+      }
+      
+      # Not adding test to reject for epsilon
+      
+    }
+    
+    if("bound" %in% method){
+      out$nat_inf$bound$pt_est <- get_bound_nat_inf(data = data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
+      out$nat_inf$bound
+      
+      # Bounds test - one sided
+      # If effect direction < 0, test upper bound; Else, test lower bound 
+      if(effect_dir == "negative"){
+        out$nat_inf$bound$test_stat <- abs(out$nat_inf$bound$pt_est$additive_effect_upper / se_additive_upper)
+        out$nat_inf$bound$pval <- pnorm(out$nat_inf$bound$test_stat, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
+        
+        # just do for additive??
+        
+      } else{
+        out$nat_inf$bound$test_stat <- abs(out$nat_inf$bound$pt_est$additive_effect_lower / se_additive_lower)
+        out$nat_inf$bound$pval <- pnorm(out$nat_inf$bound$test_stat, lower.tail = FALSE)
+        
+        # same questions as above
+        
+      }
+      
+    }
+    
+  }
+  
+  # Doomed --------------------------------------------------------------------
+  
+  if("doomed" %in% estimand){
+    
+    if("gcomp" %in% method){
+      out$doomed$gcomp$pt_est <- do_gcomp_doomed(data = data, models = boot_models)
+      
+      out$doomed$gcomp$reject_additive <- (abs(out$doomed$gcomp$pt_est$additive_effect - null_hypothesis_value) / 
+                                              out$doomed$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
+      out$doomed$gcomp$reject_mult <- (abs(out$doomed$gcomp$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                          out$doomed$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+    }
+    
+    if("ipw" %in% method){
+      out$doomed$ipw$pt_est <- do_ipw_doomed(data = data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
+      
+      out$doomed$ipw$reject_additive <- (abs(out$doomed$ipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                            out$doomed$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
+      out$doomed$ipw$reject_mult <- (abs(out$doomed$ipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                        out$doomed$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+    }
+    
+    if("aipw" %in% method){
+      if(ml){
+        out$doomed$aipw$pt_est <- do_aipw_doomed(data = data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      } else{
+        out$doomed$aipw <- do_aipw_doomed(data = data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+      }
+      
+      if(is.null(out$doomed$aipw$boot_se)){
+        # closed form SE
+        out$doomed$aipw$reject_additive <- (abs(out$doomed$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                               out$doomed$aipw$pt_est$additive_se) > qnorm(1 - alpha_level / 2)
+        out$doomed$aipw$reject_mult <- (abs(out$doomed$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                           out$doomed$aipw$pt_res$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+      } else{
+        # bootstrap se
+        out$doomed$aipw$reject_additive <- (abs(out$doomed$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                               out$doomed$aipw$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
+        out$doomed$aipw$reject_mult <- (abs(out$doomed$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                               out$doomed$aipw$boot_se$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+                                         
+      }
+      
+    }
+    
+    if("bound" %in% method){
+      out$doomed$bound$pt_est <- get_bound_doomed(data = data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
+      
+      # Bounds test - one sided
+      # If effect direction < 0, test upper bound; Else, test lower bound 
+      if(effect_dir == "negative"){
+        out$doomed$bound$test_stat <- abs(out$doomed$bound$pt_est$additive_effect_upper / se_additive_upper)
+        out$doomed$bound$pval <- pnorm(out$doomed$bound$test_stat, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
+        
+        # just do for additive??
+        
+      } else{
+        out$doomed$bound$test_stat <- abs(out$doomed$bound$pt_est$additive_effect_lower / se_additive_lower)
+        out$doomed$bound$pval <- pnorm(out$doomed$bound$test_stat, lower.tail = FALSE)
+        
+        # same questions as above
+        
+      }
+    }
+    
+  }
+  
+  # Population ----------------------------------------------------------------
+  
+  if("pop" %in% estimand){
+    
+    if("gcomp" %in% method){
+      out$pop$gcomp$pt_est <- do_gcomp_pop(data = data, models = boot_models, Z_name = Z_name, X_name = X_name)
+      
+      out$doomed$gcomp$reject_additive <- (abs(out$pop$gcomp$pt_est$additive_effect - null_hypothesis_value) / 
+                                             out$pop$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
+      out$pop$gcomp$reject_mult <- (abs(out$pop$gcomp$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                         out$pop$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+    }
+    
+    if("ipw" %in% method){
+      out$pop$ipw$pt_est <- do_ipw_pop(data = data, models = boot_models, Z_name = Z_name, X_name = X_name)
+      
+      out$pop$ipw$reject_additive <- (abs(out$pop$ipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                            out$pop$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
+      out$pop$ipw$reject_mult <- (abs(out$pop$ipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                        out$pop$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+    }
+    
+    if("aipw" %in% method){
+      if(ml){
+        out$pop$aipw$pt_est <- do_aipw_pop(data = data, models = boot_ml_models, Z_name = Z_name, Y_name = Y_name, X_name = Z_name, return_se = return_se)
+      } else{
+        out$pop$aipw <- do_aipw_pop(data = data, models = boot_models, Z_name = Z_name, Y_name = Y_name, X_name = Z_name, return_se = return_se)
+      }
+      
+      if(is.null(out$pop$aipw$boot_se)){
+        # closed form SE
+        out$pop$aipw$reject_additive <- (abs(out$pop$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                               out$pop$aipw$pt_est$additive_se) > qnorm(1 - alpha_level / 2)
+        out$pop$aipw$reject_mult <- (abs(out$pop$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                           out$pop$aipw$pt_res$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+      } else{
+        # bootstrap se
+        out$pop$aipw$reject_additive <- (abs(out$pop$aipw$pt_est$additive_effect - null_hypothesis_value) / 
+                                               out$pop$aipw$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
+        out$pop$aipw$reject_mult <- (abs(out$pop$aipw$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                               out$pop$aipw$boot_se$log_multiplicative_se) > qnorm(1 - alpha_level / 2)
+                                         
+      }
+    }
+    
+  }
   
   if(return_models){
     out$models <- model_list
   }
-  
-  if("gcomp" %in% est){
-    
-    gcomp_res <- list()
-    
-    pt_est <- do_gcomp(data, models)
-    gcomp_res$pt_est_additive <- pt_est['additive_effect']
-    gcomp_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
-    
-    gcomp_res$se_additive <- bootstrap_results$se_gcomp_additive
-    gcomp_res$se_log_mult <- bootstrap_results$se_gcomp_log_mult
-    
-    gcomp_res$lower_ci_additive <- bootstrap_results$lower_ci_gcomp_additive
-    gcomp_res$upper_ci_additive <- bootstrap_results$upper_ci_gcomp_additive
-    
-    gcomp_res$lower_ci_mult <- bootstrap_results$lower_ci_gcomp_mult
-    gcomp_res$upper_ci_mult <- bootstrap_results$upper_ci_gcomp_mult
-  
-    gcomp_res$reject_additive <- (abs(gcomp_res$pt_est_additive - null_hypothesis_value) / gcomp_res$se_additive) > qnorm(1 - alpha_level/2)
-    gcomp_res$reject_mult <- (abs(log(gcomp_res$pt_est_mult) - null_hypothesis_value) / gcomp_res$se_log_mult) > qnorm(1 - alpha_level/2)
-    
-    class(gcomp_res) <- "gcomp_res"
-    out$gcomp_res <- gcomp_res
-    
-  }
-  if("gcomp_pop_estimand" %in% est){
-    
-    pop_gcomp_res <- list() 
-    
-    pt_est <- do_gcomp_pop_estimand(data, models, Z_name = Z_name, X_name = X_name)
-    pop_gcomp_res$pt_est_additive <- pt_est['additive_effect']
-    pop_gcomp_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
-    
-    pop_gcomp_res$se_additive <- bootstrap_results$se_gcomp_pop_estimand_additive
-    pop_gcomp_res$se_log_mult <- bootstrap_results$se_gcomp_pop_estimand_log_mult
-    
-    pop_gcomp_res$lower_ci_additive <- bootstrap_results$lower_ci_gcomp_pop_estimand_additive
-    pop_gcomp_res$upper_ci_additive <- bootstrap_results$upper_ci_gcomp_pop_estimand_additive
-    
-    pop_gcomp_res$lower_ci_mult <- bootstrap_results$lower_ci_gcomp_pop_estimand_mult
-    pop_gcomp_res$upper_ci_mult <- bootstrap_results$upper_ci_gcomp_pop_estimand_mult
-    
-    pop_gcomp_res$reject_additive <- (abs(pop_gcomp_res$pt_est_additive - null_hypothesis_value) / pop_gcomp_res$se_additive) > qnorm(1 - alpha_level/2)
-    pop_gcomp_res$reject_mult <- (abs(log(pop_gcomp_res$pt_est_mult) - null_hypothesis_value) / pop_gcomp_res$se_log_mult) > qnorm(1 - alpha_level/2)
-    
-    class(pop_gcomp_res) <- "pop_gcomp_res"
-    out$pop_gcomp_res <- pop_gcomp_res
-    
-  }
-  if("efficient_aipw" %in% est){
-    
-    aipw_res <- list()
-    
-    if(return_se == FALSE){
-      # Point est + bootstrap SE
-      
-      if(ml){
-        pt_est <- do_efficient_aipw(data, ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      } else{
-        pt_est <- do_efficient_aipw(data, models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      }
-      
-      aipw_res$pt_est_additive <- pt_est['additive_effect']
-      aipw_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
-      
-      aipw_res$se_additive <- bootstrap_results$se_efficient_aipw_additive
-      aipw_res$se_log_mult <- bootstrap_results$se_efficient_aipw_log_mult
-      
-      aipw_res$lower_ci_additive <- bootstrap_results$lower_ci_efficient_aipw_additive
-      aipw_res$upper_ci_additive <- bootstrap_results$upper_ci_efficient_aipw_additive
-      
-      aipw_res$lower_ci_mult <- bootstrap_results$lower_ci_efficient_aipw_mult
-      aipw_res$upper_ci_mult <- bootstrap_results$upper_ci_efficient_aipw_mult
-      
-      aipw_res$reject_additive <- (abs(aipw_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level/2)
-      aipw_res$reject_mult <- (abs(log(aipw_res$pt_est_mult) - null_hypothesis_value) / aipw_res$se_log_mult) > qnorm(1 - alpha_level/2)
-      
-    } else {
-      # Point est + closed form SE
-      
-      if(ml){
-        aipw_result <- do_efficient_aipw(data, ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      } else{
-        aipw_result <- do_efficient_aipw(data, models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      }
-      
-      aipw_res$pt_est_additive <- aipw_result['additive_effect']
-      aipw_res$pt_est_mult <- exp(aipw_result['log_multiplicative_effect'])
-      
-      aipw_res$se_additive <- aipw_result['additive_se']
-      aipw_res$se_log_mult <- aipw_result['log_multiplicative_se']
-      
-      aipw_res$lower_ci_additive <- aipw_res$pt_est_additive - 1.96*aipw_res$se_additive
-      aipw_res$upper_ci_additive <- aipw_res$pt_est_additive + 1.96*aipw_res$se_additive
-      
-      aipw_res$lower_ci_mult <- exp(log(aipw_res$pt_est_mult) - 1.96*aipw_res$se_log_mult)
-      aipw_res$upper_ci_mult <- exp(log(aipw_res$pt_est_mult) + 1.96*aipw_res$se_log_mult)
-      
-      aipw_res$reject_additive <- (abs(aipw_res$pt_est_additive - null_hypothesis_value) / aipw_res$se_additive) > qnorm(1 - alpha_level/2)
-      aipw_res$reject_mult <- (abs(log(aipw_res$pt_est_mult) - null_hypothesis_value) / aipw_res$se_log_mult) > qnorm(1 - alpha_level/2)
-    }
-    
-    class(aipw_res) <- "aipw_res"
-    out$aipw_res <- aipw_res
-    
-  }
-  if("efficient_tmle" %in% est){
-    
-    tmle_res <- list()
-    
-    if(return_se == FALSE){
-      # Point est + bootstrap SE
-      
-      if(ml){
-        pt_est <- do_efficient_tmle(data, ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      } else{
-        pt_est <- do_efficient_tmle(data, models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      }
-      
-      tmle_res$pt_est_additive <- pt_est['additive_effect']
-      tmle_res$pt_est_mult <- exp(pt_est['log_multiplicative_effect'])
-      
-      tmle_res$se_additive <- bootstrap_results$se_efficient_tmle_additive
-      tmle_res$se_log_mult <- bootstrap_results$se_efficient_tmle_log_mult
-      
-      tmle_res$lower_ci_additive <- bootstrap_results$lower_ci_efficient_tmle_additive
-      tmle_res$upper_ci_additive <- bootstrap_results$upper_ci_efficient_tmle_additive
-      
-      tmle_res$lower_ci_mult <- bootstrap_results$lower_ci_efficient_tmle_mult
-      tmle_res$upper_ci_mult <- bootstrap_results$upper_ci_efficient_tmle_mult
-      
-      tmle_res$reject_additive <- (abs(tmle_res$pt_est_additive - null_hypothesis_value) / tmle_res$se_additive) > qnorm(1 - alpha_level/2)
-      tmle_res$reject_mult <- (abs(log(tmle_res$pt_est_mult) - null_hypothesis_value) / tmle_res$se_log_mult) > qnorm(1 - alpha_level/2)
-      
-    } else {
-      # Point est + closed form SE
-      
-      if(ml){
-        tmle_result <- do_efficient_tmle(data, ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      } else{
-        tmle_result <- do_efficient_tmle(data, models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      }
-      
-      tmle_res$pt_est_additive <- tmle_result['additive_effect']
-      tmle_res$pt_est_mult <- exp(tmle_result['log_multiplicative_effect'])
-      
-      tmle_res$se_additive <- tmle_result['additive_se']
-      tmle_res$se_log_mult <- tmle_result['log_multiplicative_se']
-      
-      tmle_res$lower_ci_additive <- tmle_res$pt_est_additive - 1.96*tmle_res$se_additive
-      tmle_res$upper_ci_additive <- tmle_res$pt_est_additive + 1.96*tmle_res$se_additive
-      
-      tmle_res$lower_ci_mult <- exp(log(tmle_res$pt_est_mult) - 1.96*tmle_res$se_log_mult)
-      tmle_res$upper_ci_mult <- exp(log(tmle_res$pt_est_mult) + 1.96*tmle_res$se_log_mult)
-      
-      tmle_res$reject_additive <- (abs(tmle_res$pt_est_additive - null_hypothesis_value) / tmle_res$se_additive) > qnorm(1 - alpha_level/2)
-      tmle_res$reject_mult <- (abs(log(tmle_res$pt_est_mult) - null_hypothesis_value) / tmle_res$se_log_mult) > qnorm(1 - alpha_level/2)
-    }
-    
-    class(tmle_res) <- "tmle_res"
-    out$tmle_res <- tmle_res
-    
-  }
-  if("choplump" %in% est){
-    choplump_rslt <- do_chop_lump_test(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name)
-    choplump_rslt$reject <- choplump_rslt$pval < 0.05
-    
-    class(choplump_rslt) <- "choplump_res"
-    out$chop_lump_res <- choplump_rslt
-  }
-  if("hudgens_lower" %in% est){
-    hudgens_rslt_lower <- hudgens_test(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = TRUE, effect_dir = effect_dir)
-    hudgens_rslt_lower$reject <- hudgens_rslt_lower$pval < 0.05
-    
-    hudgens_rslt_lower$se <- bootstrap_results$se_hudgens_lower
-    hudgens_rslt_lower$lower_ci <- bootstrap_results$lower_ci_hudgens_lower
-    hudgens_rslt_lower$upper_ci <- bootstrap_results$upper_ci_hudgens_lower
-    
-    class(hudgens_rslt_lower) <- "hudgens_lower_res"
-    out$hudgens_rslt_lower <- hudgens_rslt_lower
-  }
-  if("hudgens_upper" %in% est){
-    hudgens_rslt_upper <- hudgens_test(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = FALSE, effect_dir = effect_dir)
-    hudgens_rslt_upper$reject <- hudgens_rslt_upper$pval < 0.05
-    
-    hudgens_rslt_upper$se <- bootstrap_results$se_hudgens_lower
-    hudgens_rslt_upper$lower_ci <- bootstrap_results$lower_ci_hudgens_upper
-    hudgens_rslt_upper$upper_ci <- bootstrap_results$upper_ci_hudgens_upper
-    
-    class(hudgens_rslt_upper) <- "hudgens_upper_res"
-    out$hudgens_rslt_upper <- hudgens_rslt_upper
-  }
-  if("hudgens_lower_doomed" %in% est){
-    hudgens_rslt_lower_doomed <- hudgens_test_doomed(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = TRUE, effect_dir = effect_dir)
-    hudgens_rslt_lower_doomed$reject <- hudgens_rslt_lower_doomed$pval < 0.05
-    
-    hudgens_rslt_lower_doomed$se <- bootstrap_results$se_hudgens_lower_doomed
-    hudgens_rslt_lower_doomed$lower_ci <- bootstrap_results$lower_ci_hudgens_lower_doomed
-    hudgens_rslt_lower_doomed$upper_ci <- bootstrap_results$upper_ci_hudgens_lower_doomed
-    
-    class(hudgens_rslt_lower_doomed) <- "hudgens_lower_res_doomed"
-    out$hudgens_rslt_lower_doomed <- hudgens_rslt_lower_doomed
-  }
-  if("hudgens_upper_doomed" %in% est){
-    hudgens_rslt_upper_doomed <- hudgens_test_doomed(data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, lower_bound = FALSE, effect_dir = effect_dir)
-    hudgens_rslt_upper_doomed$reject <- hudgens_rslt_upper_doomed$pval < 0.05
-    
-    hudgens_rslt_upper_doomed$se <- bootstrap_results$se_hudgens_upper_doomed
-    hudgens_rslt_upper_doomed$lower_ci <- bootstrap_results$lower_ci_hudgens_upper_doomed
-    hudgens_rslt_upper_doomed$upper_ci <- bootstrap_results$upper_ci_hudgens_upper_doomed
-    
-    class(hudgens_rslt_upper_doomed) <- "hudgens_upper_res_doomed"
-    out$hudgens_rslt_upper_doomed <- hudgens_rslt_upper_doomed
-  }
-  if("hudgens_adj_lower" %in% est){
-    
-    hudgens_adj_rslt_lower <- list()
-    
-    hudgens_adj_rslt_lower$pt_est <- get_adjusted_hudgens_stat(data, models, family, lower_bound = TRUE)
-    hudgens_adj_rslt_lower$se <- bootstrap_results$se_hudgens_adj_lower
-    hudgens_adj_rslt_lower$lower_ci <- bootstrap_results$lower_ci_hudgens_adj_lower
-    hudgens_adj_rslt_lower$upper_ci <- bootstrap_results$upper_ci_hudgens_adj_lower
-    hudgens_adj_rslt_lower$reject <- ((hudgens_adj_rslt_lower$pt_est - null_hypothesis_value) / hudgens_adj_rslt_lower$se) > qnorm(1 - alpha_level)
-    
-    class(hudgens_adj_rslt_lower) <- "hudgens_adj_lower_res"
-    out$hudgens_adj_rslt_lower <- hudgens_adj_rslt_lower
-  }
-  if("hudgens_adj_lower" %in% est){
-    
-    hudgens_adj_rslt_upper <- list()
-    
-    hudgens_adj_rslt_upper$pt_est <- get_adjusted_hudgens_stat(data, models, family, lower_bound = FALSE)
-    hudgens_adj_rslt_upper$se <- bootstrap_results$se_hudgens_adj_upper
-    hudgens_adj_rslt_upper$lower_ci <- bootstrap_results$lower_ci_hudgens_adj_upper
-    hudgens_adj_rslt_upper$upper_ci <- bootstrap_results$upper_ci_hudgens_adj_upper
-    hudgens_adj_rslt_upper$reject <- ((hudgens_adj_rslt_upper$pt_est - null_hypothesis_value) / hudgens_adj_rslt_upper$se) > qnorm(1 - alpha_level)
-    
-    class(hudgens_adj_rslt_upper) <- "hudgens_adj_upper_res"
-    out$hudgens_adj_rslt_upper <- hudgens_adj_rslt_upper
-  }
-  
+ 
   class(out) <- "vegrowth"
   
   return(out)
