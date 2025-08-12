@@ -37,13 +37,17 @@ permutation_bound_nat_inf <- function(
   
   null_est <- do.call(rbind, null_est)
   
+  pval_vec <- ifelse(rep(effect_dir, nrow(null_est)) == "negative",
+                     null_est[,'additive_effect_upper'] < original_est['additive_effect_upper'], # negative effect means we are interested in the upper bound < 0
+                     null_est[,'additive_effect_lower'] > original_est['additive_effect_lower'])  # positive effect means we are interested in the lower bound > 0 
+  
+  # Temp fill in NA with FALSE? for the ones that failed to meet condition rhobar_0_n > rhobar_1_n
+  pval_vec[is.na(pval_vec)] <- FALSE
+                     
   out <- list(
     original_est = original_est, 
     null_est = null_est,
-    pval_bound = ifelse(effect_dir == "negative",
-                        mean(null_est$additive_effect_upper < original_est$additive_effect_upper), # negative effect means we are interested in the upper bound < 0
-                        mean(null_est$additive_effect_lower > original_est$additive_effect_lower)  # positive effect means we are interested in the lower bound > 0 
-    )
+    pval_bound = mean(as.numeric(pval_vec))
   )
     
     class(out) <- "permutation_bonud_nat_inf"
@@ -67,9 +71,8 @@ permutation_bound_doomed <- function(
     Y_name = "Y",
     Z_name = "Z",
     S_name = "S",
-    lower_bound = TRUE,
     n_permutations = 1e3, 
-    n_boot_try = n_boot*10,
+    family = "gaussian",
     effect_dir = "positive"
 ){
   
@@ -90,13 +93,17 @@ permutation_bound_doomed <- function(
   
   null_est <- do.call(rbind, null_est)
   
+  pval_vec <- ifelse(rep(effect_dir, nrow(null_est)) == "negative",
+                     null_est[,'additive_effect_upper'] < original_est['additive_effect_upper'], # negative effect means we are interested in the upper bound < 0
+                     null_est[,'additive_effect_lower'] > original_est['additive_effect_lower'])  # positive effect means we are interested in the lower bound > 0 
+  
+  # Temp fill in NA with FALSE? for the ones that failed to meet condition rhobar_0_n > rhobar_1_n
+  pval_vec[is.na(pval_vec)] <- FALSE
+  
   out <- list(
     original_est = original_est, 
     null_est = null_est,
-    pval_bound = ifelse(effect_dir == "negative",
-                        mean(null_est$additive_effect_upper < original_est$additive_effect_upper), # negative effect means we are interested in the upper bound < 0
-                        mean(null_est$additive_effect_lower > original_est$additive_effect_lower)  # positive effect means we are interested in the lower bound > 0 
-    )
+    pval_bound = mean(as.numeric(pval_vec))
   )
     
     class(out) <- "permutation_bonud_doomed"

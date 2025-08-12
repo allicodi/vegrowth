@@ -4,6 +4,8 @@
 #' @param data dataset to predict on
 #' @param models list of pre-fit models needed for estimation
 #' 
+#' @export
+#' 
 #' @returns g-comp estimate of growth effect in the naturally infected strata
 do_gcomp_nat_inf <- function(data, models){
   
@@ -538,8 +540,15 @@ do_sens_aipw_nat_inf <- function(data,
                          epsilon = exp(seq(log(0.5), log(2), length = 50)),
                          return_se = FALSE){
   
+  
+  if(inherits(models$fit_Z_X, "SuperLearner")){
+    pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
+  } else{
+    pi_1 <- models$fit_Z_X$fitted.values
+  }
+  
   # vaccine probabilities
-  pi_1 <- models$fit_Z_X$fitted.values
+  # pi_1 <- models$fit_Z_X$fitted.values
   pi_0 <- 1 - pi_1
   
   # Get weight
@@ -566,10 +575,10 @@ do_sens_aipw_nat_inf <- function(data,
   
   Z_i <- data[[Z_name]]
   S_i <- data[[S_name]]
-  S_i <- data[[Y_name]]
+  Y_i <- data[[Y_name]]
   
   augmentation_0 <- (
-    (1 - Z_i) / pi_0 * ( S_i / rho_bar_0 ) * (S_i - mu_01_X) + 
+    (1 - Z_i) / pi_0 * ( S_i / rho_bar_0 ) * (Y_i - mu_01_X) + 
       (1 - Z_i) / pi_0 * ( mu_01_X - psi_0 ) / rho_bar_0 * ( S_i - rho_0_X ) + 
       ( psi_0 / rho_bar_0 ) * ( rho_0_X - rho_bar_0 ) + 
       psi_tilde_0_X - psi_0
@@ -601,11 +610,11 @@ do_sens_aipw_nat_inf <- function(data,
   augmentation_1_epsilon <- mapply(
     eps = epsilon, psi_10_eps_X = psi_10_epsilon_X, psi_10_eps = psi_10_epsilon,
     function(eps, psi_10_eps_X, psi_10_eps){
-      ( Z_i / pi_1) * ( S_i / rho_bar_0 ) * ( S_i - mu_11_X ) + 
+      ( Z_i / pi_1) * ( S_i / rho_bar_0 ) * ( Y_i - mu_11_X ) + 
         Z_i / pi_1 * ( mu_11_X / rho_bar_0 ) * ( S_i - rho_1_X ) - 
         mean(psi_11_epsilon) / rho_bar_0 * ( 1 - Z_i ) / pi_0 * (S_i - rho_bar_0) + 
         psi_11_epsilon_X - psi_11_epsilon + 
-        Z_i / pi_1 * (1 - S_i) / (rho_bar_0) * (rho_0_X - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( S_i - mu_10_X ) + 
+        Z_i / pi_1 * (1 - S_i) / (rho_bar_0) * (rho_0_X - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * ( Y_i - mu_10_X ) + 
         ( 1 - Z_i ) / pi_0 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_0_X ) -
         Z_i / pi_1 * (1 - rho_1_X) / ((1 - eps) * rho_0_X - rho_1_X + eps) * mu_10_X / rho_bar_0 * ( S_i - rho_1_X ) - 
         psi_10_eps / rho_bar_0 * (1 - Z_i) / pi_0 * ( S_i - rho_bar_0 ) -
@@ -698,6 +707,7 @@ get_bound_nat_inf <- function(
   # 1.2 rhobar_1_n
   rhobar_1_n <- mean(data[[S_name]][data[[Z_name]] == 1])
   
+  # get rid of this condition bc permutation test?
   if(rhobar_0_n > rhobar_1_n){
     # Step 2: mubar_11_n 
     mubar_11_n <- sum(data[[Y_name]]*data[[S_name]]*data[[Z_name]]) / sum(data[[S_name]]*data[[Z_name]])
@@ -707,7 +717,7 @@ get_bound_nat_inf <- function(
     
     # Step 4: q_n^th quintiles of S__Z1_S0 (aka Y__Z1_S0, need to rename everything at some point)
     Y__Z1_S0 <- data[[Y_name]][which(data[[Z_name]] == 1 & data[[S_name]] == 0)]
-    q_nth_quintile <- quantile(Y__Z1_S0, probs = q_n)
+    q_nth_quintile <- quantile(Y__Z1_S0, probs = q_n) # NOTE failing here if condition on line 709 not met
     one_minus_q_nth_quintile <- quantile(Y__Z1_S0, probs = 1 - q_n)
     
     # Step 5: mubar_10_l,u_n 
@@ -781,7 +791,17 @@ get_bound_nat_inf <- function(
                     "mult_effect_upper")
     
   } else{
-    stop("Method not applicable unless evidence of vaccine protection.")
+    # Get rid of this condition ?? because permutation test
+    # stop("Method not applicable unless evidence of vaccine protection.")
+    out <- rep(NA, 7)
+    
+    names(out) <- c("E_Y0__S0_1",
+                    "E_Y1__S0_1_lower",
+                    "E_Y1__S0_1_upper",
+                    "additive_effect_lower",
+                    "additive_effect_upper",
+                    "mult_effect_lower",
+                    "mult_effect_upper")
   }
   
   return(out)

@@ -4,12 +4,14 @@
 \alias{print.vegrowth}
 \title{Print the output of a \code{"vegrowth"} object}
 \usage{
-\method{print}{vegrowth}(x, ...)
+\method{print}{vegrowth}(x, estimand = "all", scale = "additive", ...)
 }
 \arguments{
 \item{x}{An \code{"vegrowth"} object.}
 
 \item{...}{other arguments (not used)}
+
+\item{type}{format to print results in, group by 'estimand' (default) or group by 'effect' (additive and multiplicative)}
 }
 \description{
 Print the output of a \code{"vegrowth"} object

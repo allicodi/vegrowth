@@ -2,6 +2,8 @@
 
 S3method(plot,sens)
 S3method(print,vegrowth)
+export(do_gcomp_nat_inf)
+export(do_gcomp_pop)
 export(fit_ml_models)
 export(fit_models)
 export(vegrowth)

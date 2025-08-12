@@ -31,9 +31,13 @@ one_boot <- function(
     Y_X_S1_model = NULL,
     Y_X_S0_model = NULL,
     S_X_model = NULL,
+    S_Z_X_model = NULL,
+    Z_X_model = NULL,
     Y_Z_X_library = c("SL.glm"),
     Y_X_library = c("SL.glm"),
     S_X_library = c("SL.glm"),
+    S_Z_X_library = c("SL.glm"),
+    Z_X_library = c("SL.mean"),
     family = "gaussian",
     v_folds = 3,
     effect_dir = "positive",
@@ -78,6 +82,8 @@ one_boot <- function(
                                                  Y_Z_X_library = Y_Z_X_library,
                                                  Y_X_library = Y_X_library,
                                                  S_X_library = S_X_library,
+                                                 S_Z_X_library = S_Z_X_library,
+                                                 Z_X_library = Z_X_library,
                                                  family = family,
                                                  v_folds = v_folds)
     } 
@@ -94,6 +100,8 @@ one_boot <- function(
                                            Y_X_S1_model = Y_X_S1_model,
                                            Y_X_S0_model = Y_X_S0_model,
                                            S_X_model = S_X_model,
+                                           S_Z_X_model = S_Z_X_model,
+                                           Z_X_model = Z_X_model,
                                            family = family)
     }
     
@@ -110,6 +118,8 @@ one_boot <- function(
                                          Y_X_S1_model = Y_X_S1_model,
                                          Y_X_S0_model = Y_X_S0_model,
                                          S_X_model = S_X_model,
+                                         S_Z_X_model = S_Z_X_model,
+                                         Z_X_model = Z_X_model,
                                          family = family)
   } 
   
@@ -199,9 +209,9 @@ one_boot <- function(
     
     if("aipw" %in% method & return_se == FALSE){
       if(ml){
-        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_ml_models, Z_name = Z_name, Y_name = Y_name, X_name = Z_name, return_se = return_se)
+        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_ml_models, Z_name = Z_name, Y_name = Y_name, X_name = X_name, return_se = return_se)
       } else{
-        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_models, Z_name = Z_name, Y_name = Y_name, X_name = Z_name, return_se = return_se)
+        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_models, Z_name = Z_name, Y_name = Y_name, X_name = X_name, return_se = return_se)
       }
     }
     
@@ -248,9 +258,13 @@ bootstrap_estimates <- function(
     Y_X_S1_model = NULL, 
     Y_X_S0_model = NULL, 
     S_X_model = NULL,
+    S_Z_X_model = NULL,
+    Z_X_model = NULL,
     Y_Z_X_library = c("SL.glm"),
     Y_X_library = c("SL.glm"),
     S_X_library = c("SL.glm"),
+    S_Z_X_library = c("SL.glm"),
+    Z_X_library = c("SL.mean"),
     family = "gaussian",
     v_folds = 3,
     effect_dir = "positive",
@@ -271,9 +285,13 @@ bootstrap_estimates <- function(
                                                Y_X_S1_model = Y_X_S1_model,
                                                Y_X_S0_model = Y_X_S0_model,
                                                S_X_model = S_X_model,
+                                               S_Z_X_model = S_Z_X_model,
+                                               Z_X_model = Z_X_model,
                                                Y_Z_X_library = Y_Z_X_library,
                                                Y_X_library = Y_X_library,
                                                S_X_library = S_X_library,
+                                               S_Z_X_library = S_Z_X_library,
+                                               Z_X_library = Z_X_library,
                                                v_folds = v_folds,
                                                family = family,
                                                epsilon = epsilon,

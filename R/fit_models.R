@@ -24,6 +24,7 @@ fit_models <- function(data,
                        Y_X_S1_model = NULL,
                        Y_X_S0_model = NULL,
                        S_X_model = NULL,
+                       S_Z_X_model = NULL,
                        Z_X_model = paste0(Z_name, " ~ 1"),
                        family = "gaussian"){
   
@@ -77,8 +78,12 @@ fit_models <- function(data,
   
   # only needed for AIPW sensitivity analysis
   if(any(c("sens") %in% method)){
+    if(is.null(S_Z_X_model)){
+      S_Z_X_model <- paste0(S_name, "~", Z_name, "+", paste0(X_name, collapse = "+"))
+    }
+    
     out$fit_S_Z_X <- glm(
-      paste0(S_name, "~", Z_name, "+", paste0(X_name, collapse = "+")),
+      S_Z_X_model,
       family = "binomial",
       data = data
     )
@@ -122,6 +127,7 @@ fit_ml_models <- function(data,
                           Y_Z_X_library = c("SL.glm"),
                           Y_X_library = c("SL.glm"),
                           S_X_library = c("SL.glm"),
+                          S_Z_X_library = c("SL.glm"),
                           Z_X_library = c("SL.mean"),
                           family = "gaussian",
                           v_folds = 3){
@@ -181,10 +187,10 @@ fit_ml_models <- function(data,
   if(any(c("sens") %in% method)){
     out$fit_S_Z_X <- SuperLearner::SuperLearner(
       Y = data[[S_name]],
-      X = data[, c(Z_name, X_name)],
+      X = data[, c(Z_name, X_name), drop = FALSE],
       family = "binomial",
-      data = data
-    )
+      SL.library = S_Z_X_library,
+      cvControl = list(V = v_folds))
   }
   
   # needed for all but gcomp

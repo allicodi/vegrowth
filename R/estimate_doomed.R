@@ -201,7 +201,7 @@ get_bound_doomed <- function(
     # Step 2: q_n (relative size of protected in naturally infected (doomed + protected) in unvax)
     q_n = 1 - rhobar_1_n / rhobar_0_n
     
-    # Step 3: q_n^th quintiles of S__Z1_S0 (aka Y__Z1_S0, need to rename everything at some point)
+    # Step 3: q_n^th quintiles of Y__Z0_S1 
     Y__Z0_S1 <- data[[Y_name]][which(data[[Z_name]] == 0 & data[[S_name]] == 1)]
     q_nth_quintile <- quantile(Y__Z0_S1, probs = q_n)
     one_minus_q_nth_quintile <- quantile(Y__Z0_S1, probs = 1 - q_n)
@@ -286,7 +286,20 @@ get_bound_doomed <- function(
                     "mult_effect_upper")
     
   } else{
-    stop("Method not applicable unless evidence of vaccine protection.")
+    # stop("Method not applicable unless evidence of vaccine protection.")
+    
+    # Get rid of this condition ?? because permutation test
+    # stop("Method not applicable unless evidence of vaccine protection.")
+    out <- rep(NA, 7)
+    
+    names(out) <- c("E_Y1__S0_1",
+                    "E_Y0__S0_1_lower",
+                    "E_Y0__S0_1_upper",
+                    "additive_effect_lower",
+                    "additive_effect_upper",
+                    "mult_effect_lower",
+                    "mult_effect_upper")
+    
   }
 
   return(out)

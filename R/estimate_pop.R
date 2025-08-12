@@ -5,6 +5,8 @@
 #' @param Z_name name of vaccine treatment variable, default Z
 #' @param X_name character vector containing name(s) of covariates, default X
 #' 
+#' @export
+#' 
 #' @returns g-comp estimate of growth effect for population estimand
 do_gcomp_pop <- function(data, 
                           models,

@@ -15,6 +15,7 @@ fit_ml_models(
   Y_Z_X_library = c("SL.glm"),
   Y_X_library = c("SL.glm"),
   S_X_library = c("SL.glm"),
+  S_Z_X_library = c("SL.glm"),
   Z_X_library = c("SL.mean"),
   family = "gaussian",
   v_folds = 3

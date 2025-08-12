@@ -90,17 +90,18 @@ get_boot_se_sens <- function(boot_estimates, estimand = "nat_inf", method = "sen
                           method = method)
   
   epsilon <- unique(boot_df$epsilon)
-  boot_res_list <- vector(list, length = length(epsilon))
+  boot_res_list <- vector("list", length = length(epsilon))
   names(boot_res_list) <- paste0("epsilon_", epsilon)
   
   for(e in 1:length(epsilon)){
+    # QUESTION handling NAs 
     boot_res_list[[e]] <- data.frame(epsilon = epsilon[e],
-                                     se_additive = sd(boot_df$additive_effect[boot_df$epsilon == epsilon[e]]),
-                                     lower_ci_additive = quantile(boot_df$additive_effect[boot_df$epsilon == epsilon[e]], 0.025),
-                                     upper_ci_additive = quantile(boot_df$additive_effect[boot_df$epsilon == epsilon[e]], 0.975),
-                                     se_mult = sd(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]]),
-                                     lower_ci_mult = exp(quantile(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]], 0.025)),
-                                     upper_ci_mult = exp(quantile(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]], 0.975)))
+                                     se_additive = sd(boot_df$additive_effect[boot_df$epsilon == epsilon[e]], na.rm = TRUE),
+                                     lower_ci_additive = quantile(boot_df$additive_effect[boot_df$epsilon == epsilon[e]], 0.025, na.rm = TRUE),
+                                     upper_ci_additive = quantile(boot_df$additive_effect[boot_df$epsilon == epsilon[e]], 0.975, na.rm = TRUE),
+                                     se_mult = sd(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]], na.rm = TRUE),
+                                     lower_ci_mult = exp(quantile(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]], 0.025, na.rm = TRUE)),
+                                     upper_ci_mult = exp(quantile(boot_df$log_multiplicative_effect[boot_df$epsilon == epsilon[e]], 0.975, na.rm = TRUE)))
   }
   
   return(do.call(rbind, boot_res_list))
@@ -123,138 +124,117 @@ get_boot_se_sens <- function(boot_estimates, estimand = "nat_inf", method = "sen
 #' Print the output of a \code{"vegrowth"} object
 #' 
 #' @param x An \code{"vegrowth"} object.
+#' @param type format to print results in, group by 'estimand' (default) or group by 'effect' (additive and multiplicative) 
 #' @param ... other arguments (not used)
 #' 
 #' @method print vegrowth
 #' @export
-print.vegrowth <- function(x, ...) {
+print.vegrowth <- function(x, estimand = "all", scale = "additive", ...) {
   
-  cat("                                        Growth Effect Estimation Results: Additive\n")
-  cat(paste(rep("-", 130), collapse = ""), "\n")
-  
-  # Check if any methods with confidence intervals are used
-  if (any(sapply(x, function(item) inherits(item, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))))) {
-    col_names <- c("Method", "Point Est.", "SE", "95% CI: Lower", "95% CI: Upper", "Reject (2-sided)")
-    
-    # Print header with dashed line
-    cat(sprintf("%-50s%-15s%-15s%-15s%-15s%-10s\n",
-                col_names[1], col_names[2], col_names[3], col_names[4], col_names[5], col_names[6]))
-    cat(paste(rep("-", 130), collapse = ""), "\n")
-    
-    # Iterate through objects and print their results
-    lapply(x, function(i) {
-      if (inherits(i, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))) {
-        # Determine method name
-        method_name <- switch(class(i)[1],
-                              "gcomp_res" = "G-Comp VE Estimand",
-                              "pop_gcomp_res" = "G-Comp Population Estimand",
-                              "aipw_res" = "AIPW Estimand",
-                              "tmle_res" = "TMLE Estimand",
-                              "hudgens_adj_lower_res" = "Covariate-adjusted Hudgens: Lower Bound",
-                              "hudgens_adj_upper_res" = "Covariate-adjusted Hudgens: Upper Bound")
-        
-        # Print the results
-        cat(sprintf("%-50s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",
-                    method_name,
-                    i$pt_est_additive,
-                    i$se_additive,
-                    i$lower_ci_additive,
-                    i$upper_ci_additive,
-                    ifelse(i$reject_additive, "Yes", "No")))
-      }
-    })
-    
-    
-    cat(paste(rep("-", 130), collapse = ""), "\n")
-  } 
-  
-  # If other methods used print separate (chop lump, hudgens)
-  if (any(sapply(x, function(item) inherits(item, c("choplump_res", "hudgens_lower_res", "hudgens_upper_res", "hudgens_lower_res_doomed", "hudgens_upper_res_doomed"))))) {
-    col_names <- c("Method", "Observed Diff.", "P-Value", "95% CI: Lower", "95% CI: Upper", "Reject (1-sided)")
-    
-    # Print header with dashed line
-    cat(sprintf("%-50s%-15s%-15s%-15s%-15s%-10s\n",
-                col_names[1], col_names[2], col_names[3], col_names[4], col_names[5], col_names[6]))
-    cat(paste(rep("-", 130), collapse = ""), "\n")
-    
-    # Iterate through objects and print their results
-    lapply(x, function(i) {
-      if (inherits(i, c("choplump_res", "hudgens_lower_res", "hudgens_upper_res", "hudgens_lower_res_doomed", "hudgens_upper_res_doomed"))) {
-        # Determine method name
-        method_name <- switch(class(i)[1],
-                              "choplump_res" = "Chop-Lump",
-                              "hudgens_lower_res" = "Naturally Infected: Lower Bound",
-                              "hudgens_upper_res" = "Naturally Infected: Upper Bound",
-                              "hudgens_lower_res_doomed" = "Doomed: Lower Bound",
-                              "hudgens_upper_res_doomed" = "Doomed: Upper Bound")
-        
-        # Print the results
-        if( inherits(i, c("choplump_res"))){
-          cat(sprintf("%-50s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",
-                      method_name,
-                      i$obs_diff,
-                      i$pval,
-                      NA, 
-                      NA,
-                      ifelse(i$reject, "Yes", "No")))
-        } else{
-          cat(sprintf("%-50s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",
-                      method_name,
-                      i$obs_diff,
-                      i$pval,
-                      i$lower_ci, 
-                      i$upper_ci,
-                      ifelse(i$reject, "Yes", "No")))
-        }
-        
-      }
-    })
-    
+  # Helper to print one row
+  print_row <- function(label, method, est, lower, upper) {
+    cat(sprintf("%-25s%-15s%-15.4f%-15.4f%-15.4f\n", label, method, est, lower, upper))
   }
   
-  # REPEAT FOR MULTIPLICATIVE EFFECTS:
-  cat("\n\n")
-  cat("                                        Growth Effect Estimation Results: Multiplicative\n")
-  cat(paste(rep("-", 130), collapse = ""), "\n")
-  
-  # Check if any methods with confidence intervals are used
-  if (any(sapply(x, function(item) inherits(item, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))))) {
-    col_names <- c("Method", "Point Est.", "SE", "95% CI: Lower", "95% CI: Upper", "Reject (2-sided)")
-    
-    # Print header with dashed line
-    cat(sprintf("%-50s%-15s%-15s%-15s%-15s%-10s\n",
-                col_names[1], col_names[2], col_names[3], col_names[4], col_names[5], col_names[6]))
-    cat(paste(rep("-", 130), collapse = ""), "\n")
-    
-    # Iterate through objects and print their results
-    lapply(x, function(i) {
-      if (inherits(i, c("gcomp_res", "pop_gcomp_res", "aipw_res", "tmle_res", "hudgens_adj_lower_res", "hudgens_adj_upper_res"))) {
-        # Determine method name
-        method_name <- switch(class(i)[1],
-                              "gcomp_res" = "G-Comp VE Estimand",
-                              "pop_gcomp_res" = "G-Comp Population Estimand",
-                              "aipw_res" = "AIPW Estimand",
-                              "tmle_res" = "TMLE Estimand",
-                              "hudgens_adj_lower_res" = "Covariate-adjusted Hudgens: Lower Bound",
-                              "hudgens_adj_upper_res" = "Covariate-adjusted Hudgens: Upper Bound")
-        
-        # Print the results
-        cat(sprintf("%-50s%-15.4f%-15.4f%-15.4f%-15.4f%-10s\n",
-                    method_name,
-                    i$pt_est_mult,
-                    i$se_log_mult,
-                    i$lower_ci_mult,
-                    i$upper_ci_mult,
-                    ifelse(i$reject_mult, "Yes", "No")))
+  # Helper to get estimates
+  extract_estimates <- function(est_obj, method, scale, label_prefix) {
+    if (scale == "additive") {
+      if (is.null(est_obj$boot_se)) {
+        est <- est_obj$pt_est['additive_effect']
+        se <- est_obj$pt_est['additive_se']
+        print_row(label_prefix, method, est, est - 1.96 * se, est + 1.96 * se)
+      } else {
+        est <- est_obj$pt_est['additive_effect']
+        lower <- est_obj$boot_se$lower_ci_additive
+        upper <- est_obj$boot_se$upper_ci_additive
+        print_row(label_prefix, method, est, lower, upper)
       }
-    })
-    
-    
-    cat(paste(rep("-", 130), collapse = ""), "\n")
-  } 
+    } else {
+      if (is.null(est_obj$boot_se)) {
+        est <- exp(est_obj$pt_est['log_multiplicative_effect'])
+        se <- est_obj$pt_est['log_multiplicative_se']
+        print_row(label_prefix, method, est,
+                  exp(log(est) - 1.96 * se),
+                  exp(log(est) + 1.96 * se))
+      } else {
+        est <- exp(est_obj$pt_est['log_multiplicative_effect'])
+        lower <- est_obj$boot_se$lower_ci_mult
+        upper <- est_obj$boot_se$upper_ci_mult
+        print_row(label_prefix, method, est, lower, upper)
+      }
+    }
+  }
   
+  # Helper to print bounds
+  print_bounds <- function(est_obj, scale, label_prefix) {
+    if (scale == "additive") {
+      print_row(label_prefix, "Lower Bound",
+                est_obj$pt_est['additive_effect_lower'],
+                est_obj$boot_se$lower_ci_additive_lower,
+                est_obj$boot_se$upper_ci_additive_lower)
+      print_row(label_prefix, "Upper Bound",
+                est_obj$pt_est['additive_effect_upper'],
+                est_obj$boot_se$lower_ci_additive_upper,
+                est_obj$boot_se$upper_ci_additive_upper)
+    } else {
+      print_row(label_prefix, "Lower Bound",
+                est_obj$pt_est['mult_effect_lower'],
+                est_obj$boot_se$lower_ci_mult_lower,
+                est_obj$boot_se$upper_ci_mult_lower)
+      print_row(label_prefix, "Upper Bound",
+                est_obj$pt_est['mult_effect_upper'],
+                est_obj$boot_se$lower_ci_mult_upper,
+                est_obj$boot_se$upper_ci_mult_upper)
+    }
+  }
+  
+  # Header
+  scale_label <- ifelse(scale == "additive", "Additive", "Multiplicative")
+  cat(sprintf("%50s\n", paste("                         Growth Effect Estimation Results:", scale_label)))
+  cat(paste(rep("-", 90), collapse = ""), "\n")
+  col_names <- c("Estimand", "Method", "Point Est.", "95% CI: Lower", "95% CI: Upper")
+  cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", col_names[1], col_names[2], col_names[3], col_names[4], col_names[5]))
+  cat(paste(rep("-", 90), collapse = ""), "\n")
+  
+  # Loop through estimands
+  lapply(x, function(i) {
+    if (inherits(i, "nat_inf")) {
+      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Naturally Infected", "", "", "", ""))
+      lapply(i, function(j) {
+        if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
+        if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
+        if (inherits(j, "aipw")) extract_estimates(j, "AIPW", scale, "")
+        if (inherits(j, "tmle")) extract_estimates(j, "TMLE", scale, "")
+        if (inherits(j, "bound")) print_bounds(j, scale, "")
+      })
+    }
+    
+    if (inherits(i, "doomed")) {
+      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Doomed", "", "", "", ""))
+      lapply(i, function(j) {
+        if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
+        if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
+        if (inherits(j, "aipw")) extract_estimates(j, "AIPW", scale, "")
+        if (inherits(j, "tmle")) extract_estimates(j, "TMLE", scale, "")
+        if (inherits(j, "bound")) print_bounds(j, scale, "")
+      })
+    }
+    
+    if (inherits(i, "pop")) {
+      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Population", "", "", "", ""))
+      lapply(i, function(j) {
+        if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
+        if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
+        if (inherits(j, "aipw")) extract_estimates(j, "AIPW", scale, "")
+        if (inherits(j, "tmle")) extract_estimates(j, "TMLE", scale, "")
+      })
+    }
+  })
+  
+  invisible(x)
 }
 
+  
 #' Plot method for sens objects
 #'
 #' @param object An object of class "sens"

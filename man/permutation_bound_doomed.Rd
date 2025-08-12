@@ -9,9 +9,8 @@ permutation_bound_doomed(
   Y_name = "Y",
   Z_name = "Z",
   S_name = "S",
-  lower_bound = TRUE,
   n_permutations = 1000,
-  n_boot_try = n_boot * 10,
+  family = "gaussian",
   effect_dir = "positive"
 )
 }
@@ -26,9 +25,9 @@ permutation_bound_doomed(
 
 \item{n_permutations}{number of permutations to run, default 1000}
 
-\item{effect_dir}{direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.}
-
 \item{family}{defaults to gaussian for continuous outcome}
+
+\item{effect_dir}{direction of beneficial effect, defaults to "positive" for beneficial outcome. Used for one-side tests of bounds.}
 }
 \value{
 list with original estimate, null estimates for n_permutations, and p_value for one-sided test based on effect_dir

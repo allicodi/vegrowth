@@ -16,6 +16,7 @@ fit_models(
   Y_X_S1_model = NULL,
   Y_X_S0_model = NULL,
   S_X_model = NULL,
+  S_Z_X_model = NULL,
   Z_X_model = paste0(Z_name, " ~ 1"),
   family = "gaussian"
 )

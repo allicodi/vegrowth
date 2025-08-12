@@ -37,6 +37,7 @@ vegrowth <- function(data,
                      estimand = c("nat_inf", "doomed", "pop"),
                      method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
                      n_boot = 1000,
+                     permutation = FALSE,
                      n_perm = 1000,
                      seed = 12345,
                      return_se = TRUE,
@@ -45,9 +46,13 @@ vegrowth <- function(data,
                      Y_X_S1_model = NULL,
                      Y_X_S0_model = NULL,
                      S_X_model = NULL,
+                     S_Z_X_model = NULL,
+                     Z_X_model = paste0(Z_name, " ~ 1"),
                      Y_Z_X_library = c("SL.glm"),
                      Y_X_library = c("SL.glm"),
                      S_X_library = c("SL.glm"),
+                     S_Z_X_library = c("SL.glm"),
+                     Z_X_library = c("SL.mean"),
                      null_hypothesis_value = 0,
                      alpha_level = 0.025,
                      return_models = TRUE,
@@ -82,6 +87,8 @@ vegrowth <- function(data,
                                              Y_Z_X_library = Y_Z_X_library,
                                              Y_X_library = Y_X_library,
                                              S_X_library = S_X_library,
+                                             S_Z_X_library = S_Z_X_library,
+                                             Z_X_library = Z_X_library,
                                              family = family,
                                              v_folds = v_folds)
         
@@ -101,6 +108,8 @@ vegrowth <- function(data,
                                        Y_X_S1_model = Y_X_S1_model,
                                        Y_X_S0_model = Y_X_S0_model,
                                        S_X_model = S_X_model,
+                                       S_Z_X_model = S_Z_X_model,
+                                       Z_X_model = Z_X_model,
                                        family = family)
         
         model_list$models <- models
@@ -119,6 +128,8 @@ vegrowth <- function(data,
                                      Y_X_S1_model = Y_X_S1_model,
                                      Y_X_S0_model = Y_X_S0_model,
                                      S_X_model = S_X_model,
+                                     S_Z_X_model = S_Z_X_model,
+                                     Z_X_model = Z_X_model,
                                      family = family)
       model_list$models <- models
     } 
@@ -139,9 +150,13 @@ vegrowth <- function(data,
                              Y_X_S1_model = Y_X_S1_model,
                              Y_X_S0_model = Y_X_S0_model,
                              S_X_model = S_X_model,
+                             S_Z_X_model = S_Z_X_model,
+                             Z_X_model = Z_X_model,
                              Y_Z_X_library = Y_Z_X_library,
                              Y_X_library = Y_X_library,
                              S_X_library = S_X_library,
+                             S_Z_X_library = S_Z_X_library,
+                             Z_X_library = Z_X_library,
                              v_folds = v_folds,
                              estimand = estimand, 
                              method = method, 
@@ -164,6 +179,8 @@ vegrowth <- function(data,
                                               out$nat_inf$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
       out$nat_inf$gcomp$reject_mult <- (abs(out$nat_inf$gcomp$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                               out$nat_inf$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+      
+      class(out$nat_inf$gcomp) <- "gcomp"
     }
     
     if("ipw" %in% method){
@@ -173,6 +190,8 @@ vegrowth <- function(data,
                                               out$nat_inf$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
       out$nat_inf$ipw$reject_mult <- (abs(out$nat_inf$ipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                           out$nat_inf$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+      
+      class(out$nat_inf$ipw) <- "ipw"
     }
     
     if("aipw" %in% method){
@@ -196,6 +215,9 @@ vegrowth <- function(data,
                                            out$nat_inf$aipw$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
         
       }
+      
+      class(out$nat_inf$aipw) <- "aipw"
+      
     }
     
     if("tmle" %in% method){
@@ -218,6 +240,8 @@ vegrowth <- function(data,
         out$nat_inf$tmle$reject_mult <- (abs(out$nat_inf$tmle$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                                out$nat_inf$tmle$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
       }
+      
+      class(out$nat_inf$tmle) <- "tmle"
 
     }
     
@@ -228,11 +252,40 @@ vegrowth <- function(data,
         out$nat_inf$sens$pt_est <- do_sens_aipw_nat_inf(data = data, models = models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, epsilon = epsilon, return_se = return_se)
       }
       
-      # Not adding test to reject for epsilon
+      if(is.null(out$nat_inf$sens$boot_se)){
+        # closed form SE
+        out$nat_inf$sens$reject_additive <- data.frame(epsilon = out$nat_inf$sens$pt_est$epsilon,
+                                                       pt_est = out$nat_inf$sens$pt_est$additive_effect,
+                                                       se = out$nat_inf$sens$pt_est$additive_se,
+                                                       reject = (abs(out$nat_inf$sens$pt_est$additive_effect - null_hypothesis_value) / 
+                                                                   out$nat_inf$sens$pt_est$additive_se) > qnorm(1 - alpha_level / 2))
+        
+        out$nat_inf$sens$reject_mult <- data.frame(epsilon = out$nat_inf$sens$pt_est$epsilon,
+                                                   pt_est = exp(out$nat_inf$sens$pt_est$log_multiplicative_effect),
+                                                   se = out$nat_inf$sens$pt_est$log_multiplicative_se,
+                                                   reject = (abs(out$nat_inf$sens$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                                               out$nat_inf$sens$pt_est$log_multiplicative_se) > qnorm(1 - alpha_level / 2))
+      } else{
+        # bootstrap se
+        out$nat_inf$sens$reject_additive <- data.frame(epsilon = out$nat_inf$sens$boot_se$epsilon,
+                                                       pt_est = out$nat_inf$sens$pt_est$additive_effect,
+                                                       se = out$nat_inf$sens$boot_se$se_additive,
+                                                       reject = (abs(out$nat_inf$sens$pt_est$additive_effect - null_hypothesis_value) / 
+                                                                   out$nat_inf$sens$boot_se$se_additive) > qnorm(1 - alpha_level / 2))
+        
+        out$nat_inf$sens$reject_mult <- data.frame(epsilon = out$nat_inf$sens$boot_se$epsilon,
+                                                   pt_est = exp(out$nat_inf$sens$pt_est$log_multiplicative_effect),
+                                                   se = out$nat_inf$sens$boot_se$se_mult,
+                                                   reject = (abs(out$nat_inf$sens$pt_est$log_multiplicative_effect - null_hypothesis_value) / 
+                                                               out$nat_inf$sens$boot_se$se_mult) > qnorm(1 - alpha_level / 2))
+      }
       
+      class(out$nat_inf$sens) <- "sens"
+
     }
     
     if("bound" %in% method){
+      
       out$nat_inf$bound$pt_est <- get_bound_nat_inf(data = data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
       
       # Bounds test - one sided
@@ -248,7 +301,16 @@ vegrowth <- function(data,
         out$nat_inf$bound$pval <- pnorm(out$nat_inf$bound$test_stat, lower.tail = FALSE)
       }
       
+      # Permutation test
+      if(permutation){
+        out$nat_inf$bound$permutation <- permutation_bound_nat_inf(data = data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, n_permutations = n_perm, family = family, effect_dir = effect_dir)
+      }
+      
+      class(out$nat_inf$bound) <- "bound"
+      
     }
+    
+    class(out$nat_inf) <- "nat_inf"
     
   }
   
@@ -263,6 +325,8 @@ vegrowth <- function(data,
                                               out$doomed$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
       out$doomed$gcomp$reject_mult <- (abs(out$doomed$gcomp$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                           out$doomed$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+      
+      class(out$doomed$gcomp) <- "gcomp"
     }
     
     if("ipw" %in% method){
@@ -272,6 +336,8 @@ vegrowth <- function(data,
                                             out$doomed$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
       out$doomed$ipw$reject_mult <- (abs(out$doomed$ipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                         out$doomed$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+      
+      class(out$doomed$ipw) <- "ipw"
     }
     
     if("aipw" %in% method){
@@ -296,6 +362,8 @@ vegrowth <- function(data,
                                          
       }
       
+      class(out$doomed$aipw) <- "aipw"
+      
     }
     
     if("bound" %in% method){
@@ -316,7 +384,17 @@ vegrowth <- function(data,
         # same questions as above
         
       }
+      
+      # Permutation test
+      if(permutation){
+        out$doomed$bound$permutation <- permutation_bound_doomed(data = data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, n_permutations = n_perm, family = family, effect_dir = effect_dir)
+      }
+      
+      class(out$doomed$bound) <- "bound"
+      
     }
+    
+    class(out$doomed) <- "doomed"
     
   }
   
@@ -327,10 +405,12 @@ vegrowth <- function(data,
     if("gcomp" %in% method){
       out$pop$gcomp$pt_est <- do_gcomp_pop(data = data, models = models, Z_name = Z_name, X_name = X_name)
       
-      out$doomed$gcomp$reject_additive <- (abs(out$pop$gcomp$pt_est['additive_effect'] - null_hypothesis_value) / 
+      out$pop$gcomp$reject_additive <- (abs(out$pop$gcomp$pt_est['additive_effect'] - null_hypothesis_value) / 
                                              out$pop$gcomp$boot_se$se_additive) > qnorm(1 - alpha_level/2)
       out$pop$gcomp$reject_mult <- (abs(out$pop$gcomp$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                          out$pop$gcomp$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+      
+      class(out$pop$gcomp) <- "gcomp"
     }
     
     if("ipw" %in% method){
@@ -340,6 +420,8 @@ vegrowth <- function(data,
                                             out$pop$ipw$boot_se$se_additive) > qnorm(1 - alpha_level/2)
       out$pop$ipw$reject_mult <- (abs(out$pop$ipw$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
                                         out$pop$ipw$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+      
+      class(out$pop$ipw) <- "ipw"
     }
     
     if("aipw" %in% method){
@@ -363,7 +445,11 @@ vegrowth <- function(data,
                                                out$pop$aipw$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
                                          
       }
+      
+      class(out$pop$aipw) <- "aipw"
     }
+    
+    class(out$pop) <- "pop"
     
   }
   
