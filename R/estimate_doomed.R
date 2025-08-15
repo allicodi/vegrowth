@@ -271,10 +271,11 @@ get_bound_doomed <- function(
       E_Y1__S0_1,
       l_n,
       u_n,
-      E_Y1__S0_1 - l_n,
+      # flip to get bounds on the effect print properly in table 
       E_Y1__S0_1 - u_n,
-      E_Y1__S0_1 / l_n,
-      E_Y1__S0_1 / u_n
+      E_Y1__S0_1 - l_n,
+      E_Y1__S0_1 / u_n,
+      E_Y1__S0_1 / l_n
     )
     
     names(out) <- c("E_Y1__S0_1",

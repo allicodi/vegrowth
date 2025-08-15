@@ -199,7 +199,7 @@ print.vegrowth <- function(x, estimand = "all", scale = "additive", ...) {
   # Loop through estimands
   lapply(x, function(i) {
     if (inherits(i, "nat_inf")) {
-      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Naturally Infected", "", "", "", ""))
+      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Naturally Infected - - - ", "- - - - - - - -", " - - - - - - - ", "- - - - - - - -", " - - - - - - - - - - "))
       lapply(i, function(j) {
         if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
         if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
@@ -210,7 +210,7 @@ print.vegrowth <- function(x, estimand = "all", scale = "additive", ...) {
     }
     
     if (inherits(i, "doomed")) {
-      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Doomed", "", "", "", ""))
+      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Doomed - - - - - - - - -", "- - - - - - - -", " - - - - - - - ", "- - - - - - - -", " - - - - - - - - - - "))
       lapply(i, function(j) {
         if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
         if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
@@ -221,7 +221,7 @@ print.vegrowth <- function(x, estimand = "all", scale = "additive", ...) {
     }
     
     if (inherits(i, "pop")) {
-      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Population", "", "", "", ""))
+      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Population - - - - - - - ", "- - - - - - - -", " - - - - - - - ", "- - - - - - - -", " - - - - - - - - - - "))
       lapply(i, function(j) {
         if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
         if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
