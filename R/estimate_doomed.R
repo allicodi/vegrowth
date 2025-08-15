@@ -117,10 +117,10 @@ do_aipw_doomed <- function(data,
   }
   
   pi_0_X <- 1 - pi_1_X
-  rho_bar_1 <- mean(rho_0_X)
+  rho_bar_1 <- mean(rho_1_X)
   
-  eta_tilde_0 <- rho_1_X * mu_11_X / rho_bar_1
-  eta_tilde_1 <- rho_1_X * mu_01_X / rho_bar_1
+  eta_tilde_0 <- rho_1_X * mu_01_X / rho_bar_1
+  eta_tilde_1 <- rho_1_X * mu_11_X / rho_bar_1
   
   eta_0_plugin <- mean( eta_tilde_0 )
   eta_1_plugin <- mean( eta_tilde_1 )
