@@ -17,6 +17,8 @@ make_boot_df <- function(boot_estimates, estimand = "nat_inf", method = "gcomp")
       # If it's just a single number, convert to named data frame
       if (is.atomic(row) && length(row) == 1) {
         row <- data.frame(estimate = row)
+      } else if(class(row) == "sens"){
+        class(row) <- "data.frame"
       } else if (is.null(dim(row))) {
         row <- as.data.frame(t(row))
       }
@@ -129,7 +131,7 @@ get_boot_se_sens <- function(boot_estimates, estimand = "nat_inf", method = "sen
 #' 
 #' @method print vegrowth
 #' @export
-print.vegrowth <- function(x, estimand = "all", scale = "additive", ...) {
+print.vegrowth <- function(x, scale = "additive", ...) {
   
   # Helper to print one row
   print_row <- function(label, method, est, lower, upper) {

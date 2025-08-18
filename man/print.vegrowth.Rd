@@ -4,7 +4,7 @@
 \alias{print.vegrowth}
 \title{Print the output of a \code{"vegrowth"} object}
 \usage{
-\method{print}{vegrowth}(x, estimand = "all", scale = "additive", ...)
+\method{print}{vegrowth}(x, scale = "additive", ...)
 }
 \arguments{
 \item{x}{An \code{"vegrowth"} object.}

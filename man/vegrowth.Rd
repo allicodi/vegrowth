@@ -30,7 +30,7 @@ vegrowth(
   S_Z_X_library = c("SL.glm"),
   Z_X_library = c("SL.mean"),
   null_hypothesis_value = 0,
-  alpha_level = 0.025,
+  alpha_level = 0.05,
   return_models = TRUE,
   family = "gaussian",
   v_folds = 3,
