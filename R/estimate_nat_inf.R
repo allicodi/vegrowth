@@ -537,7 +537,7 @@ do_sens_aipw_nat_inf <- function(data,
                          Y_name = "Y",
                          Z_name = "Z",
                          S_name = "S",
-                         epsilon = exp(seq(log(0.5), log(2), length = 50)),
+                         epsilon = exp(seq(log(0.5), log(2), length = 49)),
                          return_se = FALSE){
   
   
@@ -648,6 +648,15 @@ do_sens_aipw_nat_inf <- function(data,
     log(psi_1_eps / psi_0_aipw)
   })
   
+  cov_matrices <- mapply(
+    augmentation_1_eps = augmentation_1_epsilon, 
+    function(augmentation_1_eps){
+      if_matrix <- cbind(augmentation_1_eps, augmentation_0)
+      cov_matrix <- cov(if_matrix) / dim(data)[1]
+      return(cov_matrix)
+    }, SIMPLIFY =  FALSE
+  )
+  
   # Get SE using IF matrix same way as TMLE
   se_log_mult_eff <- mapply(
     augmentation_1_eps = augmentation_1_epsilon, 
@@ -662,18 +671,23 @@ do_sens_aipw_nat_inf <- function(data,
   
   
   if(return_se){
-    out <- data.frame(
-      epsilon,
+    out <- list(
+      epsilon = epsilon,
+      psi_1_epsilon = unlist(psi_1_epsilon_aipw, use.names = FALSE),
+      psi_0_aipw = psi_0_aipw,
       additive_effect = unlist(efficient_growth_effect_epsilon, use.names = FALSE), 
       additive_se = unlist(se_epsilon, use.names = FALSE), 
       log_multiplicative_effect = unlist(efficient_growth_effect_log_mult_epsilon, use.names = FALSE), 
-      log_multiplicative_se = unlist(se_log_mult_eff, use.names = FALSE)
+      log_multiplicative_se = unlist(se_log_mult_eff, use.names = FALSE),
+      cov_matrices = cov_matrices
     )
   }else{
-    out <- data.frame(
-      epsilon,
+    out <- list(
+      epsilon = epsilon,
+      psi_1_epsilon = unlist(psi_1_epsilon_aipw, use.names = FALSE),
+      psi_0_aipw = psi_0_aipw,
       additive_effect = unlist(efficient_growth_effect_epsilon, use.names = FALSE), 
-      log_multiplicative_effect = unlist(efficient_growth_effect_log_mult_epsilon, use.names = FALSE) 
+      log_multiplicative_effect = unlist(efficient_growth_effect_log_mult_epsilon, use.names = FALSE)
     )
   }
   
