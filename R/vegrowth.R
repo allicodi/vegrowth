@@ -389,16 +389,20 @@ vegrowth <- function(data,
       if(effect_dir == "negative"){
         out$nat_inf$bound$test_stat$additive <- abs(out$nat_inf$bound$pt_est['additive_effect_upper'] / out$nat_inf$bound$boot_se$se_additive_upper)
         out$nat_inf$bound$p_val$additive <- pnorm(out$nat_inf$bound$test_stat$additive, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
-        
-        out$nat_inf$bound$test_stat$mult <- abs(out$nat_inf$bound$pt_est['mult_effect_upper'] / out$nat_inf$bound$boot_se$se_mult_upper)
+        out$nat_inf$bound$reject$additive <- out$nat_inf$bound$test_stat$additive > qnorm(1-alpha_level)
+      
+        out$nat_inf$bound$test_stat$mult <- abs(log(out$nat_inf$bound$pt_est['mult_effect_upper']) / out$nat_inf$bound$boot_se$se_log_mult_upper)
         out$nat_inf$bound$p_val$mult <- pnorm(out$nat_inf$bound$test_stat$mult, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
-        
+        out$nat_inf$bound$reject$mult <- out$nat_inf$bound$test_stat$mult > qnorm(1-alpha_level)
       } else{
         out$nat_inf$bound$test_stat$additive <- abs(out$nat_inf$bound$pt_est['additive_effect_lower'] / out$nat_inf$bound$boot_se$se_additive_lower)
         out$nat_inf$bound$p_val$additive <- pnorm(out$nat_inf$bound$test_stat, lower.tail = FALSE)
+        out$nat_inf$bound$reject$additive <- out$nat_inf$bound$test_stat$additive > qnorm(1-alpha_level)
         
-        out$nat_inf$bound$test_stat$mult <- abs(out$nat_inf$bound$pt_est['mult_effect_lower'] / out$nat_inf$bound$boot_se$se_mult_lower)
+        out$nat_inf$bound$test_stat$mult <- abs(log(out$nat_inf$bound$pt_est['mult_effect_lower']) / out$nat_inf$bound$boot_se$se_log_mult_lower)
         out$nat_inf$bound$p_val$mult <- pnorm(out$nat_inf$bound$test_stat$mult, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
+        out$nat_inf$bound$reject$mult <- out$nat_inf$bound$test_stat$mult > qnorm(1-alpha_level)
+        
       }
       
       # Permutation test
@@ -512,17 +516,21 @@ vegrowth <- function(data,
       # If effect direction < 0, test upper bound; Else, test lower bound 
       if(effect_dir == "negative"){
         out$doomed$bound$test_stat$additive <- abs(out$doomed$bound$pt_est['additive_effect_upper'] / out$doomed$bound$boot_se$se_additive_upper)
-        out$doomed$bound$p_val$additive <- pnorm(out$doomed$bound$test_stat$additive, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
+        out$doomed$bound$p_val$additive <- pnorm(out$doomed$bound$test_stat$additive, lower.tail = FALSE) 
+        out$doomed$bound$reject$additive <- out$doomed$bound$test_stat$additive > qnorm(1-alpha_level)
         
-        out$doomed$bound$test_stat$mult <- abs(out$doomed$bound$pt_est['mult_effect_upper'] / out$doomed$bound$boot_se$se_mult_upper)
-        out$doomed$bound$p_val$mult <- pnorm(out$doomed$bound$test_stat$mult, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
+        out$doomed$bound$test_stat$mult <- abs(log(out$doomed$bound$pt_est['mult_effect_upper']) / out$doomed$bound$boot_se$se_log_mult_upper)
+        out$doomed$bound$p_val$mult <- pnorm(out$doomed$bound$test_stat$mult, lower.tail = FALSE) 
+        out$doomed$bound$reject$mult <- out$doomed$bound$test_stat$mult > qnorm(1-alpha_level)
         
       } else{
         out$doomed$bound$test_stat$additive <- abs(out$doomed$bound$pt_est['additive_effect_lower'] / out$doomed$bound$boot_se$se_additive_lower)
         out$doomed$bound$p_val$additive <- pnorm(out$doomed$bound$test_stat, lower.tail = FALSE)
+        out$doomed$bound$reject$additive <- out$doomed$bound$test_stat$additive > qnorm(1-alpha_level)
         
-        out$doomed$bound$test_stat$mult <- abs(out$doomed$bound$pt_est['mult_effect_lower'] / out$doomed$bound$boot_se$se_mult_lower)
-        out$doomed$bound$p_val$mult <- pnorm(out$doomed$bound$test_stat$mult, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
+        out$doomed$bound$test_stat$mult <- abs(log(out$doomed$bound$pt_est['mult_effect_lower']) / out$doomed$bound$boot_se$se_log_mult_lower)
+        out$doomed$bound$p_val$mult <- pnorm(out$doomed$bound$test_stat$mult, lower.tail = FALSE) 
+        out$doomed$bound$reject$mult <- out$doomed$bound$test_stat$mult > qnorm(1-alpha_level)
       }
       
       # Permutation test
