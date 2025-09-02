@@ -396,7 +396,7 @@ vegrowth <- function(data,
         out$nat_inf$bound$reject$mult <- out$nat_inf$bound$test_stat$mult < qnorm(alpha_level)
       } else{
         out$nat_inf$bound$test_stat$additive <- out$nat_inf$bound$pt_est['additive_effect_lower'] / out$nat_inf$bound$boot_se$se_additive_lower
-        out$nat_inf$bound$p_val$additive <- pnorm(out$nat_inf$bound$test_stat, lower.tail = FALSE)
+        out$nat_inf$bound$p_val$additive <- pnorm(out$nat_inf$bound$test_stat$additive, lower.tail = FALSE)
         out$nat_inf$bound$reject$additive <- out$nat_inf$bound$test_stat$additive > qnorm(1-alpha_level)
         
         out$nat_inf$bound$test_stat$mult <- log(out$nat_inf$bound$pt_est['mult_effect_lower']) / out$nat_inf$bound$boot_se$se_log_mult_lower
@@ -525,7 +525,7 @@ vegrowth <- function(data,
         
       } else{
         out$doomed$bound$test_stat$additive <- out$doomed$bound$pt_est['additive_effect_lower'] / out$doomed$bound$boot_se$se_additive_lower
-        out$doomed$bound$p_val$additive <- pnorm(out$doomed$bound$test_stat, lower.tail = FALSE)
+        out$doomed$bound$p_val$additive <- pnorm(out$doomed$bound$test_stat$additive, lower.tail = FALSE)
         out$doomed$bound$reject$additive <- out$doomed$bound$test_stat$additive > qnorm(1-alpha_level)
         
         out$doomed$bound$test_stat$mult <- log(out$doomed$bound$pt_est['mult_effect_lower']) / out$doomed$bound$boot_se$se_log_mult_lower
