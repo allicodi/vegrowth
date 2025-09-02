@@ -81,8 +81,8 @@ get_boot_se_bound <- function(boot_estimates, estimand = "nat_inf", method = "bo
              #se_mult_upper = sd(boot_df$mult_effect_upper),
              #new
              se_log_mult_upper = sd(log(boot_df$mult_effect_upper)),
-             lower_ci_mult_upper = quantile(boot_df$mult_effect_upper, 0.025),
-             upper_ci_mult_upper = quantile(boot_df$mult_effect_upper, 0.975))
+             lower_ci_mult_upper = quantile(boot_df$mult_effect_upper, 0.025, na.rm = TRUE),
+             upper_ci_mult_upper = quantile(boot_df$mult_effect_upper, 0.975, na.rm = TRUE))
 }
 
 #' Helper function to get SE and 95% CI for additive and multiplicative effects - bounds
