@@ -50,8 +50,8 @@ get_boot_se <- function(boot_estimates, estimand = "nat_inf", method = "gcomp"){
              lower_ci_additive = quantile(boot_df$additive_effect, 0.025),
              upper_ci_additive = quantile(boot_df$additive_effect, 0.975),
              se_log_mult = sd(boot_df$log_multiplicative_effect),
-             lower_ci_mult = exp(quantile(boot_df$log_multiplicative_effect, 0.025)),
-             upper_ci_mult = exp(quantile(boot_df$log_multiplicative_effect, 0.975)))
+             lower_ci_mult = exp(quantile(boot_df$log_multiplicative_effect, 0.025, na.rm = TRUE)), # added NA rm true for some bootstrap replicates
+             upper_ci_mult = exp(quantile(boot_df$log_multiplicative_effect, 0.975, na.rm = TRUE)))
 }
 
 #' Helper function to get SE and 95% CI for additive and multiplicative effects - bounds
