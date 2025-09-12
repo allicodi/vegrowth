@@ -10,7 +10,7 @@ do_sens_aipw_nat_inf(
   Y_name = "Y",
   Z_name = "Z",
   S_name = "S",
-  epsilon = exp(seq(log(0.5), log(2), length = 50)),
+  epsilon = exp(seq(log(0.5), log(2), length = 49)),
   return_se = FALSE
 )
 }

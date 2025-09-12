@@ -35,7 +35,7 @@ vegrowth(
   family = "gaussian",
   v_folds = 3,
   effect_dir = "positive",
-  epsilon = exp(seq(log(0.5), log(2), length = 50))
+  epsilon = exp(seq(log(0.5), log(2), length = 49))
 )
 }
 \arguments{
