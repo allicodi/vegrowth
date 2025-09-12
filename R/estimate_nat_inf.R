@@ -704,6 +704,8 @@ do_sens_aipw_nat_inf <- function(data,
 #' @param S_name infection variable name
 #' @param family gaussian for continuous outcome, binomial for binary outcome
 #' 
+#' @export
+#' 
 #' @returns list containing estimate of E[Y(0) | Y(0) = 1], bounds on E[Y(1) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
 get_bound_nat_inf <- function(
     data, 
