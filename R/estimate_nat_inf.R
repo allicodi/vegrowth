@@ -87,7 +87,8 @@ do_ipw_nat_inf <- function(
   Z <- data[[Z_name]]
   
   psi_1 <- mean(
-    ( S / rho_bar_0 ) * ( Z / pi_1_X + ( 1 - Z ) / pi_0_X * (1 - rho_1_X / rho_0_X) ) * Y
+    ( 1 / rho_bar_0 ) * ( Z / pi_1_X ) * 
+      ( S + ( rho_0_X - rho_1_X ) * ( 1 - S ) / ( 1 - rho_1_X ) ) * Y
   )
   
   psi_0 <- mean(
