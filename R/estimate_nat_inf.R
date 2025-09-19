@@ -98,7 +98,7 @@ do_ipw_nat_inf <- function(
   growth_effect <- psi_1 - psi_0
   growth_effect_log_mult <- log(psi_1 / psi_0)
   
-  out <- c(growth_effect, growth_effect_log_mult)
+  out <- c(growth_effect, growth_effect_log_mult,psi_1,psi_0)
   names(out) <- c("additive_effect","log_multiplicative_effect","psi_1","psi_0")
   
   return(out)

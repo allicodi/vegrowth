@@ -161,7 +161,7 @@ do_aipw_doomed <- function(data,
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff, psi_1, psi_0)
+    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff, eta_1_aipw, eta_0_aipw)
     names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "psi_0")
     return(out)
   }else{
