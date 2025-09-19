@@ -29,8 +29,8 @@ do_gcomp_doomed <- function(data, models){
   growth_effect <- psi_1 - psi_0
   growth_effect_log_mult <- log(psi_1 / psi_0)
   
-  out <- c(growth_effect, growth_effect_log_mult)
-  names(out) <- c("additive_effect","log_multiplicative_effect")
+  out <- c(growth_effect, growth_effect_log_mult, psi_1, psi_0)
+  names(out) <- c("additive_effect","log_multiplicative_effect", "psi_1", "psi_0")
   
   return(out)
 }
@@ -75,8 +75,8 @@ do_ipw_doomed <- function(
   growth_effect <- eta_1 - eta_0
   growth_effect_log_mult <- log(eta_1 / eta_0)
   
-  out <- c(growth_effect, growth_effect_log_mult)
-  names(out) <- c("additive_effect","log_multiplicative_effect")
+  out <- c(growth_effect, growth_effect_log_mult, eta_1, eta_0)
+  names(out) <- c("additive_effect","log_multiplicative_effect", "psi_1", "psi_0")
   
   return(out)
 }
@@ -161,8 +161,8 @@ do_aipw_doomed <- function(data,
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff)
-    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
+    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff, psi_1, psi_0)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "psi_0")
     return(out)
   }else{
     out <- c(growth_effect, growth_effect_log_mult)

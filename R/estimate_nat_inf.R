@@ -49,8 +49,8 @@ do_gcomp_nat_inf <- function(data, models){
   growth_effect <- psi_1 - psi_0
   growth_effect_log_mult <- log(psi_1 / psi_0)
   
-  out <- c(growth_effect, growth_effect_log_mult)
-  names(out) <- c("additive_effect","log_multiplicative_effect")
+  out <- c(growth_effect, growth_effect_log_mult,psi_1,psi_0)
+  names(out) <- c("additive_effect","log_multiplicative_effect","psi_1","psi_0")
   
   return(out)
 }
@@ -99,7 +99,7 @@ do_ipw_nat_inf <- function(
   growth_effect_log_mult <- log(psi_1 / psi_0)
   
   out <- c(growth_effect, growth_effect_log_mult)
-  names(out) <- c("additive_effect","log_multiplicative_effect")
+  names(out) <- c("additive_effect","log_multiplicative_effect","psi_1","psi_0")
   
   return(out)
 }
@@ -190,8 +190,8 @@ do_aipw_nat_inf <- function(data,
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff)
-    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
+    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff, psi_1_aipw, psi_0_aipw)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "psi_0")
     return(out)
   }else{
     out <- c(efficient_growth_effect, efficient_growth_effect_log_mult)
@@ -487,8 +487,8 @@ do_tmle_nat_inf <- function(
     gradient <- matrix(c(1 / psi_1_star, -1 / psi_0_star), ncol = 1)
     se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
     
-    out <- c(tmle_ge, se, tmle_ge_log_mult, se_log_mult_eff)
-    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
+    out <- c(tmle_ge, se, tmle_ge_log_mult, se_log_mult_eff, psi_1_star, psi_0_star)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "psi_0")
     return(out)
   }else{
     out <- c(tmle_ge, tmle_ge_log_mult)

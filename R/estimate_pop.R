@@ -41,8 +41,8 @@ do_gcomp_pop <- function(data,
   
   pop_growth_effect_log_mult <- log(psi_1 / psi_0)
   
-  out <- c(pop_growth_effect, pop_growth_effect_log_mult)
-  names(out) <-  c("additive_effect","log_multiplicative_effect")
+  out <- c(pop_growth_effect, pop_growth_effect_log_mult, psi_1, psi_0)
+  names(out) <-  c("additive_effect","log_multiplicative_effect", "psi_1", "psi_0")
   return(out)
 }
 
@@ -77,8 +77,8 @@ do_ipw_pop <- function(data, models, Z_name = "Z", Y_name = "Y"){
   pop_growth_effect <- psi_1_ipw - psi_0_ipw
   pop_growth_effect_log_mult <- log(psi_1_ipw / psi_0_ipw)
   
-  out <- c(pop_growth_effect, pop_growth_effect_log_mult)
-  names(out) <-  c("additive_effect","log_multiplicative_effect")
+  out <- c(pop_growth_effect, pop_growth_effect_log_mult, psi_1_ipw, psi_0_ipw)
+  names(out) <-  c("additive_effect","log_multiplicative_effect", "psi_1", "psi_0")
   return(out)
 }
 
@@ -150,8 +150,8 @@ do_aipw_pop <- function(
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff)
-    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se")
+    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff, psi_1_aipw, psi_0_aipw)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "psi_0")
     return(out)
   }else{
     out <- c(growth_effect, growth_effect_log_mult)
