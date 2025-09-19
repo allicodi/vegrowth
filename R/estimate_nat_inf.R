@@ -400,28 +400,30 @@ do_tmle_nat_inf <- function(
     # R thinks they are not and tries to fit a glm, which blows up. setting 
     # H0 to a constant in these cases will remove the term from the model because
     # the model also includes an intercept
-    if(cor(H1, H0) > 0.99999){
-      H0 <- 1
+    if(sd(H1) > 0 & sd(H0) > 0){
+      if(cor(H1, H0) > 0.99999){
+        H0 <- 1
+      }
+    
+      target_data <- data.frame(
+        S_inf = data[[S_name]],
+        target_wt = target_wt,
+        H1 = H1,
+        H0 = H0,
+        logit_rho_0_star = logit_rho_0_star
+      )
+      target_data <- setNames(target_data, c(S_name, names(target_data[-1])))
+      
+      # include intercept so rho_bar_0_star is still mean(Y[Z == 0])
+      target_fit <- glm(
+        as.formula(paste0(S_name," ~ offset(logit_rho_0_star) + H1 + H0")), 
+        family = binomial(),
+        weight = target_wt,
+        data = target_data,
+        start = c(0, 0, 0)
+      )
+      rho_0_star <- target_fit$fitted.values
     }
-    
-    target_data <- data.frame(
-      S_inf = data[[S_name]],
-      target_wt = target_wt,
-      H1 = H1,
-      H0 = H0,
-      logit_rho_0_star = logit_rho_0_star
-    )
-    target_data <- setNames(target_data, c(S_name, names(target_data[-1])))
-    
-    # include intercept so rho_bar_0_star is still mean(Y[Z == 0])
-    target_fit <- glm(
-      as.formula(paste0(S_name," ~ offset(logit_rho_0_star) + H1 + H0")), 
-      family = binomial(),
-      weight = target_wt,
-      data = target_data,
-      start = c(0, 0, 0)
-    )
-    rho_0_star <- target_fit$fitted.values
     
     # shouldn't change because of intercept, but just in case
     rho_bar_0_star <- mean(rho_0_star)
