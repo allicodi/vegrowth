@@ -178,20 +178,23 @@ do_aipw_nat_inf <- function(data,
   efficient_growth_effect <- psi_1_aipw - psi_0_aipw
   se <- sqrt(var(augmentation_1 - augmentation_0) / dim(data)[1])
   
+  se_psi_1 <- sqrt(var(augmentation_1) / dim(data)[1])
+  se_psi_0 <- sqrt(var(augmentation_0) / dim(data)[1])
+  
   # Multiplicative effect (log scale)
   efficient_growth_effect_log_mult <- log(psi_1_aipw / psi_0_aipw)
   
-  # Yet SE using IF matrix same way as TMLE
+  # Get SE using IF matrix same way as TMLE
   if_matrix <- cbind(augmentation_1, augmentation_0)
   cov_matrix <- cov(if_matrix) / dim(data)[1]
-  
+
   gradient <- matrix(c(1 / psi_1_aipw, -1 / psi_0_aipw), ncol = 1)
   
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff, psi_1_aipw, psi_0_aipw)
-    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "psi_0")
+    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff, psi_1_aipw, se_psi_1, psi_0_aipw, se_psi_0)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "se_psi_1", "psi_0", "se_psi_0")
     return(out)
   }else{
     out <- c(efficient_growth_effect, efficient_growth_effect_log_mult)
@@ -487,8 +490,11 @@ do_tmle_nat_inf <- function(
     gradient <- matrix(c(1 / psi_1_star, -1 / psi_0_star), ncol = 1)
     se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
     
-    out <- c(tmle_ge, se, tmle_ge_log_mult, se_log_mult_eff, psi_1_star, psi_0_star)
-    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "psi_0")
+    se_psi_1 <- sqrt(diag(cov_matrix))[1]
+    se_psi_0 <- sqrt(diag(cov_matrix))[2]
+    
+    out <- c(tmle_ge, se, tmle_ge_log_mult, se_log_mult_eff, psi_1_star, se_psi_1, psi_0_star, se_psi_0)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "se_psi_1", "psi_0", "se_psi_0")
     return(out)
   }else{
     out <- c(tmle_ge, tmle_ge_log_mult)

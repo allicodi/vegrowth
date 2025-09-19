@@ -149,6 +149,9 @@ do_aipw_doomed <- function(data,
   growth_effect <- eta_1_aipw - eta_0_aipw
   se <- sqrt(var(augmentation_1 - augmentation_0) / dim(data)[1])
   
+  se_psi_1 <- sqrt(var(augmentation_1) / dim(data)[1])
+  se_psi_0 <- sqrt(var(augmentation_0) / dim(data)[1])
+  
   # Multiplicative effect (log scale)
   growth_effect_log_mult <- log(eta_1_aipw / eta_0_aipw)
   
@@ -161,8 +164,8 @@ do_aipw_doomed <- function(data,
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff, eta_1_aipw, eta_0_aipw)
-    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "psi_0")
+    out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff, eta_1_aipw, se_psi_1, eta_0_aipw, se_psi_0)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "se_psi_1", "psi_0", "se_psi_0")
     return(out)
   }else{
     out <- c(growth_effect, growth_effect_log_mult)
