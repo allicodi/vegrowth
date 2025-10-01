@@ -7,45 +7,74 @@
 #' @export
 #' 
 #' @returns g-comp estimate of growth effect in the naturally infected strata
-do_gcomp_nat_inf <- function(data, models){
+do_gcomp_nat_inf <- function(
+  data, models, Z_name = NULL, X_name = NULL,
+  exclusion_restriction = FALSE){
   
-  # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
-  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-    E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
-    E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
-    P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")$pred
-    P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")$pred
-  } else{
-    E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
-    E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
-    P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-    P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+  if(!exclusion_restriction){
+    # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
+    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+      E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
+      E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
+      P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")$pred
+      P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")$pred
+    } else{
+      E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
+      E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
+      P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
+      P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+    }
+    
+    P_S1_Z0 <- mean(P_S1_Z0_X)
+    VE_X <- 1 - ( P_S1_Z1_X / P_S1_Z0_X )
+    E_Y1_S01_X <- E_Y_Z1_S1_X * (1 - VE_X) + E_Y_Z1_S0_X * VE_X
+    
+    psi_1 <- mean(
+      ( P_S1_Z0_X / P_S1_Z0 ) * E_Y1_S01_X
+    )
+    
+    # Psi_0 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=0, Y = 1, X] ]
+    
+    # Option 1 for estimation:
+    # psi_0 <- mean(sub_Z0_S1$Y) 
+    
+    # Option 2 for estimation:
+    if(inherits(models$fit_Y_Z0_S1_X, "SuperLearner")){
+      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")$pred
+    } else {
+      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
+    }
+    
+    psi_0 <- mean(
+      ( P_S1_Z0_X / P_S1_Z0 ) * E_Y_Z0_S1_X
+    )
+  }else{
+    df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
+    names(df_Z1) <- c(Z_name, X_name)
+
+    df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
+    names(df_Z0) <- c(Z_name, X_name)
+
+    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+      E_Y_Z1_X <- predict(models$fit_Y_Z_X, newdata = df_Z1)$pred
+      E_Y_Z0_X <- predict(models$fit_Y_Z_X, newdata = df_Z0)$pred
+      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
+      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
+    }else{
+      E_Y_Z1_X <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")
+      E_Y_Z0_X <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response")
+      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
+      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+    }
+
+    rho_bar_0 <- mean(rho_0_X)
+    psi_1 <- mean(E_Y_Z1_X - E_Y_Z0_X) / rho_bar_0 + mean(rho_0_X / rho_bar_0 * E_Y_Z0_S1_X)
+
+    psi_0 <- mean(
+      ( rho_0_X / rho_bar_0 ) * E_Y_Z0_S1_X
+    )
+
   }
-  
-  P_S1_Z0 <- mean(P_S1_Z0_X)
-  ZE_X <- 1 - ( P_S1_Z1_X / P_S1_Z0_X )
-  E_Y1_S01_X <- E_Y_Z1_S1_X * (1 - ZE_X) + E_Y_Z1_S0_X * ZE_X
-  
-  psi_1 <- mean(
-    ( P_S1_Z0_X / P_S1_Z0 ) * E_Y1_S01_X
-  )
-  
-  # Psi_0 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=0, Y = 1, X] ]
-  
-  # Option 1 for estimation:
-  # psi_0 <- mean(sub_Z0_S1$Y) 
-  
-  # Option 2 for estimation:
-  if(inherits(models$fit_Y_Z0_S1_X, "SuperLearner")){
-    E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")$pred
-  } else {
-    E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-  }
-  
-  psi_0 <- mean(
-    ( P_S1_Z0_X / P_S1_Z0 ) * E_Y_Z0_S1_X
-  )
-  
   growth_effect <- psi_1 - psi_0
   growth_effect_log_mult <- log(psi_1 / psi_0)
   
@@ -67,38 +96,56 @@ do_gcomp_nat_inf <- function(data, models){
 #' @returns IPW estimate of growth effect in the naturally infected principal stratum
 do_ipw_nat_inf <- function(
     data, models,
+    exclusion_restriction = FALSE,
     S_name, Y_name, Z_name
 ){
   
-  # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
-  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
-    rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
-    pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-    rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-    pi_1_X <- predict(models$fit_Z_X, newdata = data, type = "response")
+  if(!exclusion_restriction){
+    # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
+    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+      rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
+      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
+      pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
+    } else{
+      rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
+      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+      pi_1_X <- predict(models$fit_Z_X, newdata = data, type = "response")
+    }
+    pi_0_X <- 1 - pi_1_X
+    rho_bar_0 <- mean(rho_0_X)
+    S <- data[[S_name]]
+    Y <- data[[Y_name]]
+    Z <- data[[Z_name]]
+    
+    psi_1 <- mean(
+      ( 1 / rho_bar_0 ) * ( Z / pi_1_X ) * 
+        ( S + ( rho_0_X - rho_1_X ) * ( 1 - S ) / ( 1 - rho_1_X ) ) * Y
+    )
+    
+    psi_0 <- mean(
+      ( S / rho_bar_0 ) * ( ( 1 - Z ) / pi_0_X ) * Y
+    )
+  }else{
+    
+    S <- data[[S_name]]
+    Y <- data[[Y_name]]
+    Z <- data[[Z_name]]
+    
+    rho_bar_0 <- mean(S[Z == 0])
+
+    psi_1 <- mean( (2*Z - 1) / pi_0_X * Y ) / mean( ( (1 - Z) / pi_0_X) * S ) + 
+      mean(( S / rho_bar_0 ) * ( (1 - Z) / pi_0_X ) * Y)
+    
+    psi_0 <- mean(
+      ( S / rho_bar_0 ) * ( (1 - Z) / pi_0_X ) * Y
+    )
+
   }
-  pi_0_X <- 1 - pi_1_X
-  rho_bar_0 <- mean(rho_0_X)
-  S <- data[[S_name]]
-  Y <- data[[Y_name]]
-  Z <- data[[Z_name]]
-  
-  psi_1 <- mean(
-    ( 1 / rho_bar_0 ) * ( Z / pi_1_X ) * 
-      ( S + ( rho_0_X - rho_1_X ) * ( 1 - S ) / ( 1 - rho_1_X ) ) * Y
-  )
-  
-  psi_0 <- mean(
-    ( S / rho_bar_0 ) * ( ( 1 - Z ) / pi_0_X ) * Y
-  )
   
   growth_effect <- psi_1 - psi_0
   growth_effect_log_mult <- log(psi_1 / psi_0)
   
-  out <- c(growth_effect, growth_effect_log_mult,psi_1,psi_0)
+  out <- c(growth_effect, growth_effect_log_mult, psi_1, psi_0)
   names(out) <- c("additive_effect","log_multiplicative_effect","psi_1","psi_0")
   
   return(out)
@@ -114,65 +161,123 @@ do_ipw_nat_inf <- function(
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
 #' @returns AIPW estimate of growth effect in naturally infected strata (+ standard error if return_se = TRUE)
-do_aipw_nat_inf <- function(data, 
-                              models,
-                              Y_name = "Y",
-                              Z_name = "Z",
-                              S_name = "S",
-                              return_se = FALSE){
+do_aipw_nat_inf <- function(
+  data, models,
+  exclusion_restriction = FALSE,
+  Y_name = "Y",
+  Z_name = "Z",
+  S_name = "S",
+  return_se = FALSE
+){
   
-  if(inherits(models$fit_S_Z0_X, "SuperLearner")){
-    rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
-    mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
-    pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-    mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-    pi_1 <- models$fit_Z_X$fitted.values
+  if(!exclusion_restriction){
+    if(inherits(models$fit_S_Z0_X, "SuperLearner")){
+      rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
+      mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
+      pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
+    } else{
+      rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+      mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
+      pi_1 <- models$fit_Z_X$fitted.values
+    }
+    pi_0 <- 1 - pi_1
+    rho_bar_0 <- mean(rho_0)
+    
+    
+    # psi_0 = Weight * E[E[Y | Z = 0, Y = 1, X]]
+    
+    psi_tilde_0 <- rho_0 / rho_bar_0 * mu_01
+    
+    psi_0 <- mean( psi_tilde_0 )
+    
+    augmentation_0 <- (
+      (1 - data[[Z_name]]) / pi_0 * ( data[[S_name]] / rho_bar_0 ) * (data[[Y_name]] - mu_01) + 
+        (1 - data[[Z_name]]) / pi_0 * ( mu_01 - psi_0 ) / rho_bar_0 * ( data[[S_name]] - rho_0 ) + 
+        ( psi_0 / rho_bar_0 ) * ( rho_0 - rho_bar_0 ) + 
+        psi_tilde_0 - psi_0
+    )
+    
+    psi_0_aipw <- psi_0 + mean(augmentation_0)
+    
+    # psi_1 = Weight * E[E[Y | Z = 1, X]]
+    
+    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+      mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
+      mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
+      rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")$pred
+    } else{
+      mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
+      mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
+      rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
+    }
+    
+    psi_tilde_1 <- rho_1 / rho_bar_0 * mu_11 + ( rho_0 - rho_1 ) / rho_bar_0 * mu_10
+    psi_1 <- mean( psi_tilde_1 )
+    
+    augmentation_1 <- (
+      (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_11) +
+        (data[[Z_name]] / pi_1) * ((1 - data[[S_name]]) / (1 - rho_1)) * (rho_0 - rho_1) / rho_bar_0 * (data[[Y_name]] - mu_10) + 
+        (data[[Z_name]] / pi_1) * (mu_11 - mu_10) / rho_bar_0 * (data[[S_name]] - rho_1) + 
+        ((1 - data[[Z_name]]) / pi_0) * (mu_10 - psi_1) / rho_bar_0 * (data[[S_name]] - rho_0) - 
+        psi_1 / rho_bar_0 * (rho_0 - rho_bar_0) + psi_tilde_1 - psi_1
+    )
+    
+    psi_1_aipw <- psi_1 + mean(augmentation_1)
+  }else{
+    df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
+    names(df_Z1) <- c(Z_name, X_name)
+
+    df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
+    names(df_Z0) <- c(Z_name, X_name)
+
+    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+      E_Y_Z1_X <- predict(models$fit_Y_Z_X, newdata = df_Z1)$pred
+      E_Y_Z0_X <- predict(models$fit_Y_Z_X, newdata = df_Z0)$pred
+      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
+      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
+      rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
+      pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
+    }else{
+      E_Y_Z1_X <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")
+      E_Y_Z0_X <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response")
+      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
+      rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
+      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+      pi_1_X <- models$fit_Z_X$fitted.values
+    }
+    Z <- data[[Z_name]]
+    S <- data[[S_name]]
+    Y <- data[[Y_name]]
+    E_Y_Z_X <- ifelse(data$Z, E_Y_Z1_X, E_Y_Z0_X)
+    pi_Z_X <- ifelse(data$Z, pi_1_X, 1 - pi_1_X)
+    
+    ate <- mean(E_Y_Z1_X - E_Y_Z0_X)
+    ate_augmentation <- (2*Z - 1) / pi_Z_X * ( Y - E_Y_Z_X ) + E_Y_Z1_X - E_Y_Z0_X - ate
+    ate_aipw <- ate + mean(ate_augmentation)
+
+    rho_bar_0 <- mean(rho_0_X)
+    rho_bar_0_augmentation <- (1 - Z) / (1 - pi_1_X) * ( S - rho_0_X ) + rho_0_X - rho_bar_0
+    rho_bar_0_aipw <- rho_bar_0 + mean(rho_bar_0_augmentation)
+
+    psi_tilde_0 <- rho_0_X / rho_bar_0 * E_Y_Z0_S1_X
+    psi_0 <- mean( psi_tilde_0 )
+    psi_0_augmentation <- (
+      (1 - Z) / pi_0 * ( S / rho_bar_0 ) * (Y - E_Y_Z0_S1_X) + 
+        (1 - Z) / pi_0 * ( E_Y_Z0_S1_X - psi_0 ) / rho_bar_0 * ( S - rho_0 ) + 
+        ( psi_0 / rho_bar_0 ) * ( rho_0 - rho_bar_0 ) + 
+        psi_tilde_0 - psi_0
+    )
+    psi_0_aipw <- psi_0 + mean(psi_0_augmentation)
+
+    psi_1_aipw <- ate_aipw / rho_bar_0_aipw + psi_0_aipw
+    
+    if_matrix <- cbind(ate_augmentation, rho_bar_0_augmentation, psi_0_augmentation)
+    psi_1_gradient <- matrix(c(
+      1 / rho_bar_0_aipw, - ate_aipw / rho_bar_0_aipw^2, 1
+    ), ncol = 1)
+    augmentation_1 <- c( t(psi_1_gradient) %*% if_matrix )
+    augmentation_0 <- psi_0_augmentation
   }
-  pi_0 <- 1 - pi_1
-  rho_bar_0 <- mean(rho_0)
-  
-  
-  # psi_0 = Weight * E[E[Y | Z = 0, Y = 1, X]]
-  
-  psi_tilde_0 <- rho_0 / rho_bar_0 * mu_01
-  
-  psi_0 <- mean( psi_tilde_0 )
-  
-  augmentation_0 <- (
-    (1 - data[[Z_name]]) / pi_0 * ( data[[S_name]] / rho_bar_0 ) * (data[[Y_name]] - mu_01) + 
-      (1 - data[[Z_name]]) / pi_0 * ( mu_01 - psi_0 ) / rho_bar_0 * ( data[[S_name]] - rho_0 ) + 
-      ( psi_0 / rho_bar_0 ) * ( rho_0 - rho_bar_0 ) + 
-      psi_tilde_0 - psi_0
-  )
-  
-  psi_0_aipw <- psi_0 + mean(augmentation_0)
-  
-  # psi_1 = Weight * E[E[Y | Z = 1, X]]
-  
-  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-    mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
-    mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
-    rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")$pred
-  } else{
-    mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
-    mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
-    rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-  }
-  
-  psi_tilde_1 <- rho_1 / rho_bar_0 * mu_11 + ( rho_0 - rho_1 ) / rho_bar_0 * mu_10
-  psi_1 <- mean( psi_tilde_1 )
-  
-  augmentation_1 <- (
-    (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_11) +
-      (data[[Z_name]] / pi_1) * ((1 - data[[S_name]]) / (1 - rho_1)) * (rho_0 - rho_1) / rho_bar_0 * (data[[Y_name]] - mu_10) + 
-      (data[[Z_name]] / pi_1) * (mu_11 - mu_10) / rho_bar_0 * (data[[S_name]] - rho_1) + 
-      ((1 - data[[Z_name]]) / pi_0) * (mu_10 - psi_1) / rho_bar_0 * (data[[S_name]] - rho_0) - 
-      psi_1 / rho_bar_0 * (rho_0 - rho_bar_0) + psi_tilde_1 - psi_1
-  )
-  
-  psi_1_aipw <- psi_1 + mean(augmentation_1)
   
   # Additive effect
   efficient_growth_effect <- psi_1_aipw - psi_0_aipw
@@ -216,265 +321,271 @@ do_aipw_nat_inf <- function(data,
 #' 
 #' @returns TMLE estimate of growth effect (+ standard error if return_se = TRUE)
 do_tmle_nat_inf <- function(
-    data, models, Y_name = "Y", Z_name = "Z", S_name = "S",
+    data, models, 
+    exclusion_restriction = FALSE,
+    Y_name = "Y", Z_name = "Z", S_name = "S",
     return_se = FALSE, max_iter = 10,
     tol = 1 / (sqrt(dim(data)[1]) * log(dim(data)[1]))
 ){
   
-  idx_Z0 <- which(data[[Z_name]] == 0)
-  idx_Z1 <- which(data[[Z_name]] == 1)
-  idx_Z0_S1 <- which(data[[Z_name]] == 0 & data[[S_name]] == 1)
-  l <- min(data[[Y_name]])
-  u <- max(data[[Y_name]])
-  
-  
-  if(inherits(models$fit_S_Z0_X, "SuperLearner")){
-    pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
+  if(exclusion_restriction){
+    stop("TMLE with exclusion restriction not implemented yet")
+    }else{
+    idx_Z0 <- which(data[[Z_name]] == 0)
+    idx_Z1 <- which(data[[Z_name]] == 1)
+    idx_Z0_S1 <- which(data[[Z_name]] == 0 & data[[S_name]] == 1)
+    l <- min(data[[Y_name]])
+    u <- max(data[[Y_name]])
     
-    rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
-    rho_1 <- predict(models$fit_S_Z1_X, newdata = data)$pred
     
-    mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data)$pred
-    mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data)$pred
-    mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
-    
-  } else{
-    pi_1 <- models$fit_Z_X$fitted.values
-    
-    rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-    rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-    
-    mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
-    mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
-    mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-  }
-  
-  pi_0 <- 1 - pi_1
-  rho_bar_0 <- mean(rho_0)
-  
-  psi_tilde_0 <- rho_0 / rho_bar_0 * mu_01
-  psi_0 <- mean( psi_tilde_0 )
-  
-  psi_tilde_1 <- rho_1 / rho_bar_0 * mu_11 + ( rho_0 - rho_1 ) / rho_bar_0 * mu_10
-  psi_1 <- mean( psi_tilde_1 )
-  
-  phi_0 <- function(data, Z_name, S_name, Y_name, pi_0, rho_0, rho_bar_0, mu_01, psi_tilde_0, psi_0) {
-    (
-      (1 - data[[Z_name]]) / pi_0 * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_01) +
-        (1 - data[[Z_name]]) / pi_0 * (mu_01 - psi_0) / rho_bar_0 * (data[[S_name]] - rho_0) +
-        (psi_0 / rho_bar_0) * (rho_0 - rho_bar_0) +
-        psi_tilde_0 - psi_0
-    )
-  }
-  
-  phi_1 <- function(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0, rho_bar_0, rho_1, mu_11, mu_10, psi_tilde_1, psi_1) {
-    (
-      (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_11) +
-        (data[[Z_name]] / pi_1) * ((1 - data[[S_name]]) / (1 - rho_1)) * (rho_0 - rho_1) / rho_bar_0 * (data[[Y_name]] - mu_10) +
-        (data[[Z_name]] / pi_1) * (mu_11 - mu_10) / rho_bar_0 * (data[[S_name]] - rho_1) +
-        ((1 - data[[Z_name]]) / pi_0) * (mu_10 - psi_1) / rho_bar_0 * (data[[S_name]] - rho_0) -
-        psi_1 / rho_bar_0 * (rho_0 - rho_bar_0) +
-        psi_tilde_1 - psi_1
-    )
-  }
-  
-  trim_logit <- function(p, tol = 1e-3){ 
-    p[p < tol] <- tol
-    p[p > 1 - tol] <- 1 - tol
-    return(qlogis(p))
-  }
-  
-  scale_01 <- function(x, l, u){
-    ( x - l ) / ( u - l )
-  }
-  
-  rescale_01 <- function(x, l, u){
-    x * (u - l) + l
-  }
-  
-  phi_0_data <- phi_0(data, Z_name, S_name, Y_name, pi_0, rho_0, rho_bar_0, mu_01, psi_tilde_0, psi_0)
-  phi_1_data <- phi_1(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0, rho_bar_0, rho_1, mu_11, mu_10, psi_tilde_1, psi_1)
-  phi_ge_data <- phi_1_data - phi_0_data
-  
-  mean_phi_0 <- mean(phi_0_data)
-  mean_phi_1 <- mean(phi_1_data)
-  mean_phi_ge_data <- mean(phi_ge_data)
-  
-  iter <- 0
-  
-  mu_11_star <- mu_11
-  mu_10_star <- mu_10
-  mu_01_star <- mu_01
-  rho_1_star <- rho_1
-  rho_0_star <- rho_0
-  rho_bar_0_star <- rho_bar_0
-  psi_tilde_0_star <- psi_tilde_0
-  psi_tilde_1_star <- psi_tilde_1
-  psi_0_star <- psi_0
-  psi_1_star <- psi_1
-  
-  while((mean_phi_0^2 + mean_phi_1^2 + mean_phi_ge_data^2) > tol & iter <= max_iter){
-    # cat("iter", iter, "\n")
-    # cat("mean_eif", mean_phi_ge_data, "\n")
-    
-    # target mu's
-    Y_scale <- scale_01(data[[Y_name]], l, u)
-    
-    # target mu_11
-    mu_11_star_scale <- scale_01(mu_11_star, l, u)
-    logit_mu_11_star_scale <- trim_logit(mu_11_star_scale)
-    target_wt <- (
-      (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0_star)
-    )
-    
-    target_data <- data.frame(
-      Y_scale = Y_scale,
-      target_wt = target_wt,
-      logit_mu_11_star_scale = logit_mu_11_star_scale
-    )
-    target_fit <- suppressWarnings(glm(
-      Y_scale ~ offset(logit_mu_11_star_scale), 
-      weight = target_wt,
-      family = binomial(),
-      data = target_data,
-      start = c(0)
-    ))
-    mu_11_star <- rescale_01(target_fit$fitted.values, l, u)
-    
-    # target mu_01
-    mu_01_star_scale <- scale_01(mu_01_star, l, u)
-    logit_mu_01_star_scale <- trim_logit(mu_01_star_scale)
-    target_wt <- (
-      ((1 - data[[Z_name]]) / (1 - pi_1)) * (data[[S_name]] / rho_bar_0_star)
-    )
-    
-    target_data <- data.frame(
-      Y_scale = Y_scale,
-      target_wt = target_wt,
-      logit_mu_01_star_scale = logit_mu_01_star_scale
-    )
-    target_fit <- suppressWarnings(glm(
-      Y_scale ~ offset(logit_mu_01_star_scale), 
-      weight = target_wt,
-      family = binomial(),
-      data = target_data,
-      start = c(0)
-    ))
-    mu_01_star <- rescale_01(target_fit$fitted.values, l, u)
-    
-    # target mu_10
-    mu_10_star_scale <- scale_01(mu_10_star, l, u)
-    logit_mu_10_star_scale <- trim_logit(mu_10_star_scale)
-    target_wt <- with(data, 
-                      ( data[[Z_name]] / pi_1 ) * ( (1 - data[[S_name]]) / rho_bar_0_star ) 
-    )
-    H1 <- ( rho_0_star - rho_1_star ) / ( 1 - rho_1_star )
-    target_data <- data.frame(
-      Y_scale = Y_scale,
-      target_wt = target_wt,
-      H1 = H1,
-      logit_mu_10_star_scale = logit_mu_10_star_scale
-    )
-    target_fit <- suppressWarnings(glm(
-      Y_scale ~ -1 + offset(logit_mu_10_star_scale) + H1, 
-      weight = target_wt,
-      family = binomial(),
-      data = target_data,
-      start = c(0)
-    ))
-    mu_10_star <- rescale_01(target_fit$fitted.values, l, u)
-    
-    psi_tilde_1_star <- rho_1_star / rho_bar_0_star * mu_11_star + ( rho_0_star - rho_1_star ) / rho_bar_0_star * mu_10_star
-    psi_1_star <- mean( psi_tilde_1_star )
-    
-    psi_tilde_0_star <- rho_0_star / rho_bar_0_star * mu_01_star
-    psi_0_star <- mean( psi_tilde_0_star )
-    
-    # target rho_0
-    H1 <- mu_10_star - psi_1_star
-    H0 <- mu_01_star - psi_0_star
-    logit_rho_0_star <- trim_logit(rho_0_star)
-    target_wt <- (1 - data[[Z_name]]) / pi_0
-    
-    # with linear models, these may be perfectly correlated, but numerically
-    # R thinks they are not and tries to fit a glm, which blows up. setting 
-    # H0 to a constant in these cases will remove the term from the model because
-    # the model also includes an intercept
-    if(sd(H1) > 0 & sd(H0) > 0){
-      if(cor(H1, H0) > 0.99999){
-        H0 <- 1
-      }
-    
-      target_data <- data.frame(
-        S_inf = data[[S_name]],
-        target_wt = target_wt,
-        H1 = H1,
-        H0 = H0,
-        logit_rho_0_star = logit_rho_0_star
-      )
-      target_data <- setNames(target_data, c(S_name, names(target_data[-1])))
+    if(inherits(models$fit_S_Z0_X, "SuperLearner")){
+      pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
       
-      # include intercept so rho_bar_0_star is still mean(Y[Z == 0])
-      target_fit <- glm(
-        as.formula(paste0(S_name," ~ offset(logit_rho_0_star) + H1 + H0")), 
-        family = binomial(),
-        weight = target_wt,
-        data = target_data,
-        start = c(0, 0, 0)
-      )
-      rho_0_star <- target_fit$fitted.values
+      rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
+      rho_1 <- predict(models$fit_S_Z1_X, newdata = data)$pred
+      
+      mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data)$pred
+      mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data)$pred
+      mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
+      
+    } else{
+      pi_1 <- models$fit_Z_X$fitted.values
+      
+      rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+      rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
+      
+      mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
+      mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
+      mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
     }
     
-    # shouldn't change because of intercept, but just in case
-    rho_bar_0_star <- mean(rho_0_star)
+    pi_0 <- 1 - pi_1
+    rho_bar_0 <- mean(rho_0)
     
-    ## sanity check
-    # tmp <- with(data, 
-    # ( (1 - Z) / pi_0 ) * ( mu_01_star - psi_0_star ) / rho_bar_0_star * ( S_inf - rho_0_star )
-    # )
-    # mean(tmp) # should be small
-    # tmp <- with(data, 
-    #     ( (1 - Z) / pi_0 ) * ( (mu_10_star - psi_1_star) / rho_bar_0_star ) * (S_inf - rho_0_star) 
-    # )
-    # mean(tmp) # should be small
+    psi_tilde_0 <- rho_0 / rho_bar_0 * mu_01
+    psi_0 <- mean( psi_tilde_0 )
     
-    # target rho_1
-    H1 <- mu_11_star - mu_10_star
-    logit_rho_1_star <- trim_logit(rho_1_star)
-    target_wt <- data[[Z_name]] / pi_1
-    target_data <- data.frame(
-      S_name = data[[S_name]],
-      target_wt = target_wt,
-      H1 = H1,
-      logit_rho_1_star = logit_rho_1_star
-    )
-    target_data <- setNames(target_data, c(S_name, names(target_data[-1])))
+    psi_tilde_1 <- rho_1 / rho_bar_0 * mu_11 + ( rho_0 - rho_1 ) / rho_bar_0 * mu_10
+    psi_1 <- mean( psi_tilde_1 )
     
-    # include intercept so rho_bar_0_star is still mean(Y[Z == 0])
-    target_fit <- glm(
-      as.formula(paste0(S_name, " ~ -1 + offset(logit_rho_1_star) + H1")), 
-      family = binomial(),
-      weight = target_wt,
-      data = target_data,
-      start = c(0)
-    )
-    rho_1_star <- target_fit$fitted.values
+    phi_0 <- function(data, Z_name, S_name, Y_name, pi_0, rho_0, rho_bar_0, mu_01, psi_tilde_0, psi_0) {
+      (
+        (1 - data[[Z_name]]) / pi_0 * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_01) +
+          (1 - data[[Z_name]]) / pi_0 * (mu_01 - psi_0) / rho_bar_0 * (data[[S_name]] - rho_0) +
+          (psi_0 / rho_bar_0) * (rho_0 - rho_bar_0) +
+          psi_tilde_0 - psi_0
+      )
+    }
     
-    psi_tilde_1_star <- rho_1_star / rho_bar_0_star * mu_11_star + ( rho_0_star - rho_1_star ) / rho_bar_0_star * mu_10_star
-    psi_1_star <- mean( psi_tilde_1_star )
+    phi_1 <- function(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0, rho_bar_0, rho_1, mu_11, mu_10, psi_tilde_1, psi_1) {
+      (
+        (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_11) +
+          (data[[Z_name]] / pi_1) * ((1 - data[[S_name]]) / (1 - rho_1)) * (rho_0 - rho_1) / rho_bar_0 * (data[[Y_name]] - mu_10) +
+          (data[[Z_name]] / pi_1) * (mu_11 - mu_10) / rho_bar_0 * (data[[S_name]] - rho_1) +
+          ((1 - data[[Z_name]]) / pi_0) * (mu_10 - psi_1) / rho_bar_0 * (data[[S_name]] - rho_0) -
+          psi_1 / rho_bar_0 * (rho_0 - rho_bar_0) +
+          psi_tilde_1 - psi_1
+      )
+    }
     
-    psi_tilde_0_star <- rho_0_star / rho_bar_0_star * mu_01_star
-    psi_0_star <- mean( psi_tilde_0_star )
+    trim_logit <- function(p, tol = 1e-3){ 
+      p[p < tol] <- tol
+      p[p > 1 - tol] <- 1 - tol
+      return(qlogis(p))
+    }
     
-    phi_0_data <- phi_0(data, Z_name, S_name, Y_name, pi_0, rho_0_star, rho_bar_0_star, mu_01_star, psi_tilde_0_star, psi_0_star)
-    phi_1_data <- phi_1(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0_star, rho_bar_0_star, rho_1_star, mu_11_star, mu_10_star, psi_tilde_1_star, psi_1_star)
+    scale_01 <- function(x, l, u){
+      ( x - l ) / ( u - l )
+    }
+    
+    rescale_01 <- function(x, l, u){
+      x * (u - l) + l
+    }
+    
+    phi_0_data <- phi_0(data, Z_name, S_name, Y_name, pi_0, rho_0, rho_bar_0, mu_01, psi_tilde_0, psi_0)
+    phi_1_data <- phi_1(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0, rho_bar_0, rho_1, mu_11, mu_10, psi_tilde_1, psi_1)
     phi_ge_data <- phi_1_data - phi_0_data
     
     mean_phi_0 <- mean(phi_0_data)
     mean_phi_1 <- mean(phi_1_data)
     mean_phi_ge_data <- mean(phi_ge_data)
     
-    iter <- iter + 1
+    iter <- 0
+    
+    mu_11_star <- mu_11
+    mu_10_star <- mu_10
+    mu_01_star <- mu_01
+    rho_1_star <- rho_1
+    rho_0_star <- rho_0
+    rho_bar_0_star <- rho_bar_0
+    psi_tilde_0_star <- psi_tilde_0
+    psi_tilde_1_star <- psi_tilde_1
+    psi_0_star <- psi_0
+    psi_1_star <- psi_1
+    
+    while((mean_phi_0^2 + mean_phi_1^2 + mean_phi_ge_data^2) > tol & iter <= max_iter){
+      # cat("iter", iter, "\n")
+      # cat("mean_eif", mean_phi_ge_data, "\n")
+      
+      # target mu's
+      Y_scale <- scale_01(data[[Y_name]], l, u)
+      
+      # target mu_11
+      mu_11_star_scale <- scale_01(mu_11_star, l, u)
+      logit_mu_11_star_scale <- trim_logit(mu_11_star_scale)
+      target_wt <- (
+        (data[[Z_name]] / pi_1) * (data[[S_name]] / rho_bar_0_star)
+      )
+      
+      target_data <- data.frame(
+        Y_scale = Y_scale,
+        target_wt = target_wt,
+        logit_mu_11_star_scale = logit_mu_11_star_scale
+      )
+      target_fit <- suppressWarnings(glm(
+        Y_scale ~ offset(logit_mu_11_star_scale), 
+        weight = target_wt,
+        family = binomial(),
+        data = target_data,
+        start = c(0)
+      ))
+      mu_11_star <- rescale_01(target_fit$fitted.values, l, u)
+      
+      # target mu_01
+      mu_01_star_scale <- scale_01(mu_01_star, l, u)
+      logit_mu_01_star_scale <- trim_logit(mu_01_star_scale)
+      target_wt <- (
+        ((1 - data[[Z_name]]) / (1 - pi_1)) * (data[[S_name]] / rho_bar_0_star)
+      )
+      
+      target_data <- data.frame(
+        Y_scale = Y_scale,
+        target_wt = target_wt,
+        logit_mu_01_star_scale = logit_mu_01_star_scale
+      )
+      target_fit <- suppressWarnings(glm(
+        Y_scale ~ offset(logit_mu_01_star_scale), 
+        weight = target_wt,
+        family = binomial(),
+        data = target_data,
+        start = c(0)
+      ))
+      mu_01_star <- rescale_01(target_fit$fitted.values, l, u)
+      
+      # target mu_10
+      mu_10_star_scale <- scale_01(mu_10_star, l, u)
+      logit_mu_10_star_scale <- trim_logit(mu_10_star_scale)
+      target_wt <- with(data, 
+                        ( data[[Z_name]] / pi_1 ) * ( (1 - data[[S_name]]) / rho_bar_0_star ) 
+      )
+      H1 <- ( rho_0_star - rho_1_star ) / ( 1 - rho_1_star )
+      target_data <- data.frame(
+        Y_scale = Y_scale,
+        target_wt = target_wt,
+        H1 = H1,
+        logit_mu_10_star_scale = logit_mu_10_star_scale
+      )
+      target_fit <- suppressWarnings(glm(
+        Y_scale ~ -1 + offset(logit_mu_10_star_scale) + H1, 
+        weight = target_wt,
+        family = binomial(),
+        data = target_data,
+        start = c(0)
+      ))
+      mu_10_star <- rescale_01(target_fit$fitted.values, l, u)
+      
+      psi_tilde_1_star <- rho_1_star / rho_bar_0_star * mu_11_star + ( rho_0_star - rho_1_star ) / rho_bar_0_star * mu_10_star
+      psi_1_star <- mean( psi_tilde_1_star )
+      
+      psi_tilde_0_star <- rho_0_star / rho_bar_0_star * mu_01_star
+      psi_0_star <- mean( psi_tilde_0_star )
+      
+      # target rho_0
+      H1 <- mu_10_star - psi_1_star
+      H0 <- mu_01_star - psi_0_star
+      logit_rho_0_star <- trim_logit(rho_0_star)
+      target_wt <- (1 - data[[Z_name]]) / pi_0
+      
+      # with linear models, these may be perfectly correlated, but numerically
+      # R thinks they are not and tries to fit a glm, which blows up. setting 
+      # H0 to a constant in these cases will remove the term from the model because
+      # the model also includes an intercept
+      if(sd(H1) > 0 & sd(H0) > 0){
+        if(cor(H1, H0) > 0.99999){
+          H0 <- 1
+        }
+      
+        target_data <- data.frame(
+          S_inf = data[[S_name]],
+          target_wt = target_wt,
+          H1 = H1,
+          H0 = H0,
+          logit_rho_0_star = logit_rho_0_star
+        )
+        target_data <- setNames(target_data, c(S_name, names(target_data[-1])))
+        
+        # include intercept so rho_bar_0_star is still mean(Y[Z == 0])
+        target_fit <- glm(
+          as.formula(paste0(S_name," ~ offset(logit_rho_0_star) + H1 + H0")), 
+          family = binomial(),
+          weight = target_wt,
+          data = target_data,
+          start = c(0, 0, 0)
+        )
+        rho_0_star <- target_fit$fitted.values
+      }
+      
+      # shouldn't change because of intercept, but just in case
+      rho_bar_0_star <- mean(rho_0_star)
+      
+      ## sanity check
+      # tmp <- with(data, 
+      # ( (1 - Z) / pi_0 ) * ( mu_01_star - psi_0_star ) / rho_bar_0_star * ( S_inf - rho_0_star )
+      # )
+      # mean(tmp) # should be small
+      # tmp <- with(data, 
+      #     ( (1 - Z) / pi_0 ) * ( (mu_10_star - psi_1_star) / rho_bar_0_star ) * (S_inf - rho_0_star) 
+      # )
+      # mean(tmp) # should be small
+      
+      # target rho_1
+      H1 <- mu_11_star - mu_10_star
+      logit_rho_1_star <- trim_logit(rho_1_star)
+      target_wt <- data[[Z_name]] / pi_1
+      target_data <- data.frame(
+        S_name = data[[S_name]],
+        target_wt = target_wt,
+        H1 = H1,
+        logit_rho_1_star = logit_rho_1_star
+      )
+      target_data <- setNames(target_data, c(S_name, names(target_data[-1])))
+      
+      # include intercept so rho_bar_0_star is still mean(Y[Z == 0])
+      target_fit <- glm(
+        as.formula(paste0(S_name, " ~ -1 + offset(logit_rho_1_star) + H1")), 
+        family = binomial(),
+        weight = target_wt,
+        data = target_data,
+        start = c(0)
+      )
+      rho_1_star <- target_fit$fitted.values
+      
+      psi_tilde_1_star <- rho_1_star / rho_bar_0_star * mu_11_star + ( rho_0_star - rho_1_star ) / rho_bar_0_star * mu_10_star
+      psi_1_star <- mean( psi_tilde_1_star )
+      
+      psi_tilde_0_star <- rho_0_star / rho_bar_0_star * mu_01_star
+      psi_0_star <- mean( psi_tilde_0_star )
+      
+      phi_0_data <- phi_0(data, Z_name, S_name, Y_name, pi_0, rho_0_star, rho_bar_0_star, mu_01_star, psi_tilde_0_star, psi_0_star)
+      phi_1_data <- phi_1(data, Z_name, S_name, Y_name, pi_1, pi_0, rho_0_star, rho_bar_0_star, rho_1_star, mu_11_star, mu_10_star, psi_tilde_1_star, psi_1_star)
+      phi_ge_data <- phi_1_data - phi_0_data
+      
+      mean_phi_0 <- mean(phi_0_data)
+      mean_phi_1 <- mean(phi_1_data)
+      mean_phi_ge_data <- mean(phi_ge_data)
+      
+      iter <- iter + 1
+    }
   }
   
   # Additive growth effect
@@ -919,13 +1030,13 @@ get_bound_nat_inf <- function(
 #   
 #   P_S1_Z0 <- mean(P_S1_Z0_X)
 #   
-#   ZE_X <- 1 - ( P_S1_Z1_X / P_S1_Z0_X )
-#   if(any(ZE_X < 0)){
+#   VE_X <- 1 - ( P_S1_Z1_X / P_S1_Z0_X )
+#   if(any(VE_X < 0)){
 #     warning("Some condtional ZE estimates < 0 -- truncating these estimates at 0.")
 #   }
-#   ZE_X[ZE_X < 0] <- 0
-#   ZE_is_zero <- (ZE_X == 0)
-#   ZE_is_nonzero <- (ZE_X > 0)
+#   VE_X[VE_X < 0] <- 0
+#   ZE_is_zero <- (VE_X == 0)
+#   ZE_is_nonzero <- (VE_X > 0)
 #   
 #   q_X_low <- 1 - P_S0_Z0_X / P_S0_Z1_X
 #   q_X_high <- 1 - q_X_low
@@ -956,7 +1067,7 @@ get_bound_nat_inf <- function(
 #     }
 #   }
 #   
-#   E_Y_Z1_S0_X_bound <- E_Y_Z1_S1_X * (1 - ZE_X) + E_Y_Z1_S0_truncY_X * ZE_X
+#   E_Y_Z1_S0_X_bound <- E_Y_Z1_S1_X * (1 - VE_X) + E_Y_Z1_S0_truncY_X * VE_X
 #   
 #   effect <- mean(
 #     P_S1_Z0_X / P_S1_Z0 * (E_Y_Z1_S0_X_bound - E_Y_Z0_S1_X)
