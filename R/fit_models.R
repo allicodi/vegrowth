@@ -20,6 +20,7 @@ fit_models <- function(data,
                        S_name = "S",
                        estimand = c("nat_inf", "doomed", "pop"),
                        method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+                       exclusion_restriction = c(TRUE, FALSE),
                        Y_Z_X_model = NULL,
                        Y_X_S1_model = NULL,
                        Y_X_S0_model = NULL,
@@ -52,12 +53,13 @@ fit_models <- function(data,
   
   out <- list()
   
-  # only needed for population estimaton
-  if("pop" %in% estimand){
+  if(
+    "pop" %in% estimand | 
+    ("nat_inf" %in% estimand & TRUE %in% exclusion_restriction & any(c("gcomp", "aipw", "tmle") %in% method))
+  ){
     out$fit_Y_Z_X <- glm(Y_Z_X_model, data = data, family = family)
   } 
   
-  # needed for any weight-based estimator 
   if(any(c("nat_inf", "doomed") %in% estimand)){
     sub_Z0 <- data[data[[Z_name]] == 0,]
     out$fit_S_Z0_X <- glm(S_X_model, sub_Z0, family = "binomial")
