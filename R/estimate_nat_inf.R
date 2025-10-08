@@ -134,7 +134,6 @@ do_ipw_nat_inf <- function(
       pi_1_X <- predict(models$fit_Z_X, newdata = data, type = "response")
     }
     pi_0_X <- 1 - pi_1_X
-    pi_Z_X <- ifelse(Z, pi_1_X, pi_0_X)
     
     rho_bar_0 <- mean(rho_0_X)
     
@@ -143,6 +142,7 @@ do_ipw_nat_inf <- function(
     Z <- data[[Z_name]]
     
     rho_bar_0 <- mean(S[Z == 0])
+    pi_Z_X <- ifelse(Z, pi_1_X, pi_0_X)
 
     psi_1 <- mean( (2*Z - 1) / pi_Z_X * Y ) / mean( ( (1 - Z) / pi_0_X) * S ) + 
       mean(( S / rho_bar_0 ) * ( (1 - Z) / pi_0_X ) * Y)
