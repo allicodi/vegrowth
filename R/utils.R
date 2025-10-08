@@ -212,14 +212,29 @@ print.vegrowth <- function(x, scale = "additive", ...) {
   # Loop through estimands
   lapply(x, function(i) {
     if (inherits(i, "nat_inf")) {
-      cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Naturally Infected - - - ", "- - - - - - - -", " - - - - - - - ", "- - - - - - - -", " - - - - - - - - - - "))
-      lapply(i, function(j) {
-        if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
-        if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
-        if (inherits(j, "aipw")) extract_estimates(j, "AIPW", scale, "")
-        if (inherits(j, "tmle")) extract_estimates(j, "TMLE", scale, "")
-        if (inherits(j, "bound")) print_bounds(j, scale, "")
-      })
+      
+      if(any(c("gcomp", "ipw", "aipw", "bound", "tmle") %in% names(i))){
+        cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Naturally Infected - - - ", "- - - - - - - -", " - - - - - - - ", "- - - - - - - -", " - - - - - - - - - - "))
+        
+        lapply(i, function(j) {
+          if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
+          if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
+          if (inherits(j, "aipw")) extract_estimates(j, "AIPW", scale, "")
+          if (inherits(j, "tmle")) extract_estimates(j, "TMLE", scale, "")
+          if (inherits(j, "bound")) print_bounds(j, scale, "")
+        })
+        
+      }
+      
+      if(any(c("gcomp_ER", "ipw_ER", "aipw_ER") %in% names(i))){
+        cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Naturally Infected (ER) - ", "- - - - - - - -", " - - - - - - - ", "- - - - - - - -", " - - - - - - - - - - "))
+        lapply(i, function(j) {
+          if (inherits(j, "gcomp_ER")) extract_estimates(j, "G-Computation", scale, "")
+          if (inherits(j, "ipw_ER")) extract_estimates(j, "IPW", scale, "")
+          if (inherits(j, "aipw_ER")) extract_estimates(j, "AIPW", scale, "")
+        })
+      }
+      
     }
     
     if (inherits(i, "doomed")) {

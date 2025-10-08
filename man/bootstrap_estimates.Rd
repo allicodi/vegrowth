@@ -13,6 +13,7 @@ bootstrap_estimates(
   n_boot = 1000,
   estimand = c("nat_inf", "doomed", "pop"),
   method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+  exclusion_restriction = FALSE,
   ml = ml,
   Y_Z_X_model = NULL,
   Y_X_S1_model = NULL,

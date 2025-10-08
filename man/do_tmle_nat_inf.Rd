@@ -7,6 +7,7 @@
 do_tmle_nat_inf(
   data,
   models,
+  exclusion_restriction = FALSE,
   Y_name = "Y",
   Z_name = "Z",
   S_name = "S",

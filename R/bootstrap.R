@@ -26,6 +26,7 @@ one_boot <- function(
     S_name = "S", 
     estimand = c("nat_inf", "doomed", "pop"),
     method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+    exclusion_restriction = FALSE,
     ml = FALSE, 
     Y_Z_X_model = NULL,
     Y_X_S1_model = NULL,
@@ -75,6 +76,7 @@ one_boot <- function(
       boot_ml_models <- vegrowth::fit_ml_models(data = boot_data, 
                                                  estimand = estimand,
                                                  method = method, 
+                                                 exclusion_restriction = exclusion_restriction,
                                                  Y_name = Y_name,
                                                  Z_name = Z_name,
                                                  S_name = S_name,
@@ -92,6 +94,7 @@ one_boot <- function(
       boot_models <- vegrowth::fit_models(data = boot_data, 
                                           estimand = estimand,
                                           method = method, 
+                                          exclusion_restriction = exclusion_restriction,
                                            Y_name = Y_name,
                                            Z_name = Z_name,
                                            S_name = S_name,
@@ -110,6 +113,7 @@ one_boot <- function(
     boot_models <- vegrowth::fit_models(data = boot_data, 
                                         estimand = estimand,
                                         method = method, 
+                                        exclusion_restriction = exclusion_restriction,
                                         Y_name = Y_name,
                                          Z_name = Z_name,
                                          S_name = S_name,
@@ -130,20 +134,29 @@ one_boot <- function(
   
   if("nat_inf" %in% estimand){
     
-    if("gcomp" %in% method){
-      out$nat_inf$gcomp <- do_gcomp_nat_inf(data = boot_data, models = boot_models)
-    }
-    
-    if("ipw" %in% method){
-      out$nat_inf$ipw <- do_ipw_nat_inf(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name)
-    }
-    
-    # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
-    if("aipw" %in% method & return_se == FALSE){
-      if(ml){
-        out$nat_inf$aipw <- do_aipw_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
-      } else{
-        out$nat_inf$aipw <- do_aipw_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, return_se = return_se)
+    for(er in exclusion_restriction){
+      
+      # Exclustion restriction -- save as <estimator>_ER 
+      er_suffix <- if (er) "_ER" else ""
+      
+      if("gcomp" %in% method){
+        estimator <- paste0("gcomp", er_suffix)
+        out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er)
+      }
+      
+      if("ipw" %in% method){
+        estimator <- paste0("ipw", er_suffix)
+        out$nat_inf[[estimator]] <- do_ipw_nat_inf(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name, exclusion_restriction = er)
+      }
+      
+      # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
+      if("aipw" %in% method & return_se == FALSE){
+        estimator <- paste0("aipw", er_suffix)
+        if(ml){
+          out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er)
+        } else{
+          out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er)
+        }
       }
     }
     
@@ -253,6 +266,7 @@ bootstrap_estimates <- function(
     n_boot = 1000, 
     estimand = c("nat_inf", "doomed", "pop"),
     method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+    exclusion_restriction = FALSE,
     ml = ml,
     Y_Z_X_model = NULL,
     Y_X_S1_model = NULL, 
@@ -280,6 +294,7 @@ bootstrap_estimates <- function(
                                                X_name = X_name,
                                                estimand = estimand,
                                                method = method,
+                                               exclusion_restriction = exclusion_restriction,
                                                ml = ml,
                                                Y_Z_X_model = Y_Z_X_model,
                                                Y_X_S1_model = Y_X_S1_model,
@@ -304,19 +319,28 @@ bootstrap_estimates <- function(
     
     if("nat_inf" %in% estimand){
       
-      if("gcomp" %in% method){
-        out$nat_inf$gcomp$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = "gcomp")
+      for(er in exclusion_restriction){
+        
+        # Exclustion restriction -- save as <estimator>_ER 
+        er_suffix <- if (er) "_ER" else ""
+        
+        if("gcomp" %in% method){
+          estimator <- paste0("gcomp", er_suffix)
+          out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
+        }
+        
+        if("ipw" %in% method){
+          estimator <- paste0("ipw", er_suffix)
+          out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
+        }
+        
+        # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
+        if("aipw" %in% method & return_se == FALSE){
+          estimator <- paste0("aipw", er_suffix)
+          out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
+        }
       }
-      
-      if("ipw" %in% method){
-        out$nat_inf$ipw$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = "ipw")
-      }
-      
-      # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
-      if("aipw" %in% method & return_se == FALSE){
-        out$nat_inf$aipw$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = "aipw")
-      }
-      
+
       if("tmle" %in% method & return_se == FALSE){
         out$nat_inf$tmle$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = "tmle")
       }

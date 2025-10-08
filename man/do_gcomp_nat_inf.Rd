@@ -5,7 +5,13 @@
 \title{Function for g-computation of counterfactual post-infection outcomes in the
 naturally infected principal strata}
 \usage{
-do_gcomp_nat_inf(data, models)
+do_gcomp_nat_inf(
+  data,
+  models,
+  Z_name = NULL,
+  X_name = NULL,
+  exclusion_restriction = FALSE
+)
 }
 \arguments{
 \item{data}{dataset to predict on}

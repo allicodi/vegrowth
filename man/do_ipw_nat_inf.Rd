@@ -5,7 +5,14 @@
 \title{Function for IPW of counterfactual post-infection outcomes in the
 naturally infected principal strata}
 \usage{
-do_ipw_nat_inf(data, models, S_name, Y_name, Z_name)
+do_ipw_nat_inf(
+  data,
+  models,
+  exclusion_restriction = FALSE,
+  S_name,
+  Y_name,
+  Z_name
+)
 }
 \arguments{
 \item{data}{dataset to predict on}

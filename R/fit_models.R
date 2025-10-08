@@ -55,7 +55,9 @@ fit_models <- function(data,
   
   if(
     "pop" %in% estimand | 
-    ("nat_inf" %in% estimand & TRUE %in% exclusion_restriction & any(c("gcomp", "aipw", "tmle") %in% method))
+    ("nat_inf" %in% estimand & 
+     TRUE %in% exclusion_restriction & 
+     any(c("gcomp", "aipw", "tmle") %in% method))
   ){
     out$fit_Y_Z_X <- glm(Y_Z_X_model, data = data, family = family)
   } 
@@ -126,6 +128,7 @@ fit_ml_models <- function(data,
                           S_name = "S",
                           estimand = c("nat_inf", "doomed", "pop"),
                           method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+                          exclusion_restriction = c(TRUE, FALSE),
                           Y_Z_X_library = c("SL.glm"),
                           Y_X_library = c("SL.glm"),
                           S_X_library = c("SL.glm"),
@@ -136,8 +139,12 @@ fit_ml_models <- function(data,
   
   out <- list()
   
-  # only needed for population estimator
-  if("pop" %in% estimand){
+  if(
+    "pop" %in% estimand | 
+    ("nat_inf" %in% estimand & 
+     TRUE %in% exclusion_restriction & 
+     any(c("gcomp", "aipw", "tmle") %in% method))
+  ){
     out$fit_Y_Z_X <- SuperLearner::SuperLearner(Y = data[[Y_name]],
                                                 X = data[, colnames(data) %in% c(Z_name, X_name), drop = FALSE],
                                                 family = family,

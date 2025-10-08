@@ -12,6 +12,7 @@ one_boot(
   S_name = "S",
   estimand = c("nat_inf", "doomed", "pop"),
   method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+  exclusion_restriction = FALSE,
   ml = FALSE,
   Y_Z_X_model = NULL,
   Y_X_S1_model = NULL,

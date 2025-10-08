@@ -12,6 +12,7 @@ vegrowth(
   S_name = "S",
   estimand = c("nat_inf", "doomed", "pop"),
   method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+  exclusion_restriction = FALSE,
   n_boot = 1000,
   permutation = FALSE,
   n_perm = 1000,
@@ -52,6 +53,8 @@ vegrowth(
 \item{estimand}{character vector with name(s) of estimands of interest; "nat_inf" = naturally infected, "doomed" = doomed, "pop" = marginal/population-level}
 
 \item{method}{character vector with name(s) of methods to use for estimation; "gcomp" = g-computation, "ipw" = inverese probability weighting, "aipw" = augmented inverse probability weighting, "tmle" = targeted maximum likelihood estimation (nat_inf only), "bound" = bounds without cross-world assumptions (nat_inf and doomed only), "sens" = sensitivity analysis (nat_inf only)}
+
+\item{exclusion_restriction}{boolean or vector of boolean (TRUE,FALSE) indicating version of naturally infected estimators with and/or without exclusion restriction assumptions, default FALSE}
 
 \item{n_boot}{number of bootstrap replicates}
 

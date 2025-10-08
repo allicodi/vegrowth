@@ -126,6 +126,15 @@ do_ipw_nat_inf <- function(
       ( S / rho_bar_0 ) * ( ( 1 - Z ) / pi_0_X ) * Y
     )
   }else{
+    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
+      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
+      pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
+    } else{
+      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+      pi_1_X <- predict(models$fit_Z_X, newdata = data, type = "response")
+    }
+    pi_0_X <- 1 - pi_1_X
+    rho_bar_0 <- mean(rho_0_X)
     
     S <- data[[S_name]]
     Y <- data[[Y_name]]
@@ -167,6 +176,7 @@ do_aipw_nat_inf <- function(
   Y_name = "Y",
   Z_name = "Z",
   S_name = "S",
+  X_name = "X",
   return_se = FALSE
 ){
   
@@ -224,6 +234,7 @@ do_aipw_nat_inf <- function(
     
     psi_1_aipw <- psi_1 + mean(augmentation_1)
   }else{
+    
     df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
     names(df_Z1) <- c(Z_name, X_name)
 
@@ -245,11 +256,21 @@ do_aipw_nat_inf <- function(
       rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
       pi_1_X <- models$fit_Z_X$fitted.values
     }
+    
+    if(inherits(models$fit_S_Z0_X, "SuperLearner")){
+      rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
+      pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
+    } else{
+      rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
+      pi_1 <- models$fit_Z_X$fitted.values
+    }
+    pi_0 <- 1 - pi_1
+    
     Z <- data[[Z_name]]
     S <- data[[S_name]]
     Y <- data[[Y_name]]
-    E_Y_Z_X <- ifelse(data$Z, E_Y_Z1_X, E_Y_Z0_X)
-    pi_Z_X <- ifelse(data$Z, pi_1_X, 1 - pi_1_X)
+    E_Y_Z_X <- ifelse(Z, E_Y_Z1_X, E_Y_Z0_X)
+    pi_Z_X <- ifelse(Z, pi_1_X, 1 - pi_1_X)
     
     ate <- mean(E_Y_Z1_X - E_Y_Z0_X)
     ate_augmentation <- (2*Z - 1) / pi_Z_X * ( Y - E_Y_Z_X ) + E_Y_Z1_X - E_Y_Z0_X - ate
@@ -275,7 +296,9 @@ do_aipw_nat_inf <- function(
     psi_1_gradient <- matrix(c(
       1 / rho_bar_0_aipw, - ate_aipw / rho_bar_0_aipw^2, 1
     ), ncol = 1)
-    augmentation_1 <- c( t(psi_1_gradient) %*% if_matrix )
+    # augmentation_1 <- c( t(psi_1_gradient) %*% if_matrix )
+    # fixed so dims line up??
+    augmentation_1 <- if_matrix %*% psi_1_gradient
     augmentation_0 <- psi_0_augmentation
   }
   
@@ -787,9 +810,7 @@ do_sens_aipw_nat_inf <- function(data,
       gradient <- matrix(c(1 / psi_1_eps_aipw, -1 / psi_0_aipw), ncol = 1)
       return(sqrt(t(gradient) %*% cov_matrix %*% gradient))
     })
-  
-  
-  
+
   if(return_se){
     out <- list(
       epsilon = epsilon,
