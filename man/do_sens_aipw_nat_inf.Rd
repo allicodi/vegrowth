@@ -35,26 +35,3 @@ AIPW estimate of growth effect (+ standard error if return_se = TRUE)
 \description{
 Function for efficient AIPW estimator for sensitivity analysis
 }
-\examples{
-data(provide)
-models <- fit_models(
-  data,
-  Y_name = "anS_abx_wk52",
-  Z_name = "rotaarm",
-  X_name = c("wk10_haz", "gender", "num_hh_sleep"),
-  S_name = "rotaepi",
-  est = "efficient_aipw"
-)
-
-# debug(do_sens_aipw)
-out <- do_sens_aipw(
-  provide, models, 
-  Y_name = "anS_abx_wk52",
-  Z_name = "rotaarm",
-  S_name = "rotaepi",
-  return_se = TRUE
-)
-
-plot(out, se = TRUE, effect_type = "additive")
-plot(out, se = TRUE, effect_type = "multiplicative")
-}

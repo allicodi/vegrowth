@@ -655,28 +655,6 @@ do_tmle_nat_inf <- function(
 #' 
 #' @returns AIPW estimate of growth effect (+ standard error if return_se = TRUE)
 #' 
-#' @examples
-#' data(provide)
-#' models <- fit_models(
-#'   data,
-#'   Y_name = "anS_abx_wk52",
-#'   Z_name = "rotaarm",
-#'   X_name = c("wk10_haz", "gender", "num_hh_sleep"),
-#'   S_name = "rotaepi",
-#'   est = "efficient_aipw"
-#' )
-#' 
-#' # debug(do_sens_aipw)
-#' out <- do_sens_aipw(
-#'   provide, models, 
-#'   Y_name = "anS_abx_wk52",
-#'   Z_name = "rotaarm",
-#'   S_name = "rotaepi",
-#'   return_se = TRUE
-#' )
-#' 
-#' plot(out, se = TRUE, effect_type = "additive")
-#' plot(out, se = TRUE, effect_type = "multiplicative")
 do_sens_aipw_nat_inf <- function(data,
                          models,
                          Y_name = "Y",
