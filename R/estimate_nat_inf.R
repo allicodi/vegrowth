@@ -33,7 +33,8 @@ do_unadj_nat_inf <- function(
 #' @return g-comp estimate of growth effect in the naturally infected strata
 do_gcomp_nat_inf <- function(
   data, models, Z_name = NULL, X_name = NULL,
-  exclusion_restriction = FALSE){
+  exclusion_restriction = FALSE,
+  two_part_model = FALSE){
   
   if(!exclusion_restriction){
     # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
@@ -67,11 +68,21 @@ do_gcomp_nat_inf <- function(
 
     df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
     names(df_Z0) <- c(Z_name, X_name)
-
-    E_Y_Z1_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
-    E_Y_Z0_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
+    
     E_Y_Z0_S1_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
     rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    
+    if(!two_part_model){
+      E_Y_Z1_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
+      E_Y_Z0_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
+    }else{
+      E_Y_Z0_S0_X <- simple_predict(models$fit_Y_Z0_S0_X, newdata = data)
+      E_Y_Z1_S0_X <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
+      E_Y_Z1_S1_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+      rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+      E_Y_Z1_X <- E_Y_Z1_S1_X * rho_1_X + E_Y_Z1_S0_X * (1 - rho_1_X)
+      E_Y_Z0_X <- E_Y_Z0_S1_X * rho_0_X + E_Y_Z0_S0_X * (1 - rho_0_X)
+    }
 
     rho_bar_0 <- mean(rho_0_X)
     psi_1 <- mean(E_Y_Z1_X - E_Y_Z0_X) / rho_bar_0 + mean(rho_0_X / rho_bar_0 * E_Y_Z0_S1_X)

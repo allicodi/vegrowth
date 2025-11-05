@@ -8,6 +8,7 @@
 #' @param estimand character vector with name(s) of estimands of interest; "nat_inf" = naturally infected, "doomed" = doomed, "pop" = marginal/population-level
 #' @param method character vector with name(s) of methods to use for estimation; "gcomp" = g-computation, "ipw" = inverese probability weighting, "aipw" = augmented inverse probability weighting, "tmle" = targeted maximum likelihood estimation (nat_inf only), "bound" = bounds without cross-world assumptions (nat_inf and doomed only), "sens" = sensitivity analysis (nat_inf only)
 #' @param exclusion_restriction boolean or vector of boolean (TRUE,FALSE) indicating version of naturally infected estimators with and/or without exclusion restriction assumptions, default FALSE
+#' @param two_part_model If \code{exclusion_restriction} is \code{TRUE} or \code{"pop"} is included in \code{estimand}, should E(Y | Z, X) be estimated using separate models for E(Y | Z, X, S) and P(S | Z, X) (if \code{TRUE}) or using a single model for E(Y | Z, X) (if \code{FALSE}). Currently, this is only implemented for \code{'gcomp'} estimators
 #' @param n_boot number of bootstrap replicates
 #' @param seed seet to set for replicability of bootstrap
 #' @param return_se indicator to return closed form standard error for efficient_aipw or efficient_tmle, default TRUE
@@ -38,6 +39,7 @@ vegrowth <- function(data,
                      estimand = c("nat_inf", "doomed", "pop"),
                      method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
                      exclusion_restriction = FALSE,
+                     two_part_model = FALSE,
                      n_boot = 1000,
                      permutation = FALSE,
                      n_perm = 1000,
@@ -166,6 +168,7 @@ vegrowth <- function(data,
                              estimand = estimand, 
                              method = method, 
                              exclusion_restriction = exclusion_restriction,
+                             two_part_model = two_part_model,
                              effect_dir = effect_dir,
                              epsilon = epsilon,
                              return_se = return_se)
@@ -188,7 +191,7 @@ vegrowth <- function(data,
           
           estimator <- paste0("gcomp", er_suffix)
           
-          out$nat_inf[[estimator]]$pt_est <- do_gcomp_nat_inf(data = data, models = models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er)
+          out$nat_inf[[estimator]]$pt_est <- do_gcomp_nat_inf(data = data, models = models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, two_part_model = two_part_model)
           
           out$nat_inf[[estimator]]$test_stat$additive <- (out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
             out$nat_inf[[estimator]]$boot_se$se_additive
@@ -575,7 +578,7 @@ vegrowth <- function(data,
   if("pop" %in% estimand){
     
     if("gcomp" %in% method){
-      out$pop$gcomp$pt_est <- do_gcomp_pop(data = data, models = models,  Z_name = Z_name, X_name = X_name)
+      out$pop$gcomp$pt_est <- do_gcomp_pop(data = data, models = models,  Z_name = Z_name, X_name = X_name, two_part_model = two_part_model)
       
       out$pop$gcomp$test_stat$additive <- (out$pop$gcomp$pt_est['additive_effect'] - null_hypothesis_value) / 
         out$pop$gcomp$boot_se$se_additive
