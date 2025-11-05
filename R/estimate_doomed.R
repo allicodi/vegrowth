@@ -8,15 +8,9 @@
 do_gcomp_doomed <- function(data, models){
   
   # Psi_1 = E[P(S=1 | Z = 0, X) / P(S= 1 | Z = 0) * E[Y | Z=1, X] ]
-  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-    mu_11_X <- predict(models$fit_Y_Z1_S1_X, newdata = data)$pred
-    mu_10_X <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
-    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
-  } else{
-    mu_11_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
-    mu_10_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-  }
+  mu_11_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+  mu_10_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
+  rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
   rho_bar_1 <- mean(rho_1_X)
   
   psi_1 <- mean(
@@ -48,15 +42,10 @@ do_ipw_doomed <- function(
 ){
   
   # Psi_1 = E[P(S=1 | Z = 0, X) / P(S= 1 | Z = 0) * E[Y | Z=1, X] ]
-  if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
-    rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
-    pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-    rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-    pi_1_X <- predict(models$fit_Z_X, newdata = data, type = "response")
-  }
+  
+  rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+  rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+  pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
   pi_0_X <- 1 - pi_1_X
   rho_bar_1 <- mean(rho_1_X)
   
@@ -98,24 +87,14 @@ do_aipw_doomed <- function(data,
                            S_name = "S",
                            return_se = FALSE){
   
-  if(inherits(models$fit_S_Z0_X, "SuperLearner")){
-    mu_11_X <- predict(models$fit_Y_Z1_S1_X, newdata = data)$pred
-    mu_01_X <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
-    
-    rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
-    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
-    
-    pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    mu_11_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
-    mu_01_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-    
-    rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-    rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-    
-    pi_1_X <- models$fit_Z_X$fitted.values
-  }
   
+  mu_11_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+  mu_01_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
+  
+  rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+  rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+  
+  pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
   pi_0_X <- 1 - pi_1_X
   rho_bar_1 <- mean(rho_1_X)
   

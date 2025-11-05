@@ -16,7 +16,7 @@ do_unadj_nat_inf <- function(
 
   growth_effect <- psi_1 - psi_0
   growth_effect_log_mult <- log(psi_1 / psi_0)
-    
+
   out <- c(growth_effect, growth_effect_log_mult, psi_1, psi_0)
   names(out) <- c("additive_effect", "log_multiplicative_effect", "psi_1", "psi_0")
   return(out)
@@ -25,30 +25,23 @@ do_unadj_nat_inf <- function(
 #' Function for g-computation of counterfactual post-infection outcomes in the 
 #' naturally infected principal strata
 #' 
-#' @param data dataset to predict on
-#' @param models list of pre-fit models needed for estimation
-#' 
+#' @inheritParams vegrowth
+#' @param models A list of fitted models returned from \code{fit_models}
+#'  
 #' @export
 #' 
-#' @returns g-comp estimate of growth effect in the naturally infected strata
+#' @return g-comp estimate of growth effect in the naturally infected strata
 do_gcomp_nat_inf <- function(
   data, models, Z_name = NULL, X_name = NULL,
   exclusion_restriction = FALSE){
   
   if(!exclusion_restriction){
     # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
-    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-      E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
-      E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
-      P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")$pred
-      P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")$pred
-    } else{
-      E_Y_Z1_S1_X <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
-      E_Y_Z1_S0_X <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
-      P_S1_Z1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-      P_S1_Z0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-    }
-    
+    E_Y_Z1_S1_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+    E_Y_Z1_S0_X <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
+    P_S1_Z1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+    P_S1_Z0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+        
     P_S1_Z0 <- mean(P_S1_Z0_X)
     VE_X <- 1 - ( P_S1_Z1_X / P_S1_Z0_X )
     E_Y1_S01_X <- E_Y_Z1_S1_X * (1 - VE_X) + E_Y_Z1_S0_X * VE_X
@@ -63,11 +56,7 @@ do_gcomp_nat_inf <- function(
     # psi_0 <- mean(sub_Z0_S1$Y) 
     
     # Option 2 for estimation:
-    if(inherits(models$fit_Y_Z0_S1_X, "SuperLearner")){
-      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")$pred
-    } else {
-      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-    }
+    E_Y_Z0_S1_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
     
     psi_0 <- mean(
       ( P_S1_Z0_X / P_S1_Z0 ) * E_Y_Z0_S1_X
@@ -79,17 +68,10 @@ do_gcomp_nat_inf <- function(
     df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
     names(df_Z0) <- c(Z_name, X_name)
 
-    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-      E_Y_Z1_X <- predict(models$fit_Y_Z_X, newdata = df_Z1)$pred
-      E_Y_Z0_X <- predict(models$fit_Y_Z_X, newdata = df_Z0)$pred
-      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
-      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
-    }else{
-      E_Y_Z1_X <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")
-      E_Y_Z0_X <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response")
-      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-    }
+    E_Y_Z1_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
+    E_Y_Z0_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
+    E_Y_Z0_S1_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
+    rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
 
     rho_bar_0 <- mean(rho_0_X)
     psi_1 <- mean(E_Y_Z1_X - E_Y_Z0_X) / rho_bar_0 + mean(rho_0_X / rho_bar_0 * E_Y_Z0_S1_X)
@@ -117,7 +99,7 @@ do_gcomp_nat_inf <- function(
 #' @param Y_name TODO
 #' @param Z_name TODO
 #' 
-#' @returns IPW estimate of growth effect in the naturally infected principal stratum
+#' @return IPW estimate of growth effect in the naturally infected principal stratum
 do_ipw_nat_inf <- function(
     data, models,
     exclusion_restriction = FALSE,
@@ -125,16 +107,10 @@ do_ipw_nat_inf <- function(
 ){
   
   if(!exclusion_restriction){
-    # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
-    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-      rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
-      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
-      pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-    } else{
-      rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-      pi_1_X <- predict(models$fit_Z_X, newdata = data, type = "response")
-    }
+    # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]  
+    rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+    rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
     pi_0_X <- 1 - pi_1_X
     rho_bar_0 <- mean(rho_0_X)
     S <- data[[S_name]]
@@ -150,13 +126,9 @@ do_ipw_nat_inf <- function(
       ( S / rho_bar_0 ) * ( ( 1 - Z ) / pi_0_X ) * Y
     )
   }else{
-    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
-      pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-    } else{
-      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-      pi_1_X <- predict(models$fit_Z_X, newdata = data, type = "response")
-    }
+    
+    rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
     pi_0_X <- 1 - pi_1_X
     
     rho_bar_0 <- mean(rho_0_X)
@@ -195,7 +167,7 @@ do_ipw_nat_inf <- function(
 #' @param S_name name of infection variable, default Y
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
-#' @returns AIPW estimate of growth effect in naturally infected strata (+ standard error if return_se = TRUE)
+#' @return AIPW estimate of growth effect in naturally infected strata (+ standard error if return_se = TRUE)
 do_aipw_nat_inf <- function(
   data, models,
   exclusion_restriction = FALSE,
@@ -207,15 +179,9 @@ do_aipw_nat_inf <- function(
 ){
   
   if(!exclusion_restriction){
-    if(inherits(models$fit_S_Z0_X, "SuperLearner")){
-      rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
-      mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
-      pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
-    } else{
-      rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-      mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-      pi_1 <- models$fit_Z_X$fitted.values
-    }
+    rho_0 <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    mu_01 <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
+    pi_1 <- simple_predict(models$fit_Z_X, newdata = data)
     pi_0 <- 1 - pi_1
     rho_bar_0 <- mean(rho_0)
     
@@ -236,16 +202,9 @@ do_aipw_nat_inf <- function(
     psi_0_aipw <- psi_0 + mean(augmentation_0)
     
     # psi_1 = Weight * E[E[Y | Z = 1, X]]
-    
-    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-      mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")$pred
-      mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")$pred
-      rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")$pred
-    } else{
-      mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
-      mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
-      rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-    }
+    mu_11 <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+    mu_10 <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
+    rho_1 <- simple_predict(models$fit_S_Z1_X, newdata = data)
     
     psi_tilde_1 <- rho_1 / rho_bar_0 * mu_11 + ( rho_0 - rho_1 ) / rho_bar_0 * mu_10
     psi_1 <- mean( psi_tilde_1 )
@@ -267,31 +226,15 @@ do_aipw_nat_inf <- function(
     df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
     names(df_Z0) <- c(Z_name, X_name)
 
-    if(inherits(models$fit_Y_Z1_S1_X, "SuperLearner")){
-      E_Y_Z1_X <- predict(models$fit_Y_Z_X, newdata = df_Z1)$pred
-      E_Y_Z0_X <- predict(models$fit_Y_Z_X, newdata = df_Z0)$pred
-      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
-      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data)$pred
-      rho_1_X <- predict(models$fit_S_Z1_X, newdata = data)$pred
-      pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-    }else{
-      E_Y_Z1_X <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")
-      E_Y_Z0_X <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response")
-      E_Y_Z0_S1_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-      rho_1_X <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-      rho_0_X <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-      pi_1_X <- models$fit_Z_X$fitted.values
-    }
     
-    if(inherits(models$fit_S_Z0_X, "SuperLearner")){
-      rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
-      pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
-    } else{
-      rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-      pi_1 <- models$fit_Z_X$fitted.values
-    }
-    pi_0 <- 1 - pi_1
-    
+    E_Y_Z1_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
+    E_Y_Z0_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
+    E_Y_Z0_S1_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
+    rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+    pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
+    pi_0_X <- 1 - pi_1_X
+
     Z <- data[[Z_name]]
     S <- data[[S_name]]
     Y <- data[[Y_name]]
@@ -309,9 +252,9 @@ do_aipw_nat_inf <- function(
     psi_tilde_0 <- rho_0_X / rho_bar_0 * E_Y_Z0_S1_X
     psi_0 <- mean( psi_tilde_0 )
     psi_0_augmentation <- (
-      (1 - Z) / pi_0 * ( S / rho_bar_0 ) * (Y - E_Y_Z0_S1_X) + 
-        (1 - Z) / pi_0 * ( E_Y_Z0_S1_X - psi_0 ) / rho_bar_0 * ( S - rho_0 ) + 
-        ( psi_0 / rho_bar_0 ) * ( rho_0 - rho_bar_0 ) + 
+      (1 - Z) / pi_0_X * ( S / rho_bar_0 ) * (Y - E_Y_Z0_S1_X) + 
+        (1 - Z) / pi_0_X * ( E_Y_Z0_S1_X - psi_0 ) / rho_bar_0 * ( S - rho_0_X ) + 
+        ( psi_0 / rho_bar_0 ) * ( rho_0_X - rho_bar_0 ) + 
         psi_tilde_0 - psi_0
     )
     psi_0_aipw <- psi_0 + mean(psi_0_augmentation)
@@ -368,7 +311,7 @@ do_aipw_nat_inf <- function(
 #' @param max_iter TODO 
 #' @param tol TOOD 
 #' 
-#' @returns TMLE estimate of growth effect (+ standard error if return_se = TRUE)
+#' @return TMLE estimate of growth effect (+ standard error if return_se = TRUE)
 do_tmle_nat_inf <- function(
     data, models, 
     exclusion_restriction = FALSE,
@@ -387,26 +330,14 @@ do_tmle_nat_inf <- function(
     u <- max(data[[Y_name]])
     
     
-    if(inherits(models$fit_S_Z0_X, "SuperLearner")){
-      pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
-      
-      rho_0 <- predict(models$fit_S_Z0_X, newdata = data)$pred
-      rho_1 <- predict(models$fit_S_Z1_X, newdata = data)$pred
-      
-      mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data)$pred
-      mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data)$pred
-      mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data)$pred
-      
-    } else{
-      pi_1 <- models$fit_Z_X$fitted.values
-      
-      rho_0 <- predict(models$fit_S_Z0_X, newdata = data, type = "response")
-      rho_1 <- predict(models$fit_S_Z1_X, newdata = data, type = "response")
-      
-      mu_11 <- predict(models$fit_Y_Z1_S1_X, newdata = data, type = "response")
-      mu_10 <- predict(models$fit_Y_Z1_S0_X, newdata = data, type = "response")
-      mu_01 <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-    }
+    pi_1 <- simple_predict(models$fit_Z_X, newdata = data)
+    
+    rho_0 <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    rho_1 <- simple_predict(models$fit_S_Z1_X, newdata = data)
+    
+    mu_11 <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+    mu_10 <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
+    mu_01 <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
     
     pi_0 <- 1 - pi_1
     rho_bar_0 <- mean(rho_0)
@@ -677,7 +608,7 @@ do_tmle_nat_inf <- function(
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
 #' 
-#' @returns AIPW estimate of growth effect (+ standard error if return_se = TRUE)
+#' @return AIPW estimate of growth effect (+ standard error if return_se = TRUE)
 #' 
 do_sens_aipw_nat_inf <- function(data,
                          models,
@@ -688,11 +619,8 @@ do_sens_aipw_nat_inf <- function(data,
                          return_se = FALSE){
   
   
-  if(inherits(models$fit_Z_X, "SuperLearner")){
-    pi_1 <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    pi_1 <- models$fit_Z_X$fitted.values
-  }
+  
+  pi_1 <- simple_predict(models$fit_Z_X, newdata = data)
   
   # vaccine probabilities
   # pi_1 <- models$fit_Z_X$fitted.values
@@ -706,13 +634,9 @@ do_sens_aipw_nat_inf <- function(data,
   data_0 <- data; data[[Z_name]] <- 0
   data_1 <- data; data[[Z_name]] <- 1
   
-  if(inherits(models$fit_S_Z0_X, "SuperLearner")){
-    rho_0_X <- predict(models$fit_S_Z_X, newdata = data_0, type = "response")$pred
-    mu_01_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")$pred
-  } else{
-    rho_0_X <- predict(models$fit_S_Z_X, newdata = data_0, type = "response")
-    mu_01_X <- predict(models$fit_Y_Z0_S1_X, newdata = data, type = "response")
-  }
+  
+  rho_0_X <- simple_predict(models$fit_S_Z_X, newdata = data_0)
+  mu_01_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
   
   rho_bar_0 <- mean(rho_0_X)
   
@@ -851,7 +775,7 @@ do_sens_aipw_nat_inf <- function(data,
 #' 
 #' @export
 #' 
-#' @returns list containing estimate of E[Y(0) | Y(0) = 1], bounds on E[Y(1) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
+#' @return list containing estimate of E[Y(0) | Y(0) = 1], bounds on E[Y(1) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
 get_bound_nat_inf <- function(
     data, 
     Y_name = "Y",
@@ -1034,7 +958,7 @@ get_bound_nat_inf <- function(
 #' get_adjusted_hudgens_stat(data, models, family = "binomial", lower_bound = FALSE)
 #' 
 #' 
-#' @returns Hudgens-style estimate of bound on effect in naturally infected
+#' @return Hudgens-style estimate of bound on effect in naturally infected
 
 # get_adjusted_hudgens_stat <- function(
 #     data, 
@@ -1109,7 +1033,7 @@ get_bound_nat_inf <- function(
 #' @param Z_name vaccination variable name
 #' @param S_name infection variable name
 #' 
-#' @returns dataframe with chop-lump style test statistics for mean in vax, mean in placebo
+#' @return dataframe with chop-lump style test statistics for mean in vax, mean in placebo
 #' 
 # get_chop_lump_statistic <- function(data,
 #                                     Y_name = "Y",
@@ -1171,7 +1095,7 @@ get_bound_nat_inf <- function(
 #' @param S_name infection variable name
 #' @param n_permutations number of permutations to complete
 #' 
-#' @returns chop lump test statistic
+#' @return chop lump test statistic
 # do_chop_lump_test <- function(data, 
 #                               Y_name = "Y",
 #                               Z_name = "Z",
@@ -1215,7 +1139,7 @@ get_bound_nat_inf <- function(
 #' 
 #' @param out chop_lump_res object to plot
 #' 
-#' @returns A histogram plot with the distribution of test statistics under the null hypothesis,
+#' @return A histogram plot with the distribution of test statistics under the null hypothesis,
 #' and a vertical line showing the observed test statistic.
 
 # plot.chop_lump_res <- function(out){

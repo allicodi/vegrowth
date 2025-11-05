@@ -18,22 +18,15 @@ do_gcomp_pop <- function(data,
   df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_Z1) <- c(Z_name, X_name)
   
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
-    Qbar_Z1 <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")$pred
-  } else{
-    Qbar_Z1 <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")
-  }
+  Qbar_Z1 <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
   
   psi_1 <- mean(Qbar_Z1)
   
   df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_Z0) <- c(Z_name, X_name)
   
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
-    Qbar_Z0 <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response")$pred 
-  } else{
-    Qbar_Z0 <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response") 
-  }
+  
+  Qbar_Z0 <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
   
   psi_0 <- mean(Qbar_Z0) 
   
@@ -57,11 +50,7 @@ do_gcomp_pop <- function(data,
 do_ipw_pop <- function(data, models, Z_name = "Z", Y_name = "Y"){
   
   
-  if(inherits(models$fit_Z_X, "SuperLearner")){
-    pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    pi_1_X <- models$fit_Z_X$fitted.values
-  }
+  pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
   pi_0_X <- 1 - pi_1_X
   
   Y <- data[[Y_name]]
@@ -103,13 +92,9 @@ do_aipw_pop <- function(
   df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_Z1) <- c(Z_name, X_name)
   
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
-    Qbar_Z1 <- predict(models$fit_Y_Z_X, newdata = df_Z1)$pred
-    pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    Qbar_Z1 <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")
-    pi_1_X <- models$fit_Z_X$fitted.values
-  }
+  
+  Qbar_Z1 <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
+  pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
   pi_0_X <- 1 - pi_1_X
   
   Y <- data[[Y_name]]
@@ -123,11 +108,8 @@ do_aipw_pop <- function(
   df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_Z0) <- c(Z_name, X_name)
   
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
-    Qbar_Z0 <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response")$pred 
-  } else{
-    Qbar_Z0 <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response") 
-  }
+
+  Qbar_Z0 <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
   
   psi_0_plugin <- mean(Qbar_Z0)
   augmentation_0 <- (1 - Z) / pi_0_X * ( Y - Qbar_Z0 ) + Qbar_Z0 - psi_0_plugin
