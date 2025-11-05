@@ -1,3 +1,27 @@
+#' Function for covariate-unadjusted estimation of counterfactual post-infection outcomes in the 
+#' naturally infected principal strata
+#' @inheritParams vegrowth
+#' @return unadjusted estimates of growth effect in the naturally infected strata
+
+do_unadj_nat_inf <- function(
+  data, Z_name, Y_name, S_name
+){
+  EY1 <- mean(data[[Y_name]][data[[Z_name]] == 1])
+  EY0 <- mean(data[[Y_name]][data[[Z_name]] == 0])
+  mu_bar_01 <- mean(data[[Y_name]][data[[Z_name]] == 0 & data[[S_name]] == 1])
+  rho_bar_0 <- mean(data[[S_name]][data[[Z_name]] == 0])
+
+  psi_1 <- (EY1 - EY0) / rho_bar_0 + mu_bar_01
+  psi_0 <- mu_bar_01
+
+  growth_effect <- psi_1 - psi_0
+  growth_effect_log_mult <- log(psi_1 / psi_0)
+    
+  out <- c(growth_effect, growth_effect_log_mult, psi_1, psi_0)
+  names(out) <- c("additive_effect", "log_multiplicative_effect", "psi_1", "psi_0")
+  return(out)
+}
+
 #' Function for g-computation of counterfactual post-infection outcomes in the 
 #' naturally infected principal strata
 #' 
