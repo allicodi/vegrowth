@@ -13,6 +13,7 @@ vegrowth(
   estimand = c("nat_inf", "doomed", "pop"),
   method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
   exclusion_restriction = FALSE,
+  two_part_model = FALSE,
   n_boot = 1000,
   permutation = FALSE,
   n_perm = 1000,
@@ -55,6 +56,8 @@ vegrowth(
 \item{method}{character vector with name(s) of methods to use for estimation; "gcomp" = g-computation, "ipw" = inverese probability weighting, "aipw" = augmented inverse probability weighting, "tmle" = targeted maximum likelihood estimation (nat_inf only), "bound" = bounds without cross-world assumptions (nat_inf and doomed only), "sens" = sensitivity analysis (nat_inf only)}
 
 \item{exclusion_restriction}{boolean or vector of boolean (TRUE,FALSE) indicating version of naturally infected estimators with and/or without exclusion restriction assumptions, default FALSE}
+
+\item{two_part_model}{If \code{exclusion_restriction} is \code{TRUE} or \code{"pop"} is included in \code{estimand}, should E(Y | Z, X) be estimated using separate models for E(Y | Z, X, S) and P(S | Z, X) (if \code{TRUE}) or using a single model for E(Y | Z, X) (if \code{FALSE}). Currently, this is only implemented for \code{'gcomp'} estimators}
 
 \item{n_boot}{number of bootstrap replicates}
 

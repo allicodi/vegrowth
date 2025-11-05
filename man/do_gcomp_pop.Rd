@@ -4,7 +4,13 @@
 \alias{do_gcomp_pop}
 \title{Function for g-computation of average counterfactual post-infection outcome marginally}
 \usage{
-do_gcomp_pop(data, models, Z_name = "Z", X_name = c("X"))
+do_gcomp_pop(
+  data,
+  models,
+  two_part_model = FALSE,
+  Z_name = "Z",
+  X_name = c("X")
+)
 }
 \arguments{
 \item{data}{dataset to predict on}
