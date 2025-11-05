@@ -77,6 +77,9 @@ fit_models <- function(data,
     
     sub_Z0_S1 <- data[data[[Z_name]] == 0 & data[[S_name]] == 1,]
     out$fit_Y_Z0_S1_X <- glm(Y_X_S1_model, data = sub_Z0_S1, family = family)
+
+    sub_Z0_S0 <- data[data[[Z_name]] == 0 & data[[S_name]] == 1,]
+    out$fit_Y_Z0_S0_X <- glm(Y_X_S0_model, data = sub_Z0_S0, family = family)
     
   }
   
@@ -189,7 +192,14 @@ fit_ml_models <- function(data,
                                                     family = family,
                                                     SL.library = Y_X_library, 
                                                     cvControl = list(V = v_folds))
-    
+
+    sub_Z0_S0 <- data[data[[Z_name]] == 0 & data[[S_name]] == 0,]
+    out$fit_Y_Z0_S0_X <- SuperLearner::SuperLearner(Y = sub_Z0_S0[[Y_name]],
+                                                    X = sub_Z0_S0[, X_name, drop = FALSE],
+                                                    family = family,
+                                                    SL.library = Y_X_library, 
+                                                    cvControl = list(V = v_folds))
+
   }
   
   # only needed for AIPW sensitivity analysis

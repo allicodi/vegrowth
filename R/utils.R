@@ -1,3 +1,20 @@
+#' Helper function to predict from a model appropriately irrespective of class
+#' @param model A fitted model of class \code{'glm'} or \code{'SuperLearner'}
+#' @param newdata A \code{data.frame} to obtain predictions on
+#' @return Predictions from \code{model} on \code{newdata}
+simple_predict <- function(model, newdata){
+  if(!any(c("glm", "SuperLearner") %in% class(model))){
+    stop("method only guaranteed to work correctly with glm or super learner")
+  }
+  if( inherits(model, "SuperLearner") ){
+    pred <- predict(model, newdata = newdata)$pred
+  }else{
+    pred <- predict(model, newdata = newdata, type = "response")
+  }
+  return(pred)
+}
+
+
 
 #' Helper function to make dataframe from bootstrap results
 #'

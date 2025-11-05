@@ -10,33 +10,36 @@
 #' @returns g-comp estimate of growth effect for population estimand
 do_gcomp_pop <- function(data, 
                           models,
+                          two_part_model = FALSE,
                           Z_name = "Z",
                           X_name = c("X")){
   # E[Y(1) - Y(0)] = E[Y(1)] - E[Y(0)] = E[E[Y | Z = 1, X = x]] - E[E[Y | Z = 0, X = x]]
   
-  #df_Z1 <- data.frame(Z = 1, X = data[[X_name]])
   df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_Z1) <- c(Z_name, X_name)
-  
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
-    Qbar_Z1 <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")$pred
-  } else{
-    Qbar_Z1 <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")
-  }
-  
-  psi_1 <- mean(Qbar_Z1)
-  
   df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_Z0) <- c(Z_name, X_name)
   
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
-    Qbar_Z0 <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response")$pred 
-  } else{
-    Qbar_Z0 <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response") 
+  if(!two_part_model){
+    E_Y_Z1_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
+    E_Y_Z0_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
+  }else{
+    E_Y_Z0_S0_X <- simple_predict(models$fit_Y_Z0_S0_X, newdata = data)
+    E_Y_Z0_S1_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
+
+    E_Y_Z1_S0_X <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
+    E_Y_Z1_S1_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+    
+    rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+
+    E_Y_Z1_X <- E_Y_Z1_S1_X * rho_1_X + E_Y_Z1_S0_X * (1 - rho_1_X)
+    E_Y_Z0_X <- E_Y_Z0_S1_X * rho_0_X + E_Y_Z0_S0_X * (1 - rho_0_X)
   }
-  
-  psi_0 <- mean(Qbar_Z0) 
-  
+
+  psi_1 <- mean(E_Y_Z1_X)
+  psi_0 <- mean(E_Y_Z0_X)
+
   pop_growth_effect <- psi_1 - psi_0
   
   pop_growth_effect_log_mult <- log(psi_1 / psi_0)
@@ -56,12 +59,7 @@ do_gcomp_pop <- function(data,
 #' @returns g-comp estimate of growth effect for population estimand
 do_ipw_pop <- function(data, models, Z_name = "Z", Y_name = "Y"){
   
-  
-  if(inherits(models$fit_Z_X, "SuperLearner")){
-    pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    pi_1_X <- models$fit_Z_X$fitted.values
-  }
+  pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
   pi_0_X <- 1 - pi_1_X
   
   Y <- data[[Y_name]]
@@ -103,13 +101,9 @@ do_aipw_pop <- function(
   df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_Z1) <- c(Z_name, X_name)
   
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
-    Qbar_Z1 <- predict(models$fit_Y_Z_X, newdata = df_Z1)$pred
-    pi_1_X <- predict(models$fit_Z_X, newdata = data)$pred
-  } else{
-    Qbar_Z1 <- predict(models$fit_Y_Z_X, newdata = df_Z1, type = "response")
-    pi_1_X <- models$fit_Z_X$fitted.values
-  }
+  
+  Qbar_Z1 <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
+  pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
   pi_0_X <- 1 - pi_1_X
   
   Y <- data[[Y_name]]
@@ -123,11 +117,8 @@ do_aipw_pop <- function(
   df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
   names(df_Z0) <- c(Z_name, X_name)
   
-  if(inherits(models$fit_Y_Z_X, "SuperLearner")){
-    Qbar_Z0 <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response")$pred 
-  } else{
-    Qbar_Z0 <- predict(models$fit_Y_Z_X, newdata = df_Z0, type = "response") 
-  }
+
+  Qbar_Z0 <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
   
   psi_0_plugin <- mean(Qbar_Z0)
   augmentation_0 <- (1 - Z) / pi_0_X * ( Y - Qbar_Z0 ) + Qbar_Z0 - psi_0_plugin
