@@ -78,7 +78,7 @@ fit_models <- function(data,
     sub_Z0_S1 <- data[data[[Z_name]] == 0 & data[[S_name]] == 1,]
     out$fit_Y_Z0_S1_X <- glm(Y_X_S1_model, data = sub_Z0_S1, family = family)
 
-    sub_Z0_S0 <- data[data[[Z_name]] == 0 & data[[S_name]] == 1,]
+    sub_Z0_S0 <- data[data[[Z_name]] == 0 & data[[S_name]] == 0,]
     out$fit_Y_Z0_S0_X <- glm(Y_X_S0_model, data = sub_Z0_S0, family = family)
     
   }
