@@ -12,7 +12,8 @@ do_aipw_nat_inf(
   Z_name = "Z",
   S_name = "S",
   X_name = "X",
-  return_se = FALSE
+  return_se = FALSE,
+  two_part_model = FALSE
 )
 }
 \arguments{

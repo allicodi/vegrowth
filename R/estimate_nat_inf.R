@@ -188,7 +188,8 @@ do_aipw_nat_inf <- function(
   Z_name = "Z",
   S_name = "S",
   X_name = "X",
-  return_se = FALSE
+  return_se = FALSE,
+  two_part_model = FALSE
 ){
   
   if(!exclusion_restriction){
@@ -233,21 +234,32 @@ do_aipw_nat_inf <- function(
     psi_1_aipw <- psi_1 + mean(augmentation_1)
   }else{
     
-    df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
-    names(df_Z1) <- c(Z_name, X_name)
-
-    df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
-    names(df_Z0) <- c(Z_name, X_name)
-
-    
-    E_Y_Z1_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
-    E_Y_Z0_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
     E_Y_Z0_S1_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
     rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
     rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
     pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
     pi_0_X <- 1 - pi_1_X
-
+    
+    if(!two_part_model){
+      df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
+      names(df_Z1) <- c(Z_name, X_name)
+      
+      df_Z0 <- data.frame(Z = 0, X = data[,colnames(data) %in% X_name, drop = FALSE])
+      names(df_Z0) <- c(Z_name, X_name)
+      
+      E_Y_Z1_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z1)
+      E_Y_Z0_X <- simple_predict(models$fit_Y_Z_X, newdata = df_Z0)
+    } else{
+      # same logic as gcomp
+      E_Y_Z0_S0_X <- simple_predict(models$fit_Y_Z0_S0_X, newdata = data)
+      E_Y_Z1_S0_X <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
+      E_Y_Z1_S1_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+      
+      E_Y_Z1_X <- E_Y_Z1_S1_X * rho_1_X + E_Y_Z1_S0_X * (1 - rho_1_X)
+      E_Y_Z0_X <- E_Y_Z0_S1_X * rho_0_X + E_Y_Z0_S0_X * (1 - rho_0_X)
+      
+    }
+    
     Z <- data[[Z_name]]
     S <- data[[S_name]]
     Y <- data[[Y_name]]

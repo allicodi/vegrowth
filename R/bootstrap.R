@@ -44,7 +44,8 @@ one_boot <- function(
     effect_dir = "positive",
     epsilon = exp(seq(log(0.5), log(2), length = 50)),
     max_resample = 10,
-    return_se = TRUE
+    return_se = TRUE,
+    two_part_model = FALSE
 ){
   
   n <- dim(data)[1]
@@ -141,7 +142,7 @@ one_boot <- function(
       
       if("gcomp" %in% method){
         estimator <- paste0("gcomp", er_suffix)
-        out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er)
+        out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, two_part_model = two_part_model)
       }
       
       if("ipw" %in% method){
@@ -153,9 +154,9 @@ one_boot <- function(
       if("aipw" %in% method & return_se == FALSE){
         estimator <- paste0("aipw", er_suffix)
         if(ml){
-          out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er)
+          out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, two_part_model = two_part_model)
         } else{
-          out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er)
+          out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, two_part_model = two_part_model)
         }
       }
     }
@@ -283,7 +284,8 @@ bootstrap_estimates <- function(
     v_folds = 3,
     effect_dir = "positive",
     epsilon = exp(seq(log(0.5), log(2), length = 50)),
-    return_se = TRUE
+    return_se = TRUE,
+    two_part_model = FALSE
 ){
   
   # Initial boot_estimates for all viable estimand & method combinations
@@ -310,7 +312,8 @@ bootstrap_estimates <- function(
                                                v_folds = v_folds,
                                                family = family,
                                                epsilon = epsilon,
-                                               return_se = return_se), simplify = FALSE)
+                                               return_se = return_se,
+                                               two_part_model = two_part_model), simplify = FALSE)
     # List to store results
     out <- vector("list", length = length(estimand))
     names(out) <- estimand

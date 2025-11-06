@@ -30,7 +30,8 @@ one_boot(
   effect_dir = "positive",
   epsilon = exp(seq(log(0.5), log(2), length = 50)),
   max_resample = 10,
-  return_se = TRUE
+  return_se = TRUE,
+  two_part_model = FALSE
 )
 }
 \arguments{
