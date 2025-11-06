@@ -179,6 +179,8 @@ do_ipw_nat_inf <- function(
 #' @param Z_name name of vaccine treatment variable, default Z
 #' @param S_name name of infection variable, default Y
 #' @param return_se flag to return standard error, defualt FALSE
+#' @param exclusion_restriction boolean indicating whether an exclusion restriction is assumed
+#' @param cross_world boolean indicating whether a cross-world independence assumption is assumed
 #' 
 #' @export
 #' 
@@ -186,6 +188,7 @@ do_ipw_nat_inf <- function(
 do_aipw_nat_inf <- function(
   data, models,
   exclusion_restriction = FALSE,
+  cross_world = TRUE,
   Y_name = "Y",
   Z_name = "Z",
   S_name = "S",
@@ -194,7 +197,7 @@ do_aipw_nat_inf <- function(
   two_part_model = FALSE
 ){
   
-  if(!exclusion_restriction){
+  if(cross_world & !exclusion_restriction){
     rho_0 <- simple_predict(models$fit_S_Z0_X, newdata = data)
     mu_01 <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
     pi_1 <- simple_predict(models$fit_Z_X, newdata = data)
@@ -234,7 +237,7 @@ do_aipw_nat_inf <- function(
     )
     
     psi_1_aipw <- psi_1 + mean(augmentation_1)
-  }else{
+  }else if(exclusion_restriction & !cross_world){
     
     E_Y_Z0_S1_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
     rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
@@ -296,6 +299,49 @@ do_aipw_nat_inf <- function(
     # fixed so dims line up??
     augmentation_1 <- if_matrix %*% psi_1_gradient
     augmentation_0 <- psi_0_augmentation
+  }else if(exclusion_restriction & cross_world){
+    rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    mu_01_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
+    pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
+    pi_0_X <- 1 - pi_1_X
+    rho_bar_0 <- mean(rho_0)
+    
+    # psi_0 = Weight * E[E[Y | Z = 0, Y = 1, X]]
+    psi_tilde_0_X <- rho_0 / rho_bar_0 * mu_01
+    
+    psi_0 <- mean( psi_tilde_0_X )
+    
+    augmentation_0 <- (
+      (1 - data[[Z_name]]) / pi_0_X * ( data[[S_name]] / rho_bar_0 ) * (data[[Y_name]] - mu_01_X) + 
+        (1 - data[[Z_name]]) / pi_0_X * ( mu_01_X - psi_0 ) / rho_bar_0 * ( data[[S_name]] - rho_0_X ) + 
+        ( psi_0 / rho_bar_0 ) * ( rho_0_X - rho_bar_0 ) + 
+        psi_tilde_0_X - psi_0
+    )
+    
+    psi_0_aipw <- psi_0 + mean(augmentation_0)
+    
+    mu_11_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+    mu_10_X <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
+    mu_00_X <- simple_predict(models$fit_Y_Z0_S0_X, newdata = data)
+    mu_dot0_X <- pi_1_X * mu_10_X + pi_0_X * mu_00_X
+
+    rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+    rho_bar_dot <- pi_1_X * rho_1_X + pi_0 * rho_0_X
+
+    psi_tilde_1_X <- rho_1 / rho_bar_0 * mu_11 + ( rho_0 - rho_1 ) / rho_bar_0 * mu_dot0_X
+    psi_1 <- mean( psi_tilde_1_X )
+    
+    augmentation_1 <- (
+      (data[[Z_name]] / pi_1_X) * (data[[S_name]] / rho_bar_0) * (data[[Y_name]] - mu_11_X) +
+        ((1 - data[[S_name]]) / (1 - rho_bar_dot)) * (rho_0_X - rho_1_X) / rho_bar_0 * (data[[Y_name]] - mu_dot0_X) + 
+        (data[[Z_name]] / pi_1_X) * (mu_11_X - mu_dot0_X) / rho_bar_0 * (data[[S_name]] - rho_1_X) + 
+        ((1 - data[[Z_name]]) / pi_0_X) * (mu_10_X - psi_1_X) / rho_bar_0 * (data[[S_name]] - rho_0_X) - 
+        psi_1 / rho_bar_0 * (rho_0_X - rho_bar_0) + psi_tilde_1_X - psi_1
+    )
+    
+    psi_1_aipw <- psi_1 + mean(augmentation_1)
+  }else{
+    stop("Must assume exclusion_restriction, cross_world, or both.")
   }
   
   # Additive effect
