@@ -180,6 +180,8 @@ do_ipw_nat_inf <- function(
 #' @param S_name name of infection variable, default Y
 #' @param return_se flag to return standard error, defualt FALSE
 #' 
+#' @export
+#' 
 #' @return AIPW estimate of growth effect in naturally infected strata (+ standard error if return_se = TRUE)
 do_aipw_nat_inf <- function(
   data, models,
