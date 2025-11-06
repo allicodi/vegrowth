@@ -10,7 +10,8 @@ do_aipw_pop(
   Z_name = "Z",
   X_name = c("X"),
   Y_name = "Y",
-  return_se = TRUE
+  return_se = TRUE,
+  two_part_model = FALSE
 )
 }
 \arguments{

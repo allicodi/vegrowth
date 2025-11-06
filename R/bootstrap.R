@@ -223,9 +223,9 @@ one_boot <- function(
     
     if("aipw" %in% method & return_se == FALSE){
       if(ml){
-        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_ml_models, Z_name = Z_name, Y_name = Y_name, X_name = X_name, return_se = return_se)
+        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_ml_models, Z_name = Z_name, Y_name = Y_name, X_name = X_name, return_se = return_se, two_part_model = two_part_model)
       } else{
-        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_models, Z_name = Z_name, Y_name = Y_name, X_name = X_name, return_se = return_se)
+        out$pop$aipw <- do_aipw_pop(data = boot_data, models = boot_models, Z_name = Z_name, Y_name = Y_name, X_name = X_name, return_se = return_se, two_part_model = two_part_model)
       }
     }
     

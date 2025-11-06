@@ -619,9 +619,9 @@ vegrowth <- function(data,
     
     if("aipw" %in% method){
       if(ml){
-        out$pop$aipw$pt_est <- do_aipw_pop(data = data, models = ml_models, Y_name = Y_name, Z_name = Z_name, X_name = X_name, return_se = return_se)
+        out$pop$aipw$pt_est <- do_aipw_pop(data = data, models = ml_models, Y_name = Y_name, Z_name = Z_name, X_name = X_name, return_se = return_se, two_part_model = two_part_model)
       } else{
-        out$pop$aipw$pt_est <- do_aipw_pop(data = data, models = models, Y_name = Y_name, Z_name = Z_name, X_name = X_name, return_se = return_se)
+        out$pop$aipw$pt_est <- do_aipw_pop(data = data, models = models, Y_name = Y_name, Z_name = Z_name, X_name = X_name, return_se = return_se, two_part_model = two_part_model)
       }
       
       if(is.null(out$pop$aipw$boot_se)){
