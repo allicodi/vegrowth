@@ -88,6 +88,8 @@ do_ipw_pop <- function(data, models, Z_name = "Z", Y_name = "Y"){
 #' @param X_name character vector containing name(s) of covariates, default X
 #' @param S_name character vector containing name(s) of covariates, default Y
 #' 
+#' @export
+#' 
 #' @returns g-comp estimate of growth effect for population estimand
 do_aipw_pop <- function(
     data, 
