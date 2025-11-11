@@ -241,6 +241,8 @@ vegrowth <- function(data,
         
         for(cw in cross_world){
           
+          cw_suffix <- if(cw) "_CW" else ""
+          
           # can't have both false
           if(er == FALSE & cw == FALSE) next 
           

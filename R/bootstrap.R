@@ -146,12 +146,12 @@ one_boot <- function(
       
       if("gcomp" %in% method){
         estimator <- paste0("gcomp", er_suffix)
-        out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, cross_world = cw, two_part_model = two_part_model)
+        out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, two_part_model = two_part_model)
       }
       
       if("ipw" %in% method){
         estimator <- paste0("ipw", er_suffix)
-        out$nat_inf[[estimator]] <- do_ipw_nat_inf(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name, exclusion_restriction = er, cross_world = cw)
+        out$nat_inf[[estimator]] <- do_ipw_nat_inf(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name, exclusion_restriction = er)
       }
       
       # Cross-world assumption can be toggled for AIPW only at this point
