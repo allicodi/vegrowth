@@ -13,6 +13,7 @@ fit_ml_models(
   estimand = c("nat_inf", "doomed", "pop"),
   method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
   exclusion_restriction = c(TRUE, FALSE),
+  cross_world = c(TRUE, FALSE),
   Y_Z_X_library = c("SL.glm"),
   Y_X_library = c("SL.glm"),
   S_X_library = c("SL.glm"),

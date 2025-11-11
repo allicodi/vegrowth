@@ -8,6 +8,7 @@ do_aipw_nat_inf(
   data,
   models,
   exclusion_restriction = FALSE,
+  cross_world = TRUE,
   Y_name = "Y",
   Z_name = "Z",
   S_name = "S",
@@ -20,6 +21,10 @@ do_aipw_nat_inf(
 \item{data}{dataset to predict on}
 
 \item{models}{list of pre-fit models needed for estimation}
+
+\item{exclusion_restriction}{boolean indicating whether an exclusion restriction is assumed}
+
+\item{cross_world}{boolean indicating whether a cross-world independence assumption is assumed}
 
 \item{Y_name}{name of growth outcome variable, default Y}
 

@@ -27,6 +27,7 @@ one_boot <- function(
     estimand = c("nat_inf", "doomed", "pop"),
     method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
     exclusion_restriction = FALSE,
+    cross_world = TRUE,
     ml = FALSE, 
     Y_Z_X_model = NULL,
     Y_X_S1_model = NULL,
@@ -78,6 +79,7 @@ one_boot <- function(
                                                  estimand = estimand,
                                                  method = method, 
                                                  exclusion_restriction = exclusion_restriction,
+                                                 cross_world = cross_world,
                                                  Y_name = Y_name,
                                                  Z_name = Z_name,
                                                  S_name = S_name,
@@ -96,17 +98,18 @@ one_boot <- function(
                                           estimand = estimand,
                                           method = method, 
                                           exclusion_restriction = exclusion_restriction,
-                                           Y_name = Y_name,
-                                           Z_name = Z_name,
-                                           S_name = S_name,
-                                           X_name = X_name,
-                                           Y_Z_X_model = Y_Z_X_model,
-                                           Y_X_S1_model = Y_X_S1_model,
-                                           Y_X_S0_model = Y_X_S0_model,
-                                           S_X_model = S_X_model,
-                                           S_Z_X_model = S_Z_X_model,
-                                           Z_X_model = Z_X_model,
-                                           family = family)
+                                          cross_world = cross_world,
+                                          Y_name = Y_name,
+                                          Z_name = Z_name,
+                                          S_name = S_name,
+                                          X_name = X_name,
+                                          Y_Z_X_model = Y_Z_X_model,
+                                          Y_X_S1_model = Y_X_S1_model,
+                                          Y_X_S0_model = Y_X_S0_model,
+                                          S_X_model = S_X_model,
+                                          S_Z_X_model = S_Z_X_model,
+                                          Z_X_model = Z_X_model,
+                                          family = family)
     }
     
   } else{
@@ -115,17 +118,18 @@ one_boot <- function(
                                         estimand = estimand,
                                         method = method, 
                                         exclusion_restriction = exclusion_restriction,
+                                        cross_world = cross_world,
                                         Y_name = Y_name,
-                                         Z_name = Z_name,
-                                         S_name = S_name,
-                                         X_name = X_name,
-                                         Y_Z_X_model = Y_Z_X_model,
-                                         Y_X_S1_model = Y_X_S1_model,
-                                         Y_X_S0_model = Y_X_S0_model,
-                                         S_X_model = S_X_model,
-                                         S_Z_X_model = S_Z_X_model,
-                                         Z_X_model = Z_X_model,
-                                         family = family)
+                                        Z_name = Z_name,
+                                        S_name = S_name,
+                                        X_name = X_name,
+                                        Y_Z_X_model = Y_Z_X_model,
+                                        Y_X_S1_model = Y_X_S1_model,
+                                        Y_X_S0_model = Y_X_S0_model,
+                                        S_X_model = S_X_model,
+                                        S_Z_X_model = S_Z_X_model,
+                                        Z_X_model = Z_X_model,
+                                        family = family)
   } 
   
   out <- vector("list", length = length(estimand))
@@ -142,23 +146,34 @@ one_boot <- function(
       
       if("gcomp" %in% method){
         estimator <- paste0("gcomp", er_suffix)
-        out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, two_part_model = two_part_model)
+        out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, cross_world = cw, two_part_model = two_part_model)
       }
       
       if("ipw" %in% method){
         estimator <- paste0("ipw", er_suffix)
-        out$nat_inf[[estimator]] <- do_ipw_nat_inf(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name, exclusion_restriction = er)
+        out$nat_inf[[estimator]] <- do_ipw_nat_inf(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name, exclusion_restriction = er, cross_world = cw)
       }
       
-      # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
-      if("aipw" %in% method & return_se == FALSE){
-        estimator <- paste0("aipw", er_suffix)
-        if(ml){
-          out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, two_part_model = two_part_model)
-        } else{
-          out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, two_part_model = two_part_model)
+      # Cross-world assumption can be toggled for AIPW only at this point
+      for(cw in cross_world){
+        
+        cw_suffix <- if(cw) "_CW" else ""
+        
+        # cannot have scenario where both are false
+        if(er == FALSE & cw == FALSE) next
+        
+        # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
+        if("aipw" %in% method & return_se == FALSE){
+          estimator <- paste0("aipw", er_suffix, cw_suffix)
+          if(ml){
+            out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, cross_world = cw, two_part_model = two_part_model)
+          } else{
+            out$nat_inf[[estimator]] <- do_aipw_nat_inf(data = boot_data, models = boot_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, cross_world = cw, two_part_model = two_part_model)
+          }
         }
       }
+      
+      
     }
     
     if("tmle" %in% method & return_se == FALSE){
@@ -268,6 +283,7 @@ bootstrap_estimates <- function(
     estimand = c("nat_inf", "doomed", "pop"),
     method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
     exclusion_restriction = FALSE,
+    cross_world = TRUE,
     ml = ml,
     Y_Z_X_model = NULL,
     Y_X_S1_model = NULL, 
@@ -297,6 +313,7 @@ bootstrap_estimates <- function(
                                                estimand = estimand,
                                                method = method,
                                                exclusion_restriction = exclusion_restriction,
+                                               cross_world = cross_world,
                                                ml = ml,
                                                Y_Z_X_model = Y_Z_X_model,
                                                Y_X_S1_model = Y_X_S1_model,
@@ -337,11 +354,19 @@ bootstrap_estimates <- function(
           out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
         }
         
-        # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
-        if("aipw" %in% method & return_se == FALSE){
-          estimator <- paste0("aipw", er_suffix)
-          out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
+        for(cw in cross_world){
+          
+          # can't have both false
+          if(er == FALSE & cw == FALSE) next
+          
+          # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
+          if("aipw" %in% method & return_se == FALSE){
+            estimator <- paste0("aipw", er_suffix, cw_suffix)
+            out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
+          }
+          
         }
+        
       }
 
       if("tmle" %in% method & return_se == FALSE){

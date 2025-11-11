@@ -13,6 +13,7 @@ fit_models(
   estimand = c("nat_inf", "doomed", "pop"),
   method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
   exclusion_restriction = c(TRUE, FALSE),
+  cross_world = c(TRUE, FALSE),
   Y_Z_X_model = NULL,
   Y_X_S1_model = NULL,
   Y_X_S0_model = NULL,

@@ -38,7 +38,8 @@ vegrowth <- function(data,
                      S_name = "S",
                      estimand = c("nat_inf", "doomed", "pop"),
                      method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
-                     exclusion_restriction = FALSE,
+                     exclusion_restriction = c(TRUE, FALSE),
+                     cross_world = c(TRUE, FALSE),
                      two_part_model = FALSE,
                      n_boot = 1000,
                      permutation = FALSE,
@@ -85,6 +86,7 @@ vegrowth <- function(data,
                                              estimand = estimand,
                                              method = method,
                                              exclusion_restriction = exclusion_restriction,
+                                             cross_world = cross_world, 
                                              Y_name = Y_name,
                                              Z_name = Z_name,
                                              S_name = S_name,
@@ -106,6 +108,7 @@ vegrowth <- function(data,
                                        estimand = estimand,
                                        method = method,
                                        exclusion_restriction = exclusion_restriction,
+                                       cross_world = cross_world,
                                        Y_name = Y_name,
                                        Z_name = Z_name,
                                        S_name = S_name,
@@ -127,6 +130,7 @@ vegrowth <- function(data,
                                      estimand = estimand,
                                      method = method,
                                      exclusion_restriction = exclusion_restriction,
+                                     cross_world = cross_world,
                                      Y_name = Y_name,
                                      Z_name = Z_name,
                                      S_name = S_name,
@@ -168,6 +172,7 @@ vegrowth <- function(data,
                              estimand = estimand, 
                              method = method, 
                              exclusion_restriction = exclusion_restriction,
+                             cross_world = cross_world,
                              two_part_model = two_part_model,
                              effect_dir = effect_dir,
                              epsilon = epsilon,
@@ -232,56 +237,64 @@ vegrowth <- function(data,
           
           class(out$nat_inf[[estimator]]) <- estimator
         }
+      
         
-        if("aipw" %in% method){
+        for(cw in cross_world){
           
-          estimator <- paste0("aipw", er_suffix)
+          # can't have both false
+          if(er == FALSE & cw == FALSE) next 
           
-          if(ml){
-            out$nat_inf[[estimator]]$pt_est <- do_aipw_nat_inf(data = data, models = ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, two_part_model = two_part_model)
-          } else{
-            out$nat_inf[[estimator]]$pt_est <- do_aipw_nat_inf(data = data, models = models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, two_part_model = two_part_model)
+            if("aipw" %in% method){
+              
+              estimator <- paste0("aipw", er_suffix, cw_suffix)
+              
+              if(ml){
+                out$nat_inf[[estimator]]$pt_est <- do_aipw_nat_inf(data = data, models = ml_models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, cross_world = cw, two_part_model = two_part_model)
+              } else{
+                out$nat_inf[[estimator]]$pt_est <- do_aipw_nat_inf(data = data, models = models, Y_name = Y_name, Z_name = Z_name, S_name = S_name, X_name = X_name, return_se = return_se, exclusion_restriction = er, cross_world = cw, two_part_model = two_part_model)
+              }
+              
+              if(is.null(out$nat_inf[[estimator]]$boot_se)){
+                # closed form SE
+                
+                out$nat_inf[[estimator]]$test_stat$additive <- (out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
+                  out$nat_inf[[estimator]]$pt_est['additive_se']
+                
+                out$nat_inf[[estimator]]$test_stat$mult <- (out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                  out$nat_inf[[estimator]]$pt_est['log_multiplicative_se']
+                
+                out$nat_inf[[estimator]]$p_val$additive <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$additive)))
+                out$nat_inf[[estimator]]$p_val$mult <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$mult)))
+                
+                out$nat_inf[[estimator]]$reject$additive <- (abs(out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
+                                                               out$nat_inf[[estimator]]$pt_est['additive_se']) > qnorm(1 - alpha_level / 2)
+                out$nat_inf[[estimator]]$reject$mult <- (abs(out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                                           out$nat_inf[[estimator]]$pt_est['log_multiplicative_se']) > qnorm(1 - alpha_level / 2)
+              } else{
+                # bootstrap se
+                
+                out$nat_inf[[estimator]]$test_stat$additive <- (out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
+                  out$nat_inf[[estimator]]$boot_se$se_additive
+                
+                out$nat_inf[[estimator]]$test_stat$mult <- (out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                  out$nat_inf[[estimator]]$boot_se$se_log_mult
+                
+                out$nat_inf[[estimator]]$p_val$additive <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$additive)))
+                out$nat_inf[[estimator]]$p_val$mult <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$mult)))
+                
+                out$nat_inf[[estimator]]$reject$additive <- (abs(out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
+                                                               out$nat_inf[[estimator]]$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
+                out$nat_inf[[estimator]]$reject$mult <- (abs(out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                                           out$nat_inf[[estimator]]$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
+                
+              }
+              
+              class(out$nat_inf[[estimator]]) <- estimator
+              
+            }
           }
           
-          if(is.null(out$nat_inf[[estimator]]$boot_se)){
-            # closed form SE
-            
-            out$nat_inf[[estimator]]$test_stat$additive <- (out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
-              out$nat_inf[[estimator]]$pt_est['additive_se']
-            
-            out$nat_inf[[estimator]]$test_stat$mult <- (out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
-              out$nat_inf[[estimator]]$pt_est['log_multiplicative_se']
-            
-            out$nat_inf[[estimator]]$p_val$additive <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$additive)))
-            out$nat_inf[[estimator]]$p_val$mult <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$mult)))
-            
-            out$nat_inf[[estimator]]$reject$additive <- (abs(out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
-                                                   out$nat_inf[[estimator]]$pt_est['additive_se']) > qnorm(1 - alpha_level / 2)
-            out$nat_inf[[estimator]]$reject$mult <- (abs(out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
-                                               out$nat_inf[[estimator]]$pt_est['log_multiplicative_se']) > qnorm(1 - alpha_level / 2)
-          } else{
-            # bootstrap se
-            
-            out$nat_inf[[estimator]]$test_stat$additive <- (out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
-              out$nat_inf[[estimator]]$boot_se$se_additive
-            
-            out$nat_inf[[estimator]]$test_stat$mult <- (out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
-              out$nat_inf[[estimator]]$boot_se$se_log_mult
-            
-            out$nat_inf[[estimator]]$p_val$additive <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$additive)))
-            out$nat_inf[[estimator]]$p_val$mult <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$mult)))
-            
-            out$nat_inf[[estimator]]$reject$additive <- (abs(out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
-                                                   out$nat_inf[[estimator]]$boot_se$se_additive) > qnorm(1 - alpha_level / 2)
-            out$nat_inf[[estimator]]$reject$mult <- (abs(out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
-                                               out$nat_inf[[estimator]]$boot_se$se_log_mult) > qnorm(1 - alpha_level / 2)
-            
-          }
-          
-          class(out$nat_inf[[estimator]]) <- estimator
-
         }
-      }
       
     if("tmle" %in% method){
       if(ml){
