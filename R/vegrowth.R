@@ -192,29 +192,6 @@ vegrowth <- function(data,
       # Exclustion restriction -- save as <estimator>_ER 
       er_suffix <- if (er) "_ER" else ""
       
-        if("gcomp" %in% method){
-          
-          estimator <- paste0("gcomp", er_suffix)
-          
-          out$nat_inf[[estimator]]$pt_est <- do_gcomp_nat_inf(data = data, models = models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, two_part_model = two_part_model)
-          
-          out$nat_inf[[estimator]]$test_stat$additive <- (out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
-            out$nat_inf[[estimator]]$boot_se$se_additive
-          
-          out$nat_inf[[estimator]]$test_stat$mult <- (out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
-            out$nat_inf[[estimator]]$boot_se$se_log_mult
-          
-          out$nat_inf[[estimator]]$p_val$additive <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$additive)))
-          out$nat_inf[[estimator]]$p_val$mult <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$mult)))
-          
-          out$nat_inf[[estimator]]$reject$additive <- (abs(out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
-                                                  out$nat_inf[[estimator]]$boot_se$se_additive) > qnorm(1 - alpha_level/2)
-          out$nat_inf[[estimator]]$reject$mult <- (abs(out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
-                                              out$nat_inf[[estimator]]$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
-          
-          class(out$nat_inf[[estimator]]) <- estimator
-        }
-        
         if("ipw" %in% method){
           
           estimator <- paste0("ipw", er_suffix)
@@ -245,6 +222,29 @@ vegrowth <- function(data,
           
           # can't have both false
           if(er == FALSE & cw == FALSE) next 
+          
+            if("gcomp" %in% method){
+              
+              estimator <- paste0("gcomp", er_suffix, cw_suffix)
+              
+              out$nat_inf[[estimator]]$pt_est <- do_gcomp_nat_inf(data = data, models = models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, cross_world = cw, two_part_model = two_part_model)
+              
+              out$nat_inf[[estimator]]$test_stat$additive <- (out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
+                out$nat_inf[[estimator]]$boot_se$se_additive
+              
+              out$nat_inf[[estimator]]$test_stat$mult <- (out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                out$nat_inf[[estimator]]$boot_se$se_log_mult
+              
+              out$nat_inf[[estimator]]$p_val$additive <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$additive)))
+              out$nat_inf[[estimator]]$p_val$mult <- 2 * (1 - pnorm(abs(out$nat_inf[[estimator]]$test_stat$mult)))
+              
+              out$nat_inf[[estimator]]$reject$additive <- (abs(out$nat_inf[[estimator]]$pt_est['additive_effect'] - null_hypothesis_value) / 
+                                                             out$nat_inf[[estimator]]$boot_se$se_additive) > qnorm(1 - alpha_level/2)
+              out$nat_inf[[estimator]]$reject$mult <- (abs(out$nat_inf[[estimator]]$pt_est['log_multiplicative_effect'] - null_hypothesis_value) / 
+                                                         out$nat_inf[[estimator]]$boot_se$se_log_mult) > qnorm(1 - alpha_level/2)
+              
+              class(out$nat_inf[[estimator]]) <- estimator
+            }
           
             if("aipw" %in% method){
               

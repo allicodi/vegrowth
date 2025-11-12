@@ -144,11 +144,6 @@ one_boot <- function(
       # Exclustion restriction -- save as <estimator>_ER 
       er_suffix <- if (er) "_ER" else ""
       
-      if("gcomp" %in% method){
-        estimator <- paste0("gcomp", er_suffix)
-        out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, two_part_model = two_part_model)
-      }
-      
       if("ipw" %in% method){
         estimator <- paste0("ipw", er_suffix)
         out$nat_inf[[estimator]] <- do_ipw_nat_inf(data = boot_data, models = boot_models, S_name = S_name, Y_name = Y_name, Z_name = Z_name, exclusion_restriction = er)
@@ -161,6 +156,11 @@ one_boot <- function(
         
         # cannot have scenario where both are false
         if(er == FALSE & cw == FALSE) next
+        
+        if("gcomp" %in% method){
+          estimator <- paste0("gcomp", er_suffix, cw_suffix)
+          out$nat_inf[[estimator]] <- do_gcomp_nat_inf(data = boot_data, models = boot_models, Z_name = Z_name, X_name = X_name, exclusion_restriction = er, cross_world = cw, two_part_model = two_part_model)
+        }
         
         # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
         if("aipw" %in% method & return_se == FALSE){
@@ -344,11 +344,6 @@ bootstrap_estimates <- function(
         # Exclustion restriction -- save as <estimator>_ER 
         er_suffix <- if (er) "_ER" else ""
         
-        if("gcomp" %in% method){
-          estimator <- paste0("gcomp", er_suffix)
-          out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
-        }
-        
         if("ipw" %in% method){
           estimator <- paste0("ipw", er_suffix)
           out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
@@ -358,6 +353,13 @@ bootstrap_estimates <- function(
           
           # can't have both false
           if(er == FALSE & cw == FALSE) next
+          
+          cw_suffix <- if (er) "_CW" else ""
+          
+          if("gcomp" %in% method){
+            estimator <- paste0("gcomp", er_suffix, cw_suffix)
+            out$nat_inf[[estimator]]$boot_se <- get_boot_se(boot_estimates = boot_estimates, estimand = "nat_inf", method = estimator)
+          }
           
           # if we want bootstrap SE for AIPW (otherwise return closed form SE when we get point estimate)
           if("aipw" %in% method & return_se == FALSE){

@@ -11,6 +11,7 @@ do_gcomp_nat_inf(
   Z_name = NULL,
   X_name = NULL,
   exclusion_restriction = FALSE,
+  cross_world = TRUE,
   two_part_model = FALSE
 )
 }
