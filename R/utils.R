@@ -230,11 +230,11 @@ print.vegrowth <- function(x, scale = "additive", ...) {
   lapply(x, function(i) {
     if (inherits(i, "nat_inf")) {
       
-      if(any(c("gcomp", "ipw", "aipw", "bound", "tmle", "aipw_CW") %in% names(i))){
+      if(any(c("gcomp_CW", "ipw", "aipw", "bound", "tmle", "aipw_CW") %in% names(i))){
         cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Naturally Infected - - - ", "- - - - - - - -", " - - - - - - - ", "- - - - - - - -", " - - - - - - - - - - "))
         
         lapply(i, function(j) {
-          if (inherits(j, "gcomp")) extract_estimates(j, "G-Computation", scale, "")
+          if (inherits(j, "gcomp_CW")) extract_estimates(j, "G-Computation (Cross-World only)", scale, "")
           if (inherits(j, "ipw")) extract_estimates(j, "IPW", scale, "")
           if (inherits(j, "aipw_CW")) extract_estimates(j, "AIPW (Cross-World only)", scale, "")
           if (inherits(j, "tmle")) extract_estimates(j, "TMLE", scale, "")
@@ -243,10 +243,11 @@ print.vegrowth <- function(x, scale = "additive", ...) {
         
       }
       
-      if(any(c("gcomp_ER", "ipw_ER", "aipw_ER") %in% names(i))){
+      if(any(c("gcomp_ER", "gcomp_ER_CW", "ipw_ER", "aipw_ER", "aipw_ER_CW") %in% names(i))){
         cat(sprintf("%-25s%-15s%-15s%-15s%-15s\n", "Naturally Infected (ER) - ", "- - - - - - - -", " - - - - - - - ", "- - - - - - - -", " - - - - - - - - - - "))
         lapply(i, function(j) {
-          if (inherits(j, "gcomp_ER")) extract_estimates(j, "G-Computation", scale, "")
+          if (inherits(j, "gcomp_ER")) extract_estimates(j, "G-Computation (ER only)", scale, "")
+          if (inherits(j, "gcomp_ER_CW")) extract_estimates(j, "G-Computation (ER + Cross-World)", scale, "")
           if (inherits(j, "ipw_ER")) extract_estimates(j, "IPW", scale, "")
           if (inherits(j, "aipw_ER")) extract_estimates(j, "AIPW (ER only)", scale, "")
           if (inherits(j, "aipw_ER_CW")) extract_estimates(j, "AIPW (ER + Cross-World)", scale, "")

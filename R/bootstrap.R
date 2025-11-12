@@ -354,7 +354,7 @@ bootstrap_estimates <- function(
           # can't have both false
           if(er == FALSE & cw == FALSE) next
           
-          cw_suffix <- if (er) "_CW" else ""
+          cw_suffix <- if (cw) "_CW" else ""
           
           if("gcomp" %in% method){
             estimator <- paste0("gcomp", er_suffix, cw_suffix)
