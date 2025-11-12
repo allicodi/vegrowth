@@ -36,9 +36,10 @@ do_unadj_nat_inf <- function(
 do_gcomp_nat_inf <- function(
   data, models, Z_name = NULL, X_name = NULL,
   exclusion_restriction = FALSE,
+  cross_world = TRUE,
   two_part_model = FALSE){
   
-  if(!exclusion_restriction){
+  if(!exclusion_restriction & cross_world){
     # Psi_1 = E[P(S=1 | Z = 0, X) / P(Y = 1 | Z = 0) * E[Y | Z=1, X] ]
     E_Y_Z1_S1_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
     E_Y_Z1_S0_X <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
@@ -64,7 +65,7 @@ do_gcomp_nat_inf <- function(
     psi_0 <- mean(
       ( P_S1_Z0_X / P_S1_Z0 ) * E_Y_Z0_S1_X
     )
-  }else{
+  }else if(exclusion_restriction & !cross_world){
     df_Z1 <- data.frame(Z = 1, X = data[,colnames(data) %in% X_name, drop = FALSE])
     names(df_Z1) <- c(Z_name, X_name)
 
@@ -93,6 +94,31 @@ do_gcomp_nat_inf <- function(
       ( rho_0_X / rho_bar_0 ) * E_Y_Z0_S1_X
     )
 
+  }else if(exclusion_restriction & cross_world){
+    rho_0_X <- simple_predict(models$fit_S_Z0_X, newdata = data)
+    mu_01_X <- simple_predict(models$fit_Y_Z0_S1_X, newdata = data)
+    pi_1_X <- simple_predict(models$fit_Z_X, newdata = data)
+    pi_0_X <- 1 - pi_1_X
+    rho_bar_0 <- mean(rho_0_X)
+    
+    # psi_0 = Weight * E[E[Y | Z = 0, Y = 1, X]]
+    psi_tilde_0_X <- rho_0_X / rho_bar_0 * mu_01_X
+    
+    psi_0 <- mean( psi_tilde_0_X )
+    
+    mu_11_X <- simple_predict(models$fit_Y_Z1_S1_X, newdata = data)
+    mu_10_X <- simple_predict(models$fit_Y_Z1_S0_X, newdata = data)
+    mu_00_X <- simple_predict(models$fit_Y_Z0_S0_X, newdata = data)
+    mu_dot0_X <- pi_1_X * mu_10_X + pi_0_X * mu_00_X
+
+    rho_1_X <- simple_predict(models$fit_S_Z1_X, newdata = data)
+    rho_bar_dot <- pi_1_X * rho_1_X + pi_0_X * rho_0_X
+
+    psi_tilde_1_X <- rho_1_X / rho_bar_0 * mu_11_X + ( rho_0_X - rho_1_X ) / rho_bar_0 * mu_dot0_X
+    psi_1 <- mean( psi_tilde_1_X )
+    
+  }else{
+    stop("Must assume exclusion_restriction, cross_world, or both.")
   }
   growth_effect <- psi_1 - psi_0
   growth_effect_log_mult <- log(psi_1 / psi_0)
