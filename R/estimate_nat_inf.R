@@ -382,6 +382,8 @@ do_aipw_nat_inf <- function(
   
   # Get SE using IF matrix same way as TMLE
   if_matrix <- cbind(augmentation_1, augmentation_0)
+  colnames(if_matrix) <- c("augmentation_1", "augmentation_2")
+  
   cov_matrix <- cov(if_matrix) / dim(data)[1]
 
   gradient <- matrix(c(1 / psi_1_aipw, -1 / psi_0_aipw), ncol = 1)
@@ -389,8 +391,8 @@ do_aipw_nat_inf <- function(
   se_log_mult_eff <- sqrt(t(gradient) %*% cov_matrix %*% gradient)
   
   if(return_se){
-    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff, psi_1_aipw, se_psi_1, psi_0_aipw, se_psi_0)
-    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "se_psi_1", "psi_0", "se_psi_0")
+    out <- c(efficient_growth_effect, se, efficient_growth_effect_log_mult, se_log_mult_eff, psi_1_aipw, se_psi_1, psi_0_aipw, se_psi_0, if_matrix)
+    names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "se_psi_1", "psi_0", "se_psi_0", "if_matrix")
     return(out)
   }else{
     out <- c(efficient_growth_effect, efficient_growth_effect_log_mult)
