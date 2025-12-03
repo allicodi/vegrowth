@@ -164,6 +164,10 @@ do_aipw_pop <- function(
   if(return_se){
     out <- c(growth_effect, se, growth_effect_log_mult, se_log_mult_eff, psi_1_aipw, se_psi_1, psi_0_aipw, se_psi_0)
     names(out) <- c("additive_effect", "additive_se", "log_multiplicative_effect", "log_multiplicative_se", "psi_1", "se_psi_1", "psi_0", "se_psi_0")
+    
+    # added to return influence fn matrix for vaccine trial project without having to restructure whole package rn. eventually change return type to list
+    attr(out, "if_matrix") <- if_matrix
+    
     return(out)
   }else{
     out <- c(growth_effect, growth_effect_log_mult)
