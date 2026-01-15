@@ -149,34 +149,39 @@ vegrowth <- function(data,
   # ----------------------------------------------------------------------------
   # 2. Bootstrap standard error & confidence intervals -------------------------
   # ----------------------------------------------------------------------------
- out <- bootstrap_estimates(data = data, 
-                             Y_name = Y_name,
-                             Z_name = Z_name,
-                             S_name = S_name,
-                             X_name = X_name,
-                             n_boot = n_boot, 
-                             family = family,
-                             ml = ml,
-                             Y_Z_X_model = Y_Z_X_model,
-                             Y_X_S1_model = Y_X_S1_model,
-                             Y_X_S0_model = Y_X_S0_model,
-                             S_X_model = S_X_model,
-                             S_Z_X_model = S_Z_X_model,
-                             Z_X_model = Z_X_model,
-                             Y_Z_X_library = Y_Z_X_library,
-                             Y_X_library = Y_X_library,
-                             S_X_library = S_X_library,
-                             S_Z_X_library = S_Z_X_library,
-                             Z_X_library = Z_X_library,
-                             v_folds = v_folds,
-                             estimand = estimand, 
-                             method = method, 
-                             exclusion_restriction = exclusion_restriction,
-                             cross_world = cross_world,
-                             two_part_model = two_part_model,
-                             effect_dir = effect_dir,
-                             epsilon = epsilon,
-                             return_se = return_se)
+  if(return_se == FALSE | any(method %in% c("gcomp", "ipw", "bound", "sens"))){
+    out <- bootstrap_estimates(data = data, 
+                               Y_name = Y_name,
+                               Z_name = Z_name,
+                               S_name = S_name,
+                               X_name = X_name,
+                               n_boot = n_boot, 
+                               family = family,
+                               ml = ml,
+                               Y_Z_X_model = Y_Z_X_model,
+                               Y_X_S1_model = Y_X_S1_model,
+                               Y_X_S0_model = Y_X_S0_model,
+                               S_X_model = S_X_model,
+                               S_Z_X_model = S_Z_X_model,
+                               Z_X_model = Z_X_model,
+                               Y_Z_X_library = Y_Z_X_library,
+                               Y_X_library = Y_X_library,
+                               S_X_library = S_X_library,
+                               S_Z_X_library = S_Z_X_library,
+                               Z_X_library = Z_X_library,
+                               v_folds = v_folds,
+                               estimand = estimand, 
+                               method = method, 
+                               exclusion_restriction = exclusion_restriction,
+                               cross_world = cross_world,
+                               two_part_model = two_part_model,
+                               effect_dir = effect_dir,
+                               epsilon = epsilon,
+                               return_se = return_se)
+  } else{
+    out <- vector("list", length = length(estimand))
+    names(out) <- estimand
+  }
  
  # ----------------------------------------------------------------------------
  # 3. Point estimates for effects of interest & tests
