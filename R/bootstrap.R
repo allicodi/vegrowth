@@ -25,7 +25,7 @@ one_boot <- function(
     X_name = "X",
     S_name = "S", 
     estimand = c("nat_inf", "doomed", "pop"),
-    method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+    method = c("gcomp", "ipw", "aipw", "tmle", "bound", "cov_adj_bound", "sens"),
     exclusion_restriction = FALSE,
     cross_world = TRUE,
     ml = FALSE, 
@@ -194,6 +194,11 @@ one_boot <- function(
     
     if("bound" %in% method){
       out$nat_inf$bound <- get_bound_nat_inf(data = boot_data, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
+    }
+    
+    if("cov_adj_bound" %in% method){
+      if(length(X_name) > 1) stop("cov_adj_bound only implemented for single covariate")
+      out$nat_inf$bound <- get_cov_adj_bound_nat_inf(data = boot_data, X_name = X_name, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
     }
     
   }
@@ -381,6 +386,10 @@ bootstrap_estimates <- function(
       
       if("bound" %in% method){
         out$nat_inf$bound$boot_se <- get_boot_se_bound(boot_estimates = boot_estimates, estimand = "nat_inf", method = "bound")
+      }
+
+      if("cov_adj_bound" %in% method){
+        out$nat_inf$cov_adj_bound$boot_se <- get_boot_se_bound(boot_estimates = boot_estimates, estimand = "nat_inf", method = "cov_adj_bound")
       }
       
     }
