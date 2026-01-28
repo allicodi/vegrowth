@@ -37,7 +37,7 @@ vegrowth <- function(data,
                      X_name = "X",
                      S_name = "S",
                      estimand = c("nat_inf", "doomed", "pop"),
-                     method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+                     method = c("gcomp", "ipw", "aipw", "tmle", "bound", "cov_adj_bound", "sens"),
                      exclusion_restriction = c(TRUE, FALSE),
                      cross_world = c(TRUE, FALSE),
                      two_part_model = FALSE,
@@ -149,7 +149,7 @@ vegrowth <- function(data,
   # ----------------------------------------------------------------------------
   # 2. Bootstrap standard error & confidence intervals -------------------------
   # ----------------------------------------------------------------------------
-  if(return_se == FALSE | any(method %in% c("gcomp", "ipw", "bound", "sens"))){
+  if(return_se == FALSE | any(method %in% c("gcomp", "ipw", "bound", "cov_adj_bound", "sens"))){
     out <- bootstrap_estimates(data = data, 
                                Y_name = Y_name,
                                Z_name = Z_name,
@@ -459,6 +459,37 @@ vegrowth <- function(data,
       
     }
     
+    
+    if("cov_adj_bound" %in% method){
+      
+      out$nat_inf$cov_adj_bound$pt_est <- get_cov_adj_bound_nat_inf(data = data, X_name = X_name, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
+    
+      # Bounds test - one sided
+      # If effect direction < 0, test upper bound; Else, test lower bound 
+      if(effect_dir == "negative"){
+        out$nat_inf$cov_adj_bound$test_stat$additive <- out$nat_inf$cov_adj_bound$pt_est['additive_effect_upper'] / out$nat_inf$cov_adj_bound$boot_se$se_additive_upper
+        out$nat_inf$cov_adj_bound$p_val$additive <- pnorm(out$nat_inf$cov_adj_bound$test_stat$additive, lower.tail = TRUE) 
+        out$nat_inf$cov_adj_bound$reject$additive <- out$nat_inf$cov_adj_bound$test_stat$additive < qnorm(alpha_level)
+        
+        out$nat_inf$cov_adj_bound$test_stat$mult <- log(out$nat_inf$cov_adj_bound$pt_est['mult_effect_upper']) / out$nat_inf$bound$boot_se$se_log_mult_upper
+        out$nat_inf$cov_adj_bound$p_val$mult <- pnorm(out$nat_inf$cov_adj_bound$test_stat$mult, lower.tail = TRUE) # had note about * 2 but i think we want one-sided right? 
+        out$nat_inf$cov_adj_bound$reject$mult <- out$nat_inf$cov_adj_bound$test_stat$mult < qnorm(alpha_level)
+      } else{
+        out$nat_inf$cov_adj_bound$test_stat$additive <- out$nat_inf$cov_adj_bound$pt_est['additive_effect_lower'] / out$nat_inf$cov_adj_bound$boot_se$se_additive_lower
+        out$nat_inf$cov_adj_bound$p_val$additive <- pnorm(out$nat_inf$cov_adj_bound$test_stat$additive, lower.tail = FALSE)
+        out$nat_inf$cov_adj_bound$reject$additive <- out$nat_inf$cov_adj_bound$test_stat$additive > qnorm(1-alpha_level)
+        
+        out$nat_inf$cov_adj_bound$test_stat$mult <- log(out$nat_inf$cov_adj_bound$pt_est['mult_effect_lower']) / out$nat_inf$cov_adj_bound$boot_se$se_log_mult_lower
+        out$nat_inf$cov_adj_bound$p_val$mult <- pnorm(out$nat_inf$cov_adj_bound$test_stat$mult, lower.tail = FALSE) # had note about * 2 but i think we want one-sided right? 
+        out$nat_inf$cov_adj_bound$reject$mult <- out$nat_inf$cov_adj_bound$test_stat$mult > qnorm(1-alpha_level)
+        
+      }
+   
+      # Permutation test not included for covariate adjusted bound
+      
+      class(out$nat_inf$cov_adj_bound) <- "cov_adj_bound"
+      
+    }
     class(out$nat_inf) <- "nat_inf"
     
   }

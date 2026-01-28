@@ -114,22 +114,27 @@ one_boot <- function(
     
   } else{
     # GLMS for all
-    boot_models <- vegrowth::fit_models(data = boot_data, 
-                                        estimand = estimand,
-                                        method = method, 
-                                        exclusion_restriction = exclusion_restriction,
-                                        cross_world = cross_world,
-                                        Y_name = Y_name,
-                                        Z_name = Z_name,
-                                        S_name = S_name,
-                                        X_name = X_name,
-                                        Y_Z_X_model = Y_Z_X_model,
-                                        Y_X_S1_model = Y_X_S1_model,
-                                        Y_X_S0_model = Y_X_S0_model,
-                                        S_X_model = S_X_model,
-                                        S_Z_X_model = S_Z_X_model,
-                                        Z_X_model = Z_X_model,
-                                        family = family)
+    if(any(method %in% c("gcomp", "ipw", "aipw", "tmle", "sens"))){
+      boot_models <- vegrowth::fit_models(data = boot_data, 
+                                          estimand = estimand,
+                                          method = method, 
+                                          exclusion_restriction = exclusion_restriction,
+                                          cross_world = cross_world,
+                                          Y_name = Y_name,
+                                          Z_name = Z_name,
+                                          S_name = S_name,
+                                          X_name = X_name,
+                                          Y_Z_X_model = Y_Z_X_model,
+                                          Y_X_S1_model = Y_X_S1_model,
+                                          Y_X_S0_model = Y_X_S0_model,
+                                          S_X_model = S_X_model,
+                                          S_Z_X_model = S_Z_X_model,
+                                          Z_X_model = Z_X_model,
+                                          family = family)
+    }
+    
+    # Otherwise for bounds only no models needed
+    
   } 
   
   out <- vector("list", length = length(estimand))
@@ -198,7 +203,7 @@ one_boot <- function(
     
     if("cov_adj_bound" %in% method){
       if(length(X_name) > 1) stop("cov_adj_bound only implemented for single covariate")
-      out$nat_inf$bound <- get_cov_adj_bound_nat_inf(data = boot_data, X_name = X_name, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
+      out$nat_inf$cov_adj_bound <- get_cov_adj_bound_nat_inf(data = boot_data, X_name = X_name, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family)
     }
     
   }
