@@ -998,6 +998,70 @@ get_bound_nat_inf <- function(
   
 }
 
+
+#' Function for covariate-adjusted bounds on naturally infected estimate
+#' 
+#' @param data dataframe containing dataset to use for analysis
+#' @param X_name discrete-valued covariate name
+#' @param Y_name growth outcome variable name
+#' @param Z_name vaccination variable name
+#' @param S_name infection variable name
+#' @param family gaussian for continuous outcome, binomial for binary outcome
+#' 
+#' @export
+#' 
+#' @return list containing estimate of E[Y(0) | Y(0) = 1], bounds on E[Y(1) | Y(0) = 1], bounds on additive effect, bounds on multiplicative effect
+get_cov_adj_bound_nat_inf <- function(
+    data, 
+    X_name = "X",
+    Y_name = "Y",
+    Z_name = "Z",
+    S_name = "S",
+    family = "gaussian"
+){
+  n <- dim(data)[1]
+  x_levels <- sort(unique(data[[X_name]]))
+  n_x_levels <- length(x_levels)
+  P_Xisx_level <- rep(NA, n_x_levels)
+  l_x_level <- rep(NA, n_x_levels)
+  u_x_level <- rep(NA, n_x_levels)
+  P_Sis1__Zis0_Xisx_level <- rep(NA, n_x_levels)
+  E_Y__Zis0_Xisx_level <- rep(NA, n_x_levels)
+
+  ct <- 0
+  for(x_level in x_levels){
+    ct <- ct + 1
+    x_level_idx <- which(data[[X_name]] == x_level)
+    n_x_level <- length(x_level_idx)
+    data_x_level <- data[x_level_idx, , drop = FALSE]
+    bound_nat_inf_x_level <- get_bound_nat_inf(
+      data = data_x_level, Y_name = Y_name, Z_name = Z_name, S_name = S_name, family = family
+    )
+    l_x_level[ct] <- bound_nat_inf_x_level["E_Y1__S0_1_lower"]
+    u_x_level[ct] <- bound_nat_inf_x_level["E_Y1__S0_1_upper"]
+    P_Xisx_level[ct] <- n_x_level / n
+    P_Sis1__Zis0_Xisx_level[ct] <- mean(data_x_level[[S_name]][data_x_level[[Z_name]] == 0])
+    E_Y__Zis0_Xisx_level[ct] <- mean(data_x_level[[Y_name]][data_x_level[[Z_name]] == 0 & data_x_level[[S_name]] == 1])
+  }
+  
+  P_Sis1__Zis0 <- mean(data[[S_name]][data[[Z_name]] == 0])
+  E_Y0__S0_1 <- sum(P_Sis1__Zis0_Xisx_level / P_Sis1__Zis0 * E_Y__Zis0_Xisx_level * P_Xisx_level)
+  E_Y1__S0_1_lower <- sum(l_x_level * P_Xisx_level)
+  E_Y1__S0_1_upper <- sum(u_x_level * P_Xisx_level)
+  
+  out <- c(
+    "E_Y0__S0_1" = E_Y0__S0_1,
+    "E_Y1__S0_1_lower" = E_Y1__S0_1_lower,
+    "E_Y1__S0_1_upper" = E_Y1__S0_1_upper,
+    "additive_effect_lower" = E_Y1__S0_1_lower - E_Y0__S0_1,
+    "additive_effect_upper" = E_Y1__S0_1_upper - E_Y0__S0_1,
+    "mult_effect_lower" = E_Y1__S0_1_lower / E_Y0__S0_1,
+    "mult_effect_upper" = E_Y1__S0_1_upper / E_Y0__S0_1
+  )
+
+  return(out)
+}
+
 # ------------------------------------------------------------------------------
 # Old or in-progress
 # ------------------------------------------------------------------------------
