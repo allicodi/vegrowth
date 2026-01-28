@@ -11,7 +11,7 @@ vegrowth(
   X_name = "X",
   S_name = "S",
   estimand = c("nat_inf", "doomed", "pop"),
-  method = c("gcomp", "ipw", "aipw", "tmle", "bound", "sens"),
+  method = c("gcomp", "ipw", "aipw", "tmle", "bound", "cov_adj_bound", "sens"),
   exclusion_restriction = c(TRUE, FALSE),
   cross_world = c(TRUE, FALSE),
   two_part_model = FALSE,
