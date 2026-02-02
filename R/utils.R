@@ -88,22 +88,25 @@ get_boot_se_bound <- function(boot_estimates, estimand = "nat_inf", method = "bo
                           estimand = estimand,
                           method = method)
   
-  data.frame(se_additive_lower = sd(boot_df$additive_effect_lower),
-             lower_ci_additive_lower = quantile(boot_df$additive_effect_lower, 0.025),
-             upper_ci_additive_lower = quantile(boot_df$additive_effect_lower, 0.975),
-             se_additive_upper = sd(boot_df$additive_effect_upper),
-             lower_ci_additive_upper = quantile(boot_df$additive_effect_upper, 0.025),
-             upper_ci_additive_upper = quantile(boot_df$additive_effect_upper, 0.975),
+  number_NA <- length(which(is.na(boot_df$additive_effect_lower)))
+  
+  data.frame(number_NA_replicates = number_NA,
+             se_additive_lower = sd(boot_df$additive_effect_lower, na.rm = TRUE),
+             lower_ci_additive_lower = quantile(boot_df$additive_effect_lower, 0.025, na.rm = TRUE),
+             upper_ci_additive_lower = quantile(boot_df$additive_effect_lower, 0.975, na.rm = TRUE),
+             se_additive_upper = sd(boot_df$additive_effect_upper, na.rm = TRUE),
+             lower_ci_additive_upper = quantile(boot_df$additive_effect_upper, 0.025, na.rm = TRUE),
+             upper_ci_additive_upper = quantile(boot_df$additive_effect_upper, 0.975, na.rm = TRUE),
              #original
              #se_mult_lower = sd(boot_df$mult_effect_lower),
              #new
-             se_log_mult_lower = sd(log(boot_df$mult_effect_lower)),
-             lower_ci_mult_lower = quantile(boot_df$mult_effect_lower, 0.025),
-             upper_ci_mult_lower = quantile(boot_df$mult_effect_lower, 0.975),
+             se_log_mult_lower = sd(log(boot_df$mult_effect_lower), na.rm = TRUE),
+             lower_ci_mult_lower = quantile(boot_df$mult_effect_lower, 0.025, na.rm = TRUE),
+             upper_ci_mult_lower = quantile(boot_df$mult_effect_lower, 0.975, na.rm = TRUE),
              #original
              #se_mult_upper = sd(boot_df$mult_effect_upper),
              #new
-             se_log_mult_upper = sd(log(boot_df$mult_effect_upper)),
+             se_log_mult_upper = sd(log(boot_df$mult_effect_upper), na.rm = TRUE),
              lower_ci_mult_upper = quantile(boot_df$mult_effect_upper, 0.025, na.rm = TRUE),
              upper_ci_mult_upper = quantile(boot_df$mult_effect_upper, 0.975, na.rm = TRUE))
 }

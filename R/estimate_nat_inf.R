@@ -900,7 +900,14 @@ get_bound_nat_inf <- function(
   # get rid of this condition bc permutation test?
   if(rhobar_0_n > rhobar_1_n){
     # Step 2: mubar_11_n 
-    mubar_11_n <- sum(data[[Y_name]]*data[[S_name]]*data[[Z_name]]) / sum(data[[S_name]]*data[[Z_name]])
+    mubar_11_n_num <- sum(data[[Y_name]]*data[[S_name]]*data[[Z_name]])
+    mubar_11_n_denom <- sum(data[[S_name]]*data[[Z_name]])
+    
+    if(mubar_11_n_denom == 0){ # denominator NA in some bootstrap replicates, change to 0
+      mubar_11_n <- 0
+    } else{
+      mubar_11_n <- mubar_11_n_num / mubar_11_n_denom
+    }
     
     # Step 3: q_n (relative size of protected? in (immune + protected) in vax)
     q_n = 1 - (1 - rhobar_0_n) / (1 - rhobar_1_n)
@@ -1020,7 +1027,31 @@ get_cov_adj_bound_nat_inf <- function(
     family = "gaussian"
 ){
   n <- dim(data)[1]
-  x_levels <- sort(unique(data[[X_name]]))
+  
+  # regroup by levels being in both vaccine and placebo arm
+  x_levels_original <- sort(unique(data[[X_name]]))
+  x_levels_z1 <- sort(unique(data[[X_name]][data[[Z_name]] == 1]))
+  x_levels_z0 <- sort(unique(data[[X_name]][data[[Z_name]] == 0]))
+  x_levels_not_in_both_z <- x_levels_original[
+    ( !(x_levels_original %in% x_levels_z1) ) | ( !(x_levels_original %in% x_levels_z0 ) )
+  ]
+  if(length(x_levels_not_in_both_z) > 0){
+    x_levels_in_both_z <- setdiff(x_levels_original, x_levels_not_in_both_z)
+    if(length(x_levels_not_in_both_z) > 0){
+      if(length(x_levels_in_both_z) > 0){
+        x_set_level <- x_levels_in_both_z[1]
+      }else{
+        x_set_level <- 1
+      }
+      for(x_val in x_levels_not_in_both_z){
+        data[[X_name]][data[[X_name]] == x_val] <- x_set_level
+      }
+    }
+    x_levels <- sort(unique(data[[X_name]]))
+  }else{
+    x_levels <- x_levels_original
+  }
+  
   n_x_levels <- length(x_levels)
   P_Xisx_level <- rep(NA, n_x_levels)
   l_x_level <- rep(NA, n_x_levels)
